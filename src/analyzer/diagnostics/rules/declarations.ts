@@ -1606,14 +1606,34 @@ export function checkInvalidAsTypeNames(
 	opts: AnalyzeModuleOptions,
 	push: PushFn,
 ): void {
-	const withEventsNewDeclarationSpans = collectWithEventsNewDeclarationSpans(mod, activity);
+	const withEventsNewDeclarationSpans = collectWithEventsDeclarationSpans(mod, activity, true);
+	let withEventsDeclarationSpans: Span[] | undefined;
 	let variables: Set<string> | undefined;
 	let ownTypes: Set<string> | undefined;
+	let standardModules: Set<string> | undefined;
 	let qualifiedEnumTypes: Set<string> | undefined;
 	let libraries: readonly (ReadonlySet<string> | undefined)[] | undefined;
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
+		}
+		// A standard module's name is no type, and it wins over another
+		// module's Public Type, VBA's Collection and a host type of that name.
+		// Only a Type or Enum of that name in this module itself, or a
+		// qualified name, is the type. WithEvents says so itself (issue #1530,
+		// measured in Excel, Word, PowerPoint and Access 16.0).
+		if (!ref.qualifier && (ref.kind === 'declaration' || ref.kind === 'newDeclaration')) {
+			const lower = ref.name.toLowerCase();
+			standardModules ??= new Set([
+				...(opts.projectClassMembers ?? []).filter((type) => type.kind === 'standardModule').map((type) => type.name.toLowerCase()),
+				...(opts.moduleKind === 'standard' && opts.moduleName ? [opts.moduleName.toLowerCase()] : []),
+			]);
+			ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
+			if (standardModules.has(lower) && !ownTypes.has(lower)
+				&& !(withEventsDeclarationSpans ??= collectWithEventsDeclarationSpans(mod, activity, false)).some((span) => containsSpan(span, ref.span))) {
+				push('invalidAsTypeName', `'${ref.name}' is a standard module of this project, and a module is not a type. This is a VBE compile error: A module is not a valid type.`, ref.span);
+				continue;
+			}
 		}
 		const lookupName = typeReferenceLookupName(ref);
 		if (ref.kind === 'declaration' && ref.qualifier && !qualifiedEnumTypes) {
@@ -1753,9 +1773,10 @@ function declaredVariableNames(mod: ModuleNode, activity: ConditionalActivityTra
 	return out;
 }
 
-function collectWithEventsNewDeclarationSpans(
+function collectWithEventsDeclarationSpans(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
+	newOnly: boolean,
 ): Span[] {
 	const spans: Span[] = [];
 	const inspect = (group: VariableGroupNode): void => {
@@ -1763,7 +1784,7 @@ function collectWithEventsNewDeclarationSpans(
 			return;
 		}
 		for (const decl of group.declarations) {
-			if (decl.isNew) {
+			if (decl.isNew || !newOnly) {
 				spans.push(decl.span);
 			}
 		}

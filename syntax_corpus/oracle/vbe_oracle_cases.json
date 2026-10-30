@@ -221849,6 +221849,2710 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error",
       "host": "access"
+    },
+    {
+      "id": "issue1530_excel_userform_no_event_compile",
+      "description": "Issue #1530 excel: WithEvents of a userform that declares no Event is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_userform_event_compile",
+      "description": "Issue #1530 excel: WithEvents of a userform that declares an Event compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Event Changed()\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_excel_userform_bracketed_no_event_compile",
+      "description": "Issue #1530 excel: WithEvents As [UserForm1], a userform with no Event is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As [UserForm1]\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_userform_inactive_event_compile",
+      "description": "Issue #1530 excel: WithEvents of a userform whose only Event is in an inactive #If arm is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "#If False Then\r\nPublic Event Changed()\r\n#End If\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_document_no_event_compile",
+      "description": "Issue #1530 excel: WithEvents of a document that declares no Event is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Sheet1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_document_event_compile",
+      "description": "Issue #1530 excel: WithEvents of a document that declares an Event compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Public Event Changed()\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Sheet1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_excel_document_bracketed_no_event_compile",
+      "description": "Issue #1530 excel: WithEvents As [Sheet1], a document with no Event is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As [Sheet1]\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_document_inactive_event_compile",
+      "description": "Issue #1530 excel: WithEvents of a document whose only Event is in an inactive #If arm is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "#If False Then\r\nPublic Event Changed()\r\n#End If\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Sheet1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_class_bracketed_no_event_compile",
+      "description": "Issue #1530 excel: WithEvents As [Plain], a class with no Event is rejected: Compile error: Object does not source automation events. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents s As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_dim_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (dim) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_array_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (array) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x() As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_param_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (param) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T(p As Module2)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_function_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (function) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction T() As Module2\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_property_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (property) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nProperty Get T() As Module2\r\nEnd Property\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_module_var_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (module_var) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate m As Module2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_type_member_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (type_member) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    m As Module2\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_as_new_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (as_new) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As New Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_own_name_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (own_name) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module1\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_bracketed_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type (bracketed) is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As [Module2]\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_class_member_compile",
+      "description": "Issue #1530 excel: a standard module's name as a class member's type is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_withevents_compile",
+      "description": "Issue #1530 excel: WithEvents As a standard module's name is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_over_public_type_compile",
+      "description": "Issue #1530 excel: a module named Module2 wins over another module's Public Type Module2 is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Public Type Module2\r\n    a As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_over_collection_compile",
+      "description": "Issue #1530 excel: a module named Collection wins over VBA.Collection is rejected: Compile error: A module is not a valid type. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_excel_module_type_qualified_collection_compile",
+      "description": "Issue #1530 excel: VBA.Collection, qualified, with a module named Collection compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As VBA.Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_excel_module_type_inactive_compile",
+      "description": "Issue #1530 excel: a standard module's name as a type in an inactive #If arm compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_excel_module_type_own_type_compile",
+      "description": "Issue #1530 excel: a Type of the module name in the declaring module itself compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Module2\r\n    a As Long\r\nEnd Type\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_excel_module_type_own_enum_compile",
+      "description": "Issue #1530 excel: an Enum of the module name in the declaring module itself compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\n    a\r\nEnd Enum\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_excel_module_type_control_compile",
+      "description": "Issue #1530 excel: control: a class name as a type compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Holder\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_word_userform_no_event_compile",
+      "description": "Issue #1530 word: WithEvents of a userform that declares no Event is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_userform_event_compile",
+      "description": "Issue #1530 word: WithEvents of a userform that declares an Event compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Event Changed()\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_word_userform_bracketed_no_event_compile",
+      "description": "Issue #1530 word: WithEvents As [UserForm1], a userform with no Event is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As [UserForm1]\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_userform_inactive_event_compile",
+      "description": "Issue #1530 word: WithEvents of a userform whose only Event is in an inactive #If arm is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "#If False Then\r\nPublic Event Changed()\r\n#End If\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_document_no_event_compile",
+      "description": "Issue #1530 word: WithEvents of a document that declares no Event is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As ThisDocument\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_document_event_compile",
+      "description": "Issue #1530 word: WithEvents of a document that declares an Event compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public Event Changed()\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As ThisDocument\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_word_document_bracketed_no_event_compile",
+      "description": "Issue #1530 word: WithEvents As [ThisDocument], a document with no Event is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As [ThisDocument]\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_document_inactive_event_compile",
+      "description": "Issue #1530 word: WithEvents of a document whose only Event is in an inactive #If arm is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "#If False Then\r\nPublic Event Changed()\r\n#End If\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As ThisDocument\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_class_bracketed_no_event_compile",
+      "description": "Issue #1530 word: WithEvents As [Plain], a class with no Event is rejected: Compile error: Object does not source automation events. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents s As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_dim_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (dim) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_array_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (array) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x() As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_param_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (param) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T(p As Module2)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_function_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (function) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction T() As Module2\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_property_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (property) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nProperty Get T() As Module2\r\nEnd Property\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_module_var_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (module_var) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate m As Module2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_type_member_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (type_member) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    m As Module2\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_as_new_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (as_new) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As New Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_own_name_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (own_name) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module1\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_bracketed_compile",
+      "description": "Issue #1530 word: a standard module's name as a type (bracketed) is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As [Module2]\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_class_member_compile",
+      "description": "Issue #1530 word: a standard module's name as a class member's type is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_withevents_compile",
+      "description": "Issue #1530 word: WithEvents As a standard module's name is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_over_public_type_compile",
+      "description": "Issue #1530 word: a module named Module2 wins over another module's Public Type Module2 is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Public Type Module2\r\n    a As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_over_collection_compile",
+      "description": "Issue #1530 word: a module named Collection wins over VBA.Collection is rejected: Compile error: A module is not a valid type. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_word_module_type_qualified_collection_compile",
+      "description": "Issue #1530 word: VBA.Collection, qualified, with a module named Collection compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As VBA.Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_word_module_type_inactive_compile",
+      "description": "Issue #1530 word: a standard module's name as a type in an inactive #If arm compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_word_module_type_own_type_compile",
+      "description": "Issue #1530 word: a Type of the module name in the declaring module itself compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Module2\r\n    a As Long\r\nEnd Type\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_word_module_type_own_enum_compile",
+      "description": "Issue #1530 word: an Enum of the module name in the declaring module itself compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\n    a\r\nEnd Enum\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_word_module_type_control_compile",
+      "description": "Issue #1530 word: control: a class name as a type compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Holder\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_powerpoint_userform_no_event_compile",
+      "description": "Issue #1530 powerpoint: WithEvents of a userform that declares no Event is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_userform_event_compile",
+      "description": "Issue #1530 powerpoint: WithEvents of a userform that declares an Event compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public Event Changed()\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_powerpoint_userform_bracketed_no_event_compile",
+      "description": "Issue #1530 powerpoint: WithEvents As [UserForm1], a userform with no Event is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As [UserForm1]\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_userform_inactive_event_compile",
+      "description": "Issue #1530 powerpoint: WithEvents of a userform whose only Event is in an inactive #If arm is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "UserForm1",
+          "type": "userform",
+          "source": "#If False Then\r\nPublic Event Changed()\r\n#End If\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As UserForm1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_class_bracketed_no_event_compile",
+      "description": "Issue #1530 powerpoint: WithEvents As [Plain], a class with no Event is rejected: Compile error: Object does not source automation events. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents s As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_dim_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (dim) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_array_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (array) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x() As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_param_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (param) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T(p As Module2)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_function_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (function) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction T() As Module2\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_property_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (property) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nProperty Get T() As Module2\r\nEnd Property\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_module_var_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (module_var) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate m As Module2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_type_member_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (type_member) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    m As Module2\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_as_new_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (as_new) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As New Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_own_name_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (own_name) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module1\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_bracketed_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type (bracketed) is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As [Module2]\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_class_member_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a class member's type is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_withevents_compile",
+      "description": "Issue #1530 powerpoint: WithEvents As a standard module's name is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_over_public_type_compile",
+      "description": "Issue #1530 powerpoint: a module named Module2 wins over another module's Public Type Module2 is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Public Type Module2\r\n    a As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_over_collection_compile",
+      "description": "Issue #1530 powerpoint: a module named Collection wins over VBA.Collection is rejected: Compile error: A module is not a valid type. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_qualified_collection_compile",
+      "description": "Issue #1530 powerpoint: VBA.Collection, qualified, with a module named Collection compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As VBA.Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_inactive_compile",
+      "description": "Issue #1530 powerpoint: a standard module's name as a type in an inactive #If arm compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_own_type_compile",
+      "description": "Issue #1530 powerpoint: a Type of the module name in the declaring module itself compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Module2\r\n    a As Long\r\nEnd Type\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_own_enum_compile",
+      "description": "Issue #1530 powerpoint: an Enum of the module name in the declaring module itself compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\n    a\r\nEnd Enum\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_powerpoint_module_type_control_compile",
+      "description": "Issue #1530 powerpoint: control: a class name as a type compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Holder\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_access_userform_no_event_compile",
+      "description": "Issue #1530 access: WithEvents of a userform that declares no Event is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Form1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_userform_event_compile",
+      "description": "Issue #1530 access: WithEvents of a userform that declares an Event compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Public Event Changed()\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Form1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_access_userform_bracketed_no_event_compile",
+      "description": "Issue #1530 access: WithEvents As [Form1], a userform with no Event is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As [Form1]\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_userform_inactive_event_compile",
+      "description": "Issue #1530 access: WithEvents of a userform whose only Event is in an inactive #If arm is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "#If False Then\r\nPublic Event Changed()\r\n#End If\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Form1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_document_no_event_compile",
+      "description": "Issue #1530 access: WithEvents of a document that declares no Event is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Form_Probe\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_document_event_compile",
+      "description": "Issue #1530 access: WithEvents of a document that declares an Event compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Public Event Changed()\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Form_Probe\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_access_document_bracketed_no_event_compile",
+      "description": "Issue #1530 access: WithEvents As [Form_Probe], a document with no Event is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As [Form_Probe]\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_document_inactive_event_compile",
+      "description": "Issue #1530 access: WithEvents of a document whose only Event is in an inactive #If arm is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Probe",
+          "type": "document",
+          "source": "#If False Then\r\nPublic Event Changed()\r\n#End If\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents s As Form_Probe\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_class_bracketed_no_event_compile",
+      "description": "Issue #1530 access: WithEvents As [Plain], a class with no Event is rejected: Compile error: Object does not source automation events. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Plain",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents s As [Plain]\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_dim_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (dim) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_array_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (array) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x() As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_param_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (param) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T(p As Module2)\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_function_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (function) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction T() As Module2\r\nEnd Function\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_property_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (property) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nProperty Get T() As Module2\r\nEnd Property\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_module_var_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (module_var) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate m As Module2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_type_member_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (type_member) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    m As Module2\r\nEnd Type\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_as_new_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (as_new) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As New Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_own_name_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (own_name) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module1\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_bracketed_compile",
+      "description": "Issue #1530 access: a standard module's name as a type (bracketed) is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As [Module2]\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_class_member_compile",
+      "description": "Issue #1530 access: a standard module's name as a class member's type is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_withevents_compile",
+      "description": "Issue #1530 access: WithEvents As a standard module's name is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Private WithEvents m As Module2\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_over_public_type_compile",
+      "description": "Issue #1530 access: a module named Module2 wins over another module's Public Type Module2 is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module3",
+          "type": "standard",
+          "source": "Public Type Module2\r\n    a As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_over_collection_compile",
+      "description": "Issue #1530 access: a module named Collection wins over VBA.Collection is rejected: Compile error: A module is not a valid type. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1530_access_module_type_qualified_collection_compile",
+      "description": "Issue #1530 access: VBA.Collection, qualified, with a module named Collection compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As VBA.Collection\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Collection",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_access_module_type_inactive_compile",
+      "description": "Issue #1530 access: a standard module's name as a type in an inactive #If arm compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_access_module_type_own_type_compile",
+      "description": "Issue #1530 access: a Type of the module name in the declaring module itself compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Module2\r\n    a As Long\r\nEnd Type\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_access_module_type_own_enum_compile",
+      "description": "Issue #1530 access: an Enum of the module name in the declaring module itself compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Enum Module2\r\n    a\r\nEnd Enum\r\nSub T()\r\n    Dim x As Module2\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1530_access_module_type_control_compile",
+      "description": "Issue #1530 access: control: a class name as a type compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub T()\r\n    Dim x As Holder\r\nEnd Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Public N As Long\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
