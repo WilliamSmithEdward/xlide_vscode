@@ -196,10 +196,15 @@ export function checkWithEventsDeclarations(
 		push('withEventsDeclaration', message, span);
 	};
 	// A project class whose member list is complete and holds no Event:
-	// `WithEvents s As Plain` (issue #445, measured in Excel 16.0).
-	const classWithoutEvents = (lower: string): boolean => {
+	// `WithEvents s As Plain` (issue #445, measured in Excel 16.0). A UserForm
+	// or document module sources only the Events its code declares; its
+	// controls and the host's own events do not count, so its code members
+	// settle it (issue #1530, measured in Excel, Word, PowerPoint and Access
+	// 16.0).
+	const objectModuleWithoutEvents = (lower: string): boolean => {
 		const type = projectClasses.find((candidate) => candidate.name.toLowerCase() === lower);
-		return type?.kind === 'class' && type.exhaustive === true && !type.members.some((member) => member.kind === 'event');
+		const settled = type?.kind === 'class' ? type.exhaustive === true : type?.kind === 'userform' || type?.kind === 'document';
+		return type !== undefined && settled && !type.members.some((member) => member.kind === 'event');
 	};
 	const inspect = (group: VariableGroupNode, insideProcedure: boolean): void => {
 		if (!group.withEvents || isInactiveNode(activity, group)) {
@@ -263,9 +268,12 @@ export function checkWithEventsDeclarations(
 				);
 				continue;
 			}
-			if (projectType?.kind === 'standardModule') {
+			const standardModule = parts.length === 1
+				? projectClasses.find((candidate) => candidate.kind === 'standardModule' && candidate.name.toLowerCase() === parts[0])
+				: undefined;
+			if (projectType?.kind === 'standardModule' || standardModule) {
 				report(
-					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, and Collection is a standard module of this project. This is a VBE compile error: A module is not a valid type.`,
+					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, and ${standardModule?.name ?? 'Collection'} is a standard module of this project. This is a VBE compile error: A module is not a valid type.`,
 					nameSpan,
 				);
 				continue;
@@ -276,7 +284,7 @@ export function checkWithEventsDeclarations(
 					`WithEvents variable '${decl.name}' must be declared As a specific class that raises events; ${decl.asType ? `'${decl.asType}'` : 'no type'} names none.`,
 					nameSpan,
 				);
-			} else if ((normalized === 'collection' && !projectCollectionWithEvents) || isKnownScalarType(normalized) || classWithoutEvents(normalized)) {
+			} else if ((normalized === 'collection' && !projectCollectionWithEvents) || isKnownScalarType(normalized) || (parts.length === 1 && objectModuleWithoutEvents(parts[0]))) {
 				report(
 					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, which does not source automation events.`,
 					nameSpan,
