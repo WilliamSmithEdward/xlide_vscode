@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { completionCursorContext, completionLineCursorContext, completionTypeTokens } from '../../src/analyzer/completion/cursorContext';
+import { completionCursorContext, completionLineCursorContext } from '../../src/analyzer/completion/cursorContext';
 import { resolveHover } from '../../src/analyzer/hover/resolveHover';
 import * as lexer from '../../src/analyzer/lexer/tokenize';
 import { resolveTypeCompletions } from '../../src/analyzer/completion/typeCompletion';
@@ -23,8 +23,6 @@ describe('bounded completion prefix windows', () => {
     it('matches fresh truncated prefix tokens at every offset, including continuation gaps', () => {
         for (let offset = 0; offset <= fixture.length; offset++) {
             const direct = lexer.tokenize(fixture.slice(0, offset));
-            expect(snapshot(completionTypeTokens(fixture, offset)), 'type offset ' + offset)
-                .toEqual(snapshot(direct.filter(token => token.kind !== 'comment' && token.kind !== 'newline').slice(-5)));
             const full = completionCursorContext(fixture, offset);
             const line = completionLineCursorContext(fixture, offset);
             expect(snapshot(line.tokens), 'line offset ' + offset).toEqual(snapshot(direct.slice(direct.length - line.tokens.length)));
@@ -50,7 +48,7 @@ describe('bounded completion prefix windows', () => {
         for (let offset = source.length - 5; offset <= source.length; offset++) {
             reads = 0;
             completionLineCursorContext(source, offset);
-            completionTypeTokens(source, offset);
+            resolveTypeCompletions(source, offset);
             expect(reads).toBeLessThan(100);
         }
     });

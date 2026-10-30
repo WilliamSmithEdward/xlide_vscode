@@ -75,7 +75,7 @@ export function completionCursorContext(
 	return context;
 }
 
-type PrefixWindow = 'all' | 'line' | 'type';
+type PrefixWindow = 'all' | 'line';
 
 // Physical rows ending in an underscore may belong to the same logical line.
 // Include them conservatively: comments can continue as well as code, and an
@@ -149,7 +149,7 @@ function boundedLineTokens(source: string, offset: number): VbaToken[] {
 }
 
 /**
- * Full-prefix/type windows derive from the memoized full-module stream; line
+ * The full-prefix window derives from the memoized full-module stream; line
  * windows lex their own logical boundary. Each avoids re-lexing the prefix.
  * Every keystroke asks
  * for a new offset, and lexing a large module's prefix per keystroke was
@@ -182,15 +182,6 @@ function prefixTokens(source: string, safeOffset: number, window: PrefixWindow =
 		headStart = Math.max(0, lo - 1);
 		while (headStart > 0 && all[headStart].kind !== 'newline') {
 			headStart -= 1;
-		}
-	} else if (window === 'type') {
-		headStart = lo;
-		let remaining = 5;
-		while (headStart > 0 && remaining > 0) {
-			const token = all[--headStart];
-			if (token.kind !== 'comment' && token.kind !== 'newline') {
-				remaining -= 1;
-			}
 		}
 	}
 	const rebase = (base: number) => (token: VbaToken): VbaToken => ({
@@ -246,14 +237,6 @@ function buildCursorContext(
 		inComment: last?.kind === 'comment' && last.end === safeOffset,
 		inString: last?.kind === 'stringLiteral' && last.end === safeOffset,
 	};
-}
-
-/** Last five grammar tokens, preserving type detection's existing newline semantics. */
-export function completionTypeTokens(source: string, offset: number): VbaToken[] {
-	const safeOffset = Math.max(0, Math.min(offset, source.length));
-	return prefixTokens(source, safeOffset, 'type')
-		.filter(token => token.kind !== 'comment' && token.kind !== 'newline')
-		.slice(-5);
 }
 
 const lineContextCache: { source: string; offset: number; context: CompletionCursorContext }[] = [];

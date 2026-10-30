@@ -46,17 +46,15 @@ describe('type-position lookback work', () => {
         expect(work.cachedReads).toBe(0);
     });
 
-    it('falls back to the shared token stream only behind a long tail of comment lines', async () => {
-        const source = 'value = 1\n' + "' note\n".repeat(40);
-        resetWork();
-        expect(resolveTypeCompletions(source, source.length)).toEqual([]);
-        expect(work.lexCalls).toBe(32);
-        expect(work.cachedCalls).toBe(1);
-        expect(work.cachedChars).toBe(source.length);
-        // The fallback walks the shared stream once: a few reads per token.
-        const { tokenize: realTokenize } = await vi.importActual<typeof import('../src/analyzer/lexer/tokenize')>('../../src/analyzer/lexer/tokenize');
-        expect(work.cachedReads).toBeGreaterThan(0);
-        expect(work.cachedReads).toBeLessThanOrEqual(3 * realTokenize(source).length);
+    it('lexes only the caret row behind a long tail of comment and blank rows (#1527)', () => {
+        for (const tail of ["' note\n", '\n']) {
+            const source = 'Dim item As\n' + tail.repeat(4000);
+            resetWork();
+            expect(resolveTypeCompletions(source, source.length)).toEqual([]);
+            // The caret row and the row before it, never the tail.
+            expect(work.lexedChars).toBeLessThanOrEqual(20);
+            expect(work.cachedCalls).toBe(0);
+        }
     });
     it('retains As New mode for the longest qualified suffix', () => {
         const source = 'Dim item As New Shapes.Pe';
@@ -69,12 +67,28 @@ describe('type-position lookback work', () => {
         expect(result.map(item => item.name)).toEqual(['Person']);
     });
 
-    it('preserves type position through continuation and newline tokens', () => {
-        for (const source of ['Dim item As _\r\n New _\r\n Shapes.Pe', 'Dim item As\nNew\nShapes.Pe']) {
-            expect(resolveTypeCompletions(source, source.length, {
-                projectTypes: [{ name: 'Person', kind: 'class', moduleName: 'Shapes' }],
-            }).map(item => item.name)).toEqual(['Person']);
+    it('keeps a type position through continuations but not across a line break (#1527)', () => {
+        const projectTypes = [{ name: 'Person', kind: 'class' as const, moduleName: 'Shapes' }];
+        for (const source of ['Dim item As _\r\n New _\r\n Shapes.Pe', 'Set item = _\n New Pe', 'Dim item As _\n']) {
+            expect(resolveTypeCompletions(source, source.length, { projectTypes }).map(item => item.name), source)
+                .toContain('Person');
         }
+        for (const source of ['Dim item As\nNew\nShapes.Pe', 'Dim item As\n', 'Set item = New\n', 'Dim item As\r\n\r\n']) {
+            expect(resolveTypeCompletions(source, source.length, { projectTypes }), JSON.stringify(source)).toEqual([]);
+        }
+    });
+
+    it('offers a type name only while it touches the caret (#1527)', () => {
+        const projectTypes = [{ name: 'Widget', kind: 'class' as const, moduleName: 'Widget' }];
+        for (const source of [
+            'Dim t As Long ', 'Dim r As Excel.Range ', 'Dim w As New Widget ', 'Set w = New Widget ',
+            'Function F() As Long ', 'Dim t As Long _\n', 'Dim t As Long\t',
+        ]) {
+            expect(resolveTypeCompletions(source, source.length, { projectTypes }), JSON.stringify(source)).toEqual([]);
+        }
+        expect(resolveTypeCompletions('Dim t As Long', 13).map(item => item.name)).toEqual(['Long', 'LongLong', 'LongPtr']);
+        expect(resolveTypeCompletions('Dim t As Lo', 11).map(item => item.name)).toContain('Long');
+        expect(resolveTypeCompletions('Dim t As _\n Lo', 14).map(item => item.name)).toContain('Long');
     });
 
     it('keeps expression New, library qualifiers and non-type positions distinct', () => {

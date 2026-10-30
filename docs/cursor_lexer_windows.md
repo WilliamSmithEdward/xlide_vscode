@@ -15,12 +15,12 @@ Absolute line numbers are calculated once per window when a consumer requests
 them; typing resolvers use spans and grammar instead. The full-prefix token API
 retains its original metadata and cache contract.
 
-Type detection lexes successive logical chunks until it has five grammar tokens,
-preserving its existing behavior across newlines and comments. After 32 chunks,
-a sparse tail uses the shared full-stream API. This avoids independently
-re-lexing thousands of blank or comment rows. Long logical lines and sparse
-lookbacks can still require substantial source work; this change does not claim
-constant work for every malformed source.
+Type detection reads the caret's logical line from the same line window, since
+a line break ends a VBA statement and only ` _` carries it on (#1527). A tail of
+blank or comment rows no longer reaches the earlier chunked lookback or the
+shared full-stream fallback. Long logical lines can still require substantial
+source work; this change does not claim constant work for every malformed
+source.
 
 ## Regression evidence
 

@@ -11,15 +11,15 @@ only inspect the current logical statement.
 
 ## Change and regression coverage
 
-Identifier lookup uses the existing logical-line cursor context. At an empty
-position its previous policy skips one trailing newline: one preceding logical
-line preserves that behavior without copying the module prefix. Another newline
-still ends the lookback. Local and module symbol selection is unchanged.
+Identifier lookup uses the existing logical-line cursor context. Since #1527 an
+empty row is a statement start whatever the row above ends with (`As`, `New`,
+`Dim`, `Call`, `x.` or `t =`), as it is to the VBE, so the earlier one-line
+lookback is gone. Local and module symbol selection is unchanged.
 
 The work-count regression checks fewer than 100 cached-token reads near the end
 of a 1,200-procedure module. It covers member-position rejection and identifier
-lookup, plus continued/numbered/colon-led Call statements and the blank-line As,
-operator and Call behavior. Existing casing and identifier suites also pass.
+lookup, plus continued/numbered/colon-led Call statements and the statement
+start on the row below an unfinished line. Existing casing and identifier suites also pass.
 
 ## Private component measurements
 
