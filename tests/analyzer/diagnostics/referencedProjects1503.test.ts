@@ -126,6 +126,68 @@ describe('which referenced files XLIDE may read (issue #1503)', () => {
 		expect(referencedProjectFile('*\\CZ:\\x.xlam', '*\\CLib.xlam', '\\\\host\\share\\Book.xlsm')).toBeUndefined();
 	});
 
+	// Issue #1532, as #1521 reported each host recording a provider moved
+	// together with its consumer: Excel a relative name, Word and PowerPoint
+	// the absolute path again, Access a path relative to another folder.
+	it('finds a provider moved together with its consumer, however its host recorded it', () => {
+		const moved = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-1532-'));
+		try {
+			for (const [provider, consumer, libid, relative] of [
+				['Lib.dotm', 'Book.docm', '*\\CZ:\\Gone\\Lib.dotm', '*\\CZ:\\Gone\\Lib.dotm'],
+				['Lib.ppam', 'Deck.pptm', '*\\CZ:\\Gone\\Lib.ppam', '*\\CZ:\\Gone\\Lib.ppam'],
+				['Lib.accdb', 'Data.accdb', '*\\CZ:\\Gone\\Lib.accdb', '*\\C..\\..\\..\\Gone\\Elsewhere\\Lib.accdb'],
+				['Lib.xlam', 'Book.xlsm', '*\\CZ:\\Gone\\Lib.xlam', undefined],
+			] as const) {
+				fs.writeFileSync(path.join(moved, provider), 'not empty');
+				expect(referencedProjectFile(libid, relative, path.join(moved, consumer)), provider).toBe(path.join(moved, provider));
+			}
+		} finally {
+			fs.rmSync(moved, { recursive: true, force: true });
+		}
+	});
+
+	it('tries the recorded paths before the name beside the referring file', () => {
+		const home = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-1532-home-'));
+		try {
+			fs.mkdirSync(path.join(home, 'libs'));
+			fs.writeFileSync(path.join(home, 'libs', 'Lib.xlam'), 'recorded');
+			fs.writeFileSync(path.join(home, 'Lib.xlam'), 'beside');
+			expect(referencedProjectFile('*\\CZ:\\Gone\\Lib.xlam', '*\\Clibs\\Lib.xlam', path.join(home, 'Book.xlsm'))).toBe(path.join(home, 'libs', 'Lib.xlam'));
+			// The absolute name first, when the two names differ.
+			fs.writeFileSync(path.join(home, 'Other.xlam'), 'beside');
+			expect(referencedProjectFile('*\\CZ:\\Gone\\Lib.xlam', '*\\CGone\\Other.xlam', path.join(home, 'Book.xlsm'))).toBe(path.join(home, 'Lib.xlam'));
+		} finally {
+			fs.rmSync(home, { recursive: true, force: true });
+		}
+	});
+
+	it('never answers a network, device, drive-relative, stream or empty name with a local file', () => {
+		const beside = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-1532-names-'));
+		try {
+			// Every name below exists beside the consumer, where the file
+			// system allows it; none of them may be read for the reference.
+			fs.writeFileSync(path.join(beside, 'Lib.xlam'), 'not empty');
+			const consumer = path.join(beside, 'Book.xlsm');
+			expect(referencedProjectFile('*\\C\\\\host\\share\\Lib.xlam', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\C\\\\?\\C:\\Gone\\Lib.xlam', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\C//host/share/Lib.xlam', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\CZ:\\x.xlam', '*\\C\\\\host\\share\\Lib.xlam', consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\CC:Lib.xlam', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\CZ:\\Gone\\Book.xlsm:Lib.xlam', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\CZ:\\Gone\\', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\CZ:\\Gone\\..', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\CZ:\\Gone\\CON.xlam', undefined, consumer)).toBeUndefined();
+			expect(referencedProjectFile('*\\CZ:\\Gone\\nul.xlam', '*\\Ccom1.xlam', consumer)).toBeUndefined();
+			// The referring file is never its own provider, beside or not.
+			fs.writeFileSync(consumer, 'not empty');
+			expect(referencedProjectFile('*\\CZ:\\Gone\\Book.xlsm', undefined, consumer)).toBeUndefined();
+			// And a consumer on a share looks for nothing beside itself.
+			expect(referencedProjectFile('*\\CZ:\\Gone\\Lib.xlam', undefined, '\\\\host\\share\\Book.xlsm')).toBeUndefined();
+		} finally {
+			fs.rmSync(beside, { recursive: true, force: true });
+		}
+	});
+
 	it('reads only an Office file a reference can name, and never the referring file itself', () => {
 		expect(referencedProjectFile('*\\CZ:\\x.xlam', '*\\CLib.txt', consumer)).toBeUndefined();
 		fs.writeFileSync(consumer, 'not empty');
