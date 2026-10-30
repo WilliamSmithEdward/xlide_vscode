@@ -39,9 +39,31 @@ function isRemoteOrDevice(candidate: string): boolean {
 	return /^[\\/]{2}/.test(candidate);
 }
 
+/** A name Windows reads as a device whatever its extension: `CON.xlam` is the console. */
+const DEVICE_NAME = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
+
+/**
+ * The file name alone of a recorded path, or undefined when it is no plain
+ * name: empty, `.` or `..`, a device, or one with a colon, which Windows
+ * reads as a drive (`C:Lib.xlam`) or an alternate stream (`Book.xlsm:Lib`).
+ * A name recorded on a network or device path gives none, so a local file
+ * never answers for `\\host\share\Lib.xlam`.
+ */
+function plainFileName(recorded: string): string | undefined {
+	if (isRemoteOrDevice(recorded)) {
+		return undefined;
+	}
+	const name = recorded.split(/[\\/]/).pop() ?? '';
+	if (name === '' || name === '.' || name === '..' || name.includes(':') || DEVICE_NAME.test(name) || /[\u0000-\u001f]/.test(name)) {
+		return undefined;
+	}
+	return name;
+}
+
 /** A local file of a referenceable kind and a plausible size, or undefined. */
 function readableFile(candidate: string): string | undefined {
-	if (isRemoteOrDevice(candidate) || !REFERENCEABLE.has(path.extname(candidate).toLowerCase())) {
+	if (isRemoteOrDevice(candidate) || !REFERENCEABLE.has(path.extname(candidate).toLowerCase())
+		|| DEVICE_NAME.test(path.basename(candidate))) {
 		return undefined;
 	}
 	// A folder that happens to end in .xlam fails the read that follows,
@@ -54,6 +76,12 @@ function readableFile(candidate: string): string | undefined {
  * The local file a project reference names, from its absolute libid and then
  * its relative one against the referring file's folder, or undefined when
  * neither names one XLIDE may read. The referring file itself is never one.
+ *
+ * Then the file name each records, looked for beside the referring file,
+ * the absolute one's first: that is where the VBE finds a provider moved
+ * together with its consumer, and only Excel records a relative path that
+ * still names it after a move (Word and PowerPoint record the absolute path
+ * again, Access one relative to another folder; issue #1532).
  */
 export function referencedProjectFile(
 	libid: string,
@@ -71,6 +99,15 @@ export function referencedProjectFile(
 	const relative = libidPath(relativeLibid);
 	if (relative && !isRemoteOrDevice(relative) && !/^[A-Za-z]:/.test(relative) && !isRemoteOrDevice(referring)) {
 		candidates.push(path.resolve(path.dirname(referring), ...relative.split(/[\\/]/)));
+	}
+	if (!isRemoteOrDevice(referring)) {
+		for (const recorded of [absolute, relative]) {
+			const name = recorded === undefined ? undefined : plainFileName(recorded);
+			const beside = name === undefined ? undefined : path.join(path.dirname(referring), name);
+			if (beside !== undefined && !candidates.some((candidate) => candidate.toLowerCase() === beside.toLowerCase())) {
+				candidates.push(beside);
+			}
+		}
 	}
 	for (const candidate of candidates) {
 		if (path.resolve(candidate).toLowerCase() === referring.toLowerCase()) {
