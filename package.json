@@ -1377,7 +1377,7 @@
       {
         "name": "xlide_listProjects",
         "displayName": "List Projects",
-        "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .ppa), and Access (.accdb, .accda, .mdb, .mda). Visual Basic 6 projects (.vbp) are listed too; their modules are the .bas, .cls and .frm files the manifest names. Call this first when the user has not specified a file path, or when you need to discover which files are available.",
+        "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .pot, .pps, .ppa), and Access (.accdb, .accda, .mdb, .mda). Visual Basic 6 projects (.vbp) are listed too; their modules are the .bas, .cls and .frm files the manifest names. Call this first when the user has not specified a file path, or when you need to discover which files are available.",
         "toolReferenceName": "xlideListProjects",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

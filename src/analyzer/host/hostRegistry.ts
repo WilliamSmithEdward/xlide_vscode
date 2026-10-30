@@ -194,6 +194,8 @@ export function hostTokenForFileName(fileName: string): VbaHostToken | undefined
 		case 'ppsm':
 		case 'ppam':
 		case 'ppt':
+		case 'pot':
+		case 'pps':
 		case 'ppa':
 			return 'powerpoint';
 		case 'accdb':

@@ -27,7 +27,7 @@ const OFFICE_EXTENSIONS = MACRO_CONTAINER_EXTENSIONS.filter((ext) => ext !== 'vb
 const HOST_BY_EXTENSION: Record<string, string> = {
 	xlsm: 'excel', xlsb: 'excel', xlam: 'excel', xltm: 'excel', xls: 'excel', xlt: 'excel', xla: 'excel',
 	docm: 'word', dotm: 'word', doc: 'word', dot: 'word',
-	pptm: 'powerpoint', potm: 'powerpoint', ppsm: 'powerpoint', ppam: 'powerpoint', ppt: 'powerpoint', ppa: 'powerpoint',
+	pptm: 'powerpoint', potm: 'powerpoint', ppsm: 'powerpoint', ppam: 'powerpoint', ppt: 'powerpoint', pot: 'powerpoint', pps: 'powerpoint', ppa: 'powerpoint',
 	accdb: 'access', accda: 'access', mdb: 'access', mda: 'access',
 };
 

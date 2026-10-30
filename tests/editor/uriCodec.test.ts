@@ -36,6 +36,8 @@ describe('decodeModuleUri', () => {
             ['/work/Legacy.doc/CGreeter.bas', 'CGreeter'],
             ['/work/Deck.pptm/CDeck.bas', 'CDeck'],
             ['/work/Show.ppt/Module1.bas', 'Module1'],
+            ['/work/Design.pot/Module1.bas', 'Module1'],
+            ['/work/Kiosk.pps/CDeck.bas', 'CDeck'],
             ['/work/Book.xls/Module1.bas', 'Module1'],
             ['/work/Data.accdb/CAudit.bas', 'CAudit'],
             ['/work/Old.mdb/Module1.bas', 'Module1'],

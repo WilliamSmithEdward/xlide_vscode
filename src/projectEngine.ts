@@ -205,7 +205,7 @@ export class ProjectEngine implements vscode.Disposable {
 	 */
 	private addVbaTemplatePathFor(targetPath: string): string {
 		const extension = /\.([a-z0-9]+)$/i.exec(targetPath)?.[1]?.toLowerCase() ?? '';
-		const modern: Record<string, string> = { xls: 'xlsm', xlt: 'xltm', xla: 'xlam', doc: 'docm', dot: 'dotm', ppt: 'pptm', ppa: 'ppam' };
+		const modern: Record<string, string> = { xls: 'xlsm', xlt: 'xltm', xla: 'xlam', doc: 'docm', dot: 'dotm', ppt: 'pptm', pot: 'potm', pps: 'ppsm', ppa: 'ppam' };
 		if (modern[extension]) {
 			throw new ProjectEngineError(
 				`XLIDE adds a VBA project only to the macro-enabled Office Open XML formats, and a .${extension} file is the older binary format. `
@@ -220,7 +220,7 @@ export class ProjectEngine implements vscode.Disposable {
 	private templatePathFor(targetPath: string): string {
 		const lower = targetPath.toLowerCase();
 		const extension = /\.([a-z0-9]+)$/.exec(lower)?.[1] ?? '';
-		if (['xls', 'xlt', 'xla', 'doc', 'dot', 'ppt', 'ppa'].includes(extension)) {
+		if (['xls', 'xlt', 'xla', 'doc', 'dot', 'ppt', 'pot', 'pps', 'ppa'].includes(extension)) {
 			throw new ProjectEngineError(
 				`Creating new legacy-format files (.${extension}) is not supported; create the modern macro format and use the Office app to save down.`,
 				-32602,
@@ -241,7 +241,7 @@ export class ProjectEngine implements vscode.Disposable {
 				-32602,
 			);
 		}
-		if (['xlsx', 'xltx', 'docx', 'dotx', 'pptx', 'potx', 'csv'].includes(extension)) {
+		if (['xlsx', 'xltx', 'docx', 'dotx', 'pptx', 'potx', 'ppsx', 'csv'].includes(extension)) {
 			throw new ProjectEngineError(
 				`.${extension} is not a macro-enabled format, so it cannot hold a VBA project; use .xlsm, .docm, or .pptm instead.`,
 				-32602,
