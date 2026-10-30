@@ -46,7 +46,7 @@ jobs:
 
       # uv's version is pinned here and moved by hand; setup-uv is followed by
       # Dependabot. The locks record the command, not the uv version.
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: "0.13.4"
           enable-cache: false
