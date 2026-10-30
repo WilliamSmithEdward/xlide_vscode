@@ -253,13 +253,16 @@ export function hasMemberCompletions(
 	return memberCompletionStatus(source, offset, ctx) === true;
 }
 
-/** True/false for a known surface; undefined when the receiver still needs context. */
+/**
+ * True/false for a known surface; undefined when the receiver still needs
+ * context or the caret has moved past the member name.
+ */
 export function memberCompletionStatus(
 	source: string,
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): boolean | undefined {
-	const hit = memberSurfaceAtDot(source, offset, ctx);
+	const hit = memberSurfaceAtCaret(source, offset, ctx);
 	if (!hit) { return undefined; }
 	const prefix = hit.typedPrefix.toLowerCase();
 	return hit.surface.members.some(mem => !mem.hidden && mem.name.toLowerCase().startsWith(prefix));
@@ -275,7 +278,7 @@ export function resolveMemberCompletions(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): MemberCompletion[] {
-	const hit = memberSurfaceAtDot(source, offset, ctx);
+	const hit = memberSurfaceAtCaret(source, offset, ctx);
 	if (!hit) {
 		return [];
 	}
@@ -500,11 +503,24 @@ function privateMemberNames(members: readonly string[], ctx: MemberCompletionCon
  return names;
 }
 
+/**
+ * The surface a menu at the caret lists from. A member name the caret has
+ * moved past (`Debug.Print `) is finished, so no member list is open there.
+ */
+function memberSurfaceAtCaret(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): { currentType: string; surface: MemberSurface; typedPrefix: string } | undefined {
+	return memberSurfaceAtDot(source, offset, ctx, undefined, true);
+}
+
 function memberSurfaceAtDot(
 	source: string,
 	offset: number,
 	ctx: MemberCompletionContext,
 	prefixTokens?: VbaToken[],
+	prefixAtCaret = false,
 ): { currentType: string; surface: MemberSurface; typedPrefix: string } | undefined {
 	// Keep newline tokens: they mark statement boundaries so a dangling
 	// member-access dot on a previous line is not merged into this chain.
@@ -518,6 +534,9 @@ function memberSurfaceAtDot(
 	let typedPrefix = '';
 	const memberPrefix = completionMemberPrefix(tokens[i]);
 	if (memberPrefix !== undefined && i > 0 && tokens[i - 1].rawText === '.') {
+		if (prefixAtCaret && tokens[i].end !== offset) {
+			return undefined;
+		}
 		typedPrefix = memberPrefix;
 		i -= 1;
 	}

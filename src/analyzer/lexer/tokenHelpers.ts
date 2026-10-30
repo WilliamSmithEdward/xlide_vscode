@@ -38,6 +38,11 @@ export function firstTokenEndingAtOrAfter(tokens: readonly VbaToken[], offset: n
 	return lo;
 }
 
+/** Whether `token` is a type character glued to the name before it: the `$` of `total$`. */
+export function isTypeSuffixOf(token: VbaToken | undefined, name: VbaToken | undefined): boolean {
+	return Boolean(token && name && /^[$%&!#@^]$/.test(token.rawText) && name.end === token.start && isIdentLike(name));
+}
+
 export function isIdentLike(token: VbaToken): boolean {
 	return (
 		(token.kind === 'identifier' || token.kind === 'keyword') &&

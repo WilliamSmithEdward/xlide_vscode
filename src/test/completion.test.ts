@@ -236,6 +236,62 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, 'MakeFlags()'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'typed array function must clear the shape finding', 5000);
     });
+    for (const [name, line, continued] of [
+        ['Call', 'Call', false],
+        ['If', 'If', false],
+        ['ForTo', 'For i = 1 To', false],
+        ['DebugPrint', 'Debug.Print', false],
+        ['Continued', '    ', true],
+    ] as const) {
+        const shown = continued ? 'a row continued from "Call _"' : JSON.stringify(line);
+        test(`a typed space after ${shown} opens no name list and Ctrl+Space lists names`, async () => {
+            const statement = continued ? `Call _\n${line}` : line;
+            const source = `Sub Helper()\nEnd Sub\nSub Demo()\nDim total As Long\n${statement}\nEnd Sub\n`;
+            const { document, editor } = await probe(`WordSpace${name}`, source, `\n${statement}`);
+            await vscode.commands.executeCommand('hideSuggestWidget');
+            await vscode.commands.executeCommand('type', { text: ' ' });
+            const row = editor.selection.active.line;
+            const typed = `${line} `;
+            assert.equal(document.lineAt(row).text, typed);
+            const caret = editor.selection.active;
+            // A list opened by the typed space would insert its first name here.
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                if (continued) {
+                    // The test directives offered on any continued row are a separate issue.
+                    assert.doesNotMatch(document.lineAt(row).text, /total|Helper|MsgBox|CallByName/);
+                    await vscode.commands.executeCommand('hideSuggestWidget');
+                    if (document.lineAt(row).text !== typed) {
+                        await vscode.commands.executeCommand('undo');
+                    }
+                } else {
+                    assert.equal(document.lineAt(row).text, typed);
+                }
+            }
+            assert.equal(document.lineAt(row).text, typed);
+            if (continued) { assert.equal(document.lineAt(row - 1).text, 'Call _'); }
+            const onSpace = labels((await vscode.commands.executeCommand<vscode.CompletionList>(
+                'vscode.executeCompletionItemProvider', document.uri, caret, ' '))!);
+            assert.deepEqual(onSpace.filter(label => !label.startsWith('@')), []);
+            const manual = labels((await vscode.commands.executeCommand<vscode.CompletionList>(
+                'vscode.executeCompletionItemProvider', document.uri, caret))!);
+            for (const label of ['total', 'Helper', 'MsgBox']) {
+                assert.ok(manual.includes(label), `Ctrl+Space must offer ${label}`);
+            }
+            // Ctrl+Space opens the list, and accepting its first row inserts it.
+            await vscode.commands.executeCommand('editor.action.triggerSuggest');
+            const accepted = await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                const text = document.lineAt(row).text;
+                return text !== typed ? text : undefined;
+            }, 'Ctrl+Space must open a list whose first row can be accepted', 4000);
+            // The continued row lists the test directives first.
+            if (!continued) {
+                assert.match(accepted, new RegExp(`^${typed.replace('.', '\\.')}\\w+`));
+            }
+        });
+    }
     test('setter shape bug hunt opens a DefBool setter menu automatically', async () => {
         const source = 'DefBool V\nProperty Let State(ByVal value)\nEnd Property\nSub Demo()\nState \nEnd Sub\n';
         const { document } = await probe('DefBoolSetterMenu', source, '\nState ');

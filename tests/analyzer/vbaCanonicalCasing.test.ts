@@ -37,6 +37,15 @@ describe('canonical casing edits', () => {
 		expect(edit?.text).toBe('Value');
 	});
 
+	it.each([
+		['    call helper| \n', 'Helper'],
+		['    msgbox| "x"\n', 'MsgBox'],
+		['    debug.print| total\n', 'Print'],
+	])('canonicalizes the word before a space in %j', (line, expected) => {
+		const edit = editAtMarker(`Sub Helper()\nEnd Sub\nSub T()\n    Dim total As Long\n${line}End Sub\n`);
+		expect(edit?.text).toBe(expected);
+	});
+
 	it('canonicalizes runtime functions before an argument list', () => {
 		const edit = editAtMarker('Sub T()\n    x = left|("test", 3)\nEnd Sub\n');
 		expect(edit?.text).toBe('Left');
