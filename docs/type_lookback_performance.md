@@ -7,8 +7,13 @@ making a non-type check grow with the module prefix.
 
 Read backwards until five non-newline tokens are collected. The longest suffix
 the detector examines is `As New Library.Type`, which contains five tokens.
-Newlines are skipped just as before, preserving existing continuation behavior.
-The cursor context and candidate generation retain their existing behavior.
+
+Since #1527 the detector reads only the caret's logical line, continuations
+included, and a type name counts as typed only while it ends at the caret. The
+VBE reports `Dim t As` or `Set c = New` with an empty row below as a syntax
+error on that line in Excel, Word, PowerPoint and Access, so the empty row gets
+the statement-start list. `Dim t As Long ` no longer reopens `Long`, which
+accepting wrote as `As Long Long`.
 
 ## Reproduce
 
@@ -28,8 +33,7 @@ warm-up. The casing request verifies three edits on one line at the module end.
 
 These are analyzer component timings, not keyboard-to-paint measurements.
 The cached cursor context is warm; this change does not remove source lexing or
-prefix-array construction after an edit. Long runs of newline tokens still
-require skipping those tokens to preserve the existing detector's semantics.
+prefix-array construction after an edit.
 
 The work-count regression observed 6,001 prefix token reads before the change
 and seven afterwards for an ordinary expression. Behavioral coverage includes

@@ -64,18 +64,33 @@ describe('identifier completion prefix work', () => {
         expect(work.lexedChars + work.cachedChars).toBeGreaterThanOrEqual(source.length);
     });
 
-    it('preserves the preceding-token policy at a blank position without crossing a second newline', () => {
+    it('starts a fresh statement on the row below any line, finished or not (#1527)', () => {
         const resolve = (text: string) => {
             const source = 'Sub Probe()\n' + text;
             return resolveIdentifierCompletions(source, source.length).map(item => item.name);
         };
-        expect(resolve('Dim item As\n')).toEqual([]);
-        expect(resolve('Dim item As\n\n')).toContain('ThisWorkbook');
-        expect(resolve('item =\n')).toContain('True');
-        expect(resolve('item =\n\n')).not.toContain('True');
-        expect(resolve('Call\n')).toContain('MsgBox');
-        expect(resolve('Call\n')).not.toContain('DoEvents');
-        expect(resolve('Call\n\n')).toContain('DoEvents');
+        // The VBE ends a statement at the line break: each of these rows is a
+        // syntax error on its own line, and the empty row below starts anew.
+        for (const line of ['Dim item As', 'Set c = New', 'Dim', 'Const', 'ReDim', 'Static', 'Private', 'x.', 'Call', 'item =']) {
+            for (const breakText of ['\n', '\r\n']) {
+                const names = resolve(line + breakText);
+                expect(names, line).toContain('ThisWorkbook');
+                expect(names, line).toContain('DoEvents');
+                expect(names, line).not.toContain('True');
+            }
+        }
+        // A continuation keeps the statement going.
+        expect(resolve('item = _\n')).toContain('True');
+        expect(resolve('item = _\r\n')).toContain('True');
+    });
+
+    it('lexes only the caret row below a long tail of blank rows (#1527)', () => {
+        const source = padded + '\n'.repeat(4000);
+        resolveIdentifierCompletions(source, source.length);
+        resetWork();
+        expect(resolveIdentifierCompletions(source, source.length - 1).map(item => item.name)).toContain('ThisWorkbook');
+        expect(work.lexedChars).toBeLessThanOrEqual(4);
+        expect(work.cachedCalls).toBe(0);
     });
 
     it('preserves explicit Call, continued statements and newline expression boundaries', () => {

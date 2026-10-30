@@ -53,7 +53,8 @@ describe('fresh cursor lexer windows', () => {
             { source: 'Dim item As Lon', type: 'Long' },
             { source: 'Dim item As New Shapes.Pe', type: 'Person' },
             { source: 'Dim item As _\r\n New _\n Shapes.Pe', type: 'Person' },
-            { source: "Dim item As\n' note _\u3000\r\n New _\n Shapes.Pe", type: 'Person' },
+            // A line break ends `Dim item As`; the rest is one continued comment (#1527).
+            { source: "Dim item As\n' note _\u3000\r\n New _\n Shapes.Pe", type: undefined },
         ];
         for (const [revision, probe] of probes.entries()) {
             const lead = "' cold revision " + revision + '\r\n';
@@ -101,8 +102,8 @@ describe('fresh cursor lexer windows', () => {
     });
 });
 
-it('does not independently re-lex thousands of sparse type lookback rows', () => {
-    const source = 'Dim item As\n' + "' sparse comment\r\n \n".repeat(2200) + 'New Shapes.Pe';
+it('reads only the caret row behind thousands of sparse rows (#1527)', () => {
+    const source = 'Dim item As\n' + "' sparse comment\r\n \n".repeat(2200) + 'Set item = New Shapes.Pe';
     const tokenize = lexer.tokenize;
     const inputs: number[] = [];
     const spy = vi.spyOn(lexer, 'tokenize').mockImplementation(text => {
@@ -117,6 +118,10 @@ it('does not independently re-lex thousands of sparse type lookback rows', () =>
     } finally {
         spy.mockRestore();
     }
-    expect(inputs.length).toBeLessThan(100);
-    expect(shared).toHaveBeenCalledWith(source);
+    // The caret row and the row before it, never the tail or the shared stream.
+    expect(inputs.reduce((a, b) => a + b, 0)).toBeLessThan(60);
+    expect(shared).not.toHaveBeenCalled();
+    shared.mockRestore();
+    const blankBelow = 'Dim item As\n' + "' sparse comment\r\n \n".repeat(2200);
+    expect(resolveTypeCompletions(blankBelow, blankBelow.length)).toEqual([]);
 });

@@ -188,14 +188,9 @@ function identifierCompletionsAt(
 	// Every grammar gate below is bounded by a logical newline or colon.
 	// Copying the full module prefix here made ordinary casing/identifier
 	// checks near the end of a large class pay for all preceding statements.
-	let tokens = completionLineCursorContext(source, offset).significantTokens;
-	if (tokens.length === 1 && tokens[0].kind === 'newline') {
-		// The existing blank-position policy skips one trailing newline and
-		// examines the preceding token (including As, operators and Call).
-		// Preserve that policy with one preceding logical line, not a module
-		// prefix. A second newline still acts as the original boundary.
-		tokens = [...completionLineCursorContext(source, tokens[0].start).significantTokens, tokens[0]];
-	}
+	// A line break ends the statement, so the row below `Dim`, `As`, `x.` or
+	// `t =` is a statement start, as it is to the VBE (#1527).
+	const tokens = completionLineCursorContext(source, offset).significantTokens;
 
 	// Identify the partial identifier being typed (if any) and the token that
 	// immediately precedes it.

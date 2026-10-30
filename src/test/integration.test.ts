@@ -5,6 +5,7 @@
 // not only that its internals were exercised.
 
 import './typeLookbackSurfaces.test';
+import './completionLogicalLine.test';
 import './formatting.test';
 import './hoverSnapshotSurfaces.test';
 import './prefixWindowSurfaces.test';

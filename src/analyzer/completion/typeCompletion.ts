@@ -14,10 +14,7 @@
 // is unit-tested directly. The VS Code provider supplies the project type names.
 
 import type { VbaToken } from '../lexer/tokenKinds';
-import { tokenize } from '../lexer/tokenize';
-import { completionTypeTokens } from './cursorContext';
-import { isWsc } from '../lexer/tokenKinds';
-import { lineStartAtAnyBreak } from '../../vbaSourceScan';
+import { completionLineCursorContext } from './cursorContext';
 import {
 	getExcelObjectModel,
 	type HostObjectModel,
@@ -128,12 +125,12 @@ interface TypePosition {
 	memberPrefix?: string;
 }
 
-function readPartialTypeName(tokens: readonly VbaToken[]): {
+function readPartialTypeName(tokens: readonly VbaToken[], offset: number): {
 	prefix: string;
 	qualifier?: string;
 	memberPrefix?: string;
 	beforeIndex: number;
-} {
+} | undefined {
 	let i = tokens.length - 1;
 	let prefix = '';
 	let qualifier: string | undefined;
@@ -154,6 +151,9 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 	if (last && isWordToken(last)) {
 		const lower = last.rawText.toLowerCase();
 		if (lower !== 'as' && lower !== 'new') {
+			// A name followed by a space or a continuation is finished, and
+			// offering it again would write `As Long Long` (#1527).
+			if (last.end !== offset) { return undefined; }
 			const name = tokenName(last) ?? last.rawText;
 			prefix = name;
 			memberPrefix = name;
@@ -172,22 +172,13 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 	return { prefix, qualifier, memberPrefix, beforeIndex: i };
 }
 
-function detectTypePosition(allTokens: readonly VbaToken[]): TypePosition | undefined {
-	// The longest suffix this detector reads is `As New Library.Type`: five
-	// non-newline tokens. Skip newlines as before, but avoid filtering the whole
-	// module prefix for every completion/casing word outside a type position.
-	const tokens: VbaToken[] = [];
-	for (let i = allTokens.length - 1; i >= 0 && tokens.length < 5; i--) {
-		const token = allTokens[i];
-		if (token.kind !== 'newline') { tokens.push(token); }
-	}
-	tokens.reverse();
+function detectTypePosition(tokens: readonly VbaToken[], offset: number): TypePosition | undefined {
 	if (tokens.length === 0) {
 		return undefined;
 	}
-	const partial = readPartialTypeName(tokens);
-	let i = partial.beforeIndex;
-	if (i < 0) {
+	const partial = readPartialTypeName(tokens, offset);
+	let i = partial?.beforeIndex ?? -1;
+	if (!partial || i < 0) {
 		return undefined;
 	}
 
@@ -572,36 +563,16 @@ function exactTypeNameIndex(ctx: TypeCompletionContext): Map<string, TypeComplet
 	return byLower;
 }
 
-// Type detection consumes the last five grammar tokens across logical lines.
-// Lex only the chunks needed to find them; offsets/trivia stay local because
-// the detector reads kind and token text alone. A sparse tail of comments or
-// blank rows uses the shared full stream after a small number of chunks instead
-// of independently re-lexing thousands of rows on every request.
-const TYPE_GRAMMAR_CHUNK_LIMIT = 32;
-
-function boundedTypeGrammarTokens(source: string, offset: number): VbaToken[] {
-	let end = Math.max(0, Math.min(offset, source.length));
-	if (Number.isNaN(end)) { return []; }
-	let suffix: VbaToken[] = [];
-	const beforeBreak = (start: number): number => source[start - 1] === '\n' && source[start - 2] === '\r' ? start - 2 : start - 1;
-	for (let chunks = 0; chunks < TYPE_GRAMMAR_CHUNK_LIMIT; chunks++) {
-		let start = lineStartAtAnyBreak(source, end);
-		while (start > 0) {
-			const priorEnd = beforeBreak(start);
-			const priorStart = lineStartAtAnyBreak(source, priorEnd);
-			let at = priorEnd;
-			while (at > priorStart && isWsc(source[at - 1])) { at--; }
-			// Conservatively include underscore-ended lines, even when an
-			// identifier rather than trivia. This also covers comment chains.
-			if (at <= priorStart || source[at - 1] !== '_') { break; }
-			start = priorStart;
-		}
-		const chunk = tokenize(source.slice(start, end)).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
-		suffix = [...chunk, ...suffix].slice(-5);
-		if (suffix.length >= 5 || start === 0) { return suffix; }
-		end = beforeBreak(start);
-	}
-	return completionTypeTokens(source, offset);
+// A line break ends a VBA statement; only ` _` carries it on. The VBE reports
+// `Dim t As` with an empty row below as a syntax error on that line, in every
+// host, so the type position is read from the caret's logical line alone
+// (#1527). The longest suffix the detector reads is `As New Library.Type`.
+function lineTypeGrammarTokens(source: string, offset: number): { tokens: VbaToken[]; offset: number } {
+	const cursor = completionLineCursorContext(source, offset);
+	const line = cursor.significantTokens;
+	let start = line.length;
+	while (start > 0 && line[start - 1].kind !== 'newline') { start--; }
+	return { tokens: line.slice(Math.max(start, line.length - 5)), offset: cursor.offset };
 }
 
 /**
@@ -616,9 +587,8 @@ export function resolveTypeCompletions(
 	offset: number,
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
-	const pos = detectTypePosition(
-		boundedTypeGrammarTokens(source, offset),
-	);
+	const line = lineTypeGrammarTokens(source, offset);
+	const pos = detectTypePosition(line.tokens, line.offset);
 	if (!pos) {
 		return [];
 	}
