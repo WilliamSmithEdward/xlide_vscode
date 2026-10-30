@@ -43,7 +43,7 @@ export const AGENT_INSTRUCTIONS: string = [
     '',
     'This workspace uses XLIDE, a VS Code extension for the VBA in macro-enabled Office files and for Visual Basic 6 projects. XLIDE reads and writes the VBA project inside a file directly. Office is needed only to run macros and tests.',
     '',
-    'Files it handles: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .ppa), Access (.accdb, .accda, .mdb, .mda), and VB6 projects (.vbp).',
+    'Files it handles: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .pot, .pps, .ppa), Access (.accdb, .accda, .mdb, .mda), and VB6 projects (.vbp).',
     '',
     '## Rules for every agent',
     '',

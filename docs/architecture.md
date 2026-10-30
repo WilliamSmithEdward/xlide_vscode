@@ -433,7 +433,7 @@ is):
 | `.pptm`/`.potm`/`.ppsm`/`.ppam` | zip + `ppt/presentation.xml` | `ppt/vbaProject.bin` | yes (part splice) |
 | `.xls`/`.xlt`/`.xla` | CFB + `Workbook` stream | `_VBA_PROJECT_CUR/VBA` in the file's own CFB | yes (CFB re-serialize) |
 | `.doc`/`.dot` | CFB + `WordDocument` stream | `Macros/VBA` in the file's own CFB | yes (CFB re-serialize) |
-| `.ppt` | CFB + `PowerPoint Document` stream | zlib-compressed CFB in an `ExOleObjStg` record, located through the persist chain (`pptContainer.ts`) | yes (record rebuild + persist-offset shift) |
+| `.ppt`/`.pot`/`.pps` | CFB + `PowerPoint Document` stream | zlib-compressed CFB in an `ExOleObjStg` record, located through the persist chain (`pptContainer.ts`) | yes (record rebuild + persist-offset shift) |
 | `.ppa` | CFB that IS the VBA project (a bare `VBA` storage, no document stream) | the file itself | yes (CFB re-serialize) |
 | `.accdb`/`.mdb`/`.mda` | ACE/Jet page-0 signature | MS-OVBA streams in LVAL rows/chains, reassembled into a synthetic CFB (`accessDatabase.ts`) | no |
 | `.vbp` (VB6 project) | the `.vbp` extension; the manifest is text, parsed by `vb6/vbpProject.ts` | no project stream: the modules ARE the `.bas`/`.cls`/`.frm` files the manifest names (`vb6/vb6Project.ts`) | existing modules only (the file is rewritten with its header kept); add/rename/delete refuse and name the manifest |

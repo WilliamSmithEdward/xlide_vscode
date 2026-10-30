@@ -17,7 +17,7 @@ import { hostTokenForFileName, type VbaHostToken } from './analyzer/host/hostReg
 export const MACRO_CONTAINER_EXTENSIONS = [
 	'xlsm', 'xlsb', 'xlam', 'xltm', 'xls', 'xlt', 'xla',
 	'docm', 'dotm', 'doc', 'dot',
-	'pptm', 'potm', 'ppsm', 'ppam', 'ppt', 'ppa',
+	'pptm', 'potm', 'ppsm', 'ppam', 'ppt', 'pot', 'pps', 'ppa',
 	'accdb', 'accda', 'mdb', 'mda',
 	'vbp',
 ] as const;

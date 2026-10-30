@@ -23,7 +23,7 @@ Add macro-enabled Office files to your VS Code project and XLIDE detects them
 automatically: Excel workbooks, templates, and add-ins (`.xlsm`, `.xlsb`,
 `.xlam`, `.xltm`, `.xls`, `.xlt`, `.xla`), Word documents and templates
 (`.docm`, `.dotm`, `.doc`, `.dot`), PowerPoint presentations and add-ins
-(`.pptm`, `.potm`, `.ppsm`, `.ppam`, `.ppt`, `.ppa`), Access databases
+(`.pptm`, `.potm`, `.ppsm`, `.ppam`, `.ppt`, `.pot`, `.pps`, `.ppa`), Access databases
 (`.accdb`, `.mdb`, `.mda`), and Visual Basic 6 projects (`.vbp`, with the
 `.bas`, `.cls`, `.frm`, `.ctl`, and `.pag` files they list). Navigate each
 file's VBA project in the XLIDE tree, open modules directly from the file, edit

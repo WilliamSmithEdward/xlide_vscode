@@ -56,6 +56,8 @@ out/**/*.map
 **/*.ppsm
 **/*.ppam
 **/*.ppt
+**/*.pot
+**/*.pps
 **/*.ppa
 **/*.accdb
 !assets/templates/blank.accdb
