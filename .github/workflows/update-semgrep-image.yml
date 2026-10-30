@@ -1,0 +1,91 @@
+name: Update Semgrep image
+
+# The same in every repository; the canonical copy lives in
+# WilliamSmithEdward/repo-standards (templates/semgrep). Each Monday, and on
+# demand, proposes the newest Semgrep image .github/security/semgrep_update.py
+# allows in a pull request, which CI, Security and Malware scan check before
+# it merges. Dependabot cannot move this pin: GitHub has refused its Semgrep
+# image updates since 2026-10-20.
+#
+# Two jobs, as for the YARA updater: `prepare` reads Docker Hub with no write
+# access, and `propose` checks the proposal against the Dockerfile on main and
+# commits it through the GitHub API with the Repo Bot App's token, so the
+# pull request's checks run without a manual approval. No checkout keeps
+# credentials. See YARA_APP.md in repo-standards for the App.
+
+on:
+  schedule:
+    - cron: "47 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-semgrep-image
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Work out the Semgrep image update
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.prepare.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12.14"
+
+      - name: Work out the move
+        id: prepare
+        run: python .github/security/semgrep_update.py prepare --out "$RUNNER_TEMP/proposal"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.prepare.outputs.changed == 'true'
+        with:
+          name: semgrep-proposal
+          path: ${{ runner.temp }}/proposal/
+          if-no-files-found: error
+          retention-days: 7
+
+  propose:
+    name: Propose a Semgrep image update
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12.14"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: semgrep-proposal
+          path: ${{ runner.temp }}/proposal
+
+      - name: Create a token for this repository
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.YARA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.YARA_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Propose the update
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python .github/security/semgrep_update.py propose --in "$RUNNER_TEMP/proposal"
