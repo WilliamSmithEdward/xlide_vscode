@@ -72,8 +72,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build the scanner
-        run: docker build --quiet --tag semgrep-scan .github/security/semgrep
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+      # Semgrep and its dependencies from .github/requirements/semgrep.txt,
+      # wheels only and hash-checked, in a venv outside the checkout so the
+      # scan does not read it.
+      - name: Install Semgrep
+        run: |
+          python -m venv "$RUNNER_TEMP/semgrep"
+          "$RUNNER_TEMP/semgrep/bin/python" -m pip install --quiet --require-hashes \
+            --only-binary :all: -r .github/requirements/semgrep.txt
       # Two rules are excluded because they fire on how the engine is built,
       # reviewed finding by finding on 2026-09-29:
       # - detect-non-literal-regexp: patterns are built from VBA identifiers
@@ -84,8 +93,7 @@ jobs:
       #   API server never joins a request value into a path.
       - name: Scan
         run: >-
-          docker run --rm --volume "$PWD:/src" --workdir /src semgrep-scan
-          semgrep scan --metrics off --error --sarif --output semgrep.sarif
+          "$RUNNER_TEMP/semgrep/bin/semgrep" scan --metrics off --error --sarif --output semgrep.sarif
           --config p/default --config p/typescript --config p/github-actions
           --exclude-rule javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
           --exclude-rule javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal

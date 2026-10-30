@@ -1,0 +1,7 @@
+# Semgrep, the static analyser the Security workflow runs, installed from
+# PyPI wheels on the runner rather than from its Docker Hub image, whose
+# Dependabot updates GitHub refuses. semgrep.txt is compiled from this file
+# with hashes for every package in the tree:
+#   uv pip compile semgrep.in --universal --generate-hashes --python-version 3.12 -o semgrep.txt
+# Dependabot proposes each new release.
+semgrep==1.182.1
