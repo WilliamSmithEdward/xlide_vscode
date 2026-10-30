@@ -1,0 +1,207 @@
+name: Office
+
+# The VBE oracle in real Office on a GitHub-hosted Windows runner (#1489).
+# Installs one exact Office build (or the newest), 64-bit or 32-bit, with
+# updates off, turns off its activation and first-run screens, and runs the
+# oracle, strict, on the cases in syntax_corpus/oracle/runner_sample.json: a few
+# in each of Excel, Word, PowerPoint and Access. Started by hand only, and not a
+# required check, so an Office or Microsoft outage never holds up a pull
+# request. Office is installed from Microsoft's Office Deployment Tool and is
+# not activated.
+
+"on":
+  workflow_dispatch:
+    inputs:
+      bitness:
+        description: Office edition to install
+        type: choice
+        options: ['64', '32']
+        default: '64'
+      build:
+        description: The build the corpus was measured on, or the newest on its channel
+        type: choice
+        options: ['pinned', 'latest']
+        default: 'pinned'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: office-${{ github.ref }}-${{ inputs.bitness }}-${{ inputs.build }}
+
+env:
+  # The build the corpus was measured on, installed unless `build` asks for
+  # the newest one, to see what a new Office release changes. Click-to-Run
+  # serves a build only on the channel it shipped on: this one on Current,
+  # not MonthlyEnterprise.
+  OFFICE_CHANNEL: Current
+  OFFICE_BUILD: 16.0.20430.20182
+  OFFICE_BUILD_CHOICE: ${{ inputs.build }}
+  OFFICE_BITNESS: ${{ inputs.bitness }}
+
+jobs:
+  oracle:
+    name: VBE oracle sample (${{ inputs.bitness }}-bit Office, ${{ inputs.build }} build)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.0'
+
+      # Every Office app that runs VBA is installed except Publisher, which
+      # Microsoft is retiring: Excel, Word, PowerPoint, Access and Outlook
+      # (classic, whose object library some cases reference) from the suite, and
+      # Visio and Project. The rest of the suite is left out. The Office
+      # Deployment Tool always downloads its newest release, so it is checked by
+      # Microsoft's signature rather than a hash.
+      # A step's own timeout fails it rather than cancelling the job, so the
+      # results are still uploaded.
+      - name: Install Office
+        timeout-minutes: 20
+        shell: pwsh
+        run: |
+          $odt = Join-Path $env:RUNNER_TEMP 'odt'
+          New-Item -ItemType Directory -Force $odt | Out-Null
+          $setup = Join-Path $odt 'setup.exe'
+          Invoke-WebRequest -Uri 'https://officecdn.microsoft.com/pr/wsus/setup.exe' -OutFile $setup
+          $signature = Get-AuthenticodeSignature $setup
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation, O=Microsoft Corporation,*') {
+            throw "The Office Deployment Tool is not signed by Microsoft: $($signature.Status) $($signature.SignerCertificate.Subject)"
+          }
+          $latest = $env:OFFICE_BUILD_CHOICE -eq 'latest'
+          $version = if ($latest) { '' } else { " Version=`"$env:OFFICE_BUILD`"" }
+          $config = Join-Path $odt 'configuration.xml'
+          @"
+          <Configuration>
+            <Add OfficeClientEdition="$env:OFFICE_BITNESS" Channel="$env:OFFICE_CHANNEL"$version>
+              <Product ID="O365ProPlusRetail">
+                <Language ID="MatchOS" />
+                <ExcludeApp ID="Bing" /><ExcludeApp ID="Groove" /><ExcludeApp ID="Lync" /><ExcludeApp ID="OneDrive" />
+                <ExcludeApp ID="OneNote" /><ExcludeApp ID="OutlookForWindows" /><ExcludeApp ID="Publisher" />
+                <ExcludeApp ID="Teams" />
+              </Product>
+              <Product ID="VisioProRetail">
+                <Language ID="MatchOS" />
+              </Product>
+              <Product ID="ProjectProRetail">
+                <Language ID="MatchOS" />
+              </Product>
+            </Add>
+            <Updates Enabled="FALSE" />
+            <Display Level="None" AcceptEULA="TRUE" />
+          </Configuration>
+          "@ | Out-File -FilePath $config -Encoding utf8
+          $install = Start-Process -FilePath $setup -ArgumentList '/configure', "`"$config`"" -Wait -PassThru -NoNewWindow
+          if ($install.ExitCode) { throw "The Office Deployment Tool exited with $($install.ExitCode)" }
+          $configuration = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration'
+          $installed = $configuration.VersionToReport
+          $platform = @{ '64' = 'x64'; '32' = 'x86' }[$env:OFFICE_BITNESS]
+          Write-Host "Installed Office $installed $($configuration.Platform)"
+          "Office $installed $($configuration.Platform) ($env:OFFICE_BUILD_CHOICE build)" | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          $expected = if ($latest) { $installed } else { $env:OFFICE_BUILD }
+          if ($installed -ne $expected -or $configuration.Platform -ne $platform) {
+            throw "Expected Office $expected $platform, got $installed $($configuration.Platform)"
+          }
+          $apps = 'Excel', 'Word', 'PowerPoint', 'Access', 'Outlook', 'Visio', 'MSProject'
+          $missing = $apps | Where-Object { -not (Test-Path "Registry::HKEY_CLASSES_ROOT\$_.Application\CLSID") }
+          if ($missing) { throw "Not installed: $($missing -join ', ')" }
+          Write-Host "Installed apps: $($apps -join ', ')"
+
+      # Unactivated Office shows "Sign in to set up Office" on every start, and
+      # first-run screens on the first. These values turn them off; shared
+      # computer licensing and the OEM first-run mode would bring the sign-in
+      # screen back. "Your privacy matters", shown on the first visible start,
+      # is turned off by one policy: optional connected experiences off
+      # (controllerconnectedservicesenabled). Measured on fresh runners, it
+      # stopped the screen on all nine that set it: five that also wrote
+      # Office's own notice values under Privacy\SettingsStore, and four set up
+      # exactly as here. With the content-service and diagnostic-data policies
+      # added as well, the screen came back on five of six, and each of those
+      # alone did not stop it. The notice values are not set: written in
+      # advance they did not stop it, and Office writes one of them,
+      # OptionalConnectedExperiencesNoticeVersion, once it has shown it.
+      - name: Turn off Office's activation and first-run screens
+        shell: pwsh
+        run: |
+          function Set-Dword($key, $name, $value) {
+            New-Item -Path $key -Force | Out-Null
+            New-ItemProperty -Path $key -Name $name -Value $value -PropertyType DWord -Force | Out-Null
+          }
+          $common = 'HKCU:\Software\Microsoft\Office\16.0\Common'
+          $policy = 'HKCU:\Software\Policies\Microsoft\Office\16.0\Common'
+          Set-Dword "$common\General" ShownFirstRunOptin 1
+          Set-Dword "$common\General" ShownOptIn 1
+          Set-Dword "$common\General" SkipSignInOnFirstRun 1
+          Set-Dword 'HKCU:\Software\Microsoft\Office\16.0\Registration' AcceptAllEulas 1
+          Set-Dword "$common\Licensing" DisableActivationUI 1
+          Set-Dword "$policy\Licensing" DisableActivationUI 1
+          Set-Dword "$common\Identity" NoDomainUser 1
+          Set-Dword "$common\Identity" DisableAADWAM 1
+          Set-Dword "$common\Identity" DisableADALatopWAMOverride 1
+          Set-Dword "$policy\SignIn" SignInOptions 3
+          Set-Dword "$policy\General" ShownFirstRunOptin 1
+          Set-Dword "$policy\Privacy" controllerconnectedservicesenabled 2
+
+      # Trusts access to the VBA project object model and opens each app once.
+      - uses: DecimalTurn/setup-vba@797e4a232699a98507cb4411d5bea3697427ad57 # v0.3.0
+        with:
+          office-apps: Excel,Word,PowerPoint,Access
+          install-office: 'false'
+
+      # With the values above, no Office app should show anything on its first
+      # visible start. This checks it, and names any dialog that appears.
+      - name: Check Office starts without a dialog
+        timeout-minutes: 10
+        shell: pwsh
+        run: .github/scripts/office-start-check.ps1
+
+      - name: Run the oracle on the sample
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          $sample = (Get-Content syntax_corpus/oracle/runner_sample.json -Raw | ConvertFrom-Json).cases
+          $selection = $sample | ForEach-Object { '--case'; $_ }
+          node syntax_corpus/oracle/run_vbe_oracle.mjs --strict --checkpoint test-results/oracle-sample.jsonl @selection |
+            Tee-Object -FilePath test-results/oracle.log
+          exit $LASTEXITCODE
+
+      # The oracle's verdict lines and totals, on the run's page.
+      - name: Summarise the oracle run
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          if (-not (Test-Path test-results/oracle.log)) { exit 0 }
+          $lines = Get-Content test-results/oracle.log
+          $verdicts = $lines | Where-Object { $_ -match '^(PASS|FAIL|SKIP|ORACLE-FAIL) ' }
+          $summary = @('', '| Result | Case |', '| --- | --- |')
+          $summary += $verdicts | ForEach-Object { $marker, $rest = $_ -split ' ', 2; "| $marker | ``$(($rest -split ':', 2)[0])`` |" }
+          $summary += '', ($lines | Where-Object { $_ -match 'oracle case\(s\)' } | Select-Object -Last 1)
+          $summary | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      # What the runner's screen showed, for a failure caused by a dialog.
+      - name: Take a screenshot
+        if: ${{ failure() }}
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bitmap.Size)
+          $bitmap.Save((Join-Path $PWD 'test-results/screen.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose(); $bitmap.Dispose()
+
+      - name: Upload the results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: oracle-sample
+          path: test-results/
+          if-no-files-found: warn

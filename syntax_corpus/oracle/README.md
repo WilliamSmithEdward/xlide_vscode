@@ -194,6 +194,59 @@ It rewrites the whole file as `JSON.stringify(document, null, 2)` with DEL
 and every non-ASCII character written as `\uXXXX`, so lay out hand-edited
 cases the same way; `tests/oracle/vbeOracleKnownCrash.test.ts` checks it.
 
+### On a GitHub-hosted runner
+
+The Office workflow (`.github/workflows/office.yml`) runs the oracle, strict,
+on a `windows-2025` runner, for the cases in `runner_sample.json`: an accepted
+and a rejected compile and run in each host, and two that reference the
+Outlook object library. Once the workflow is on `main`, it can be started by
+hand for any branch:
+
+```bash
+gh workflow run office.yml --ref my-branch
+gh workflow run office.yml --ref my-branch -f bitness=32
+gh workflow run office.yml --ref my-branch -f build=latest
+```
+
+It installs Office with Microsoft's Office Deployment Tool, updates off,
+64-bit unless `bitness` asks for 32-bit. The build is 16.0.20430.20182
+(`OFFICE_BUILD` in the workflow), the one the corpus was measured on, unless
+`build=latest` asks for the newest build on the Current channel, to see what a
+new Office release changes. If the tool can no longer download the pinned
+build, move `OFFICE_BUILD` to one the corpus has been measured on. Every
+Office app that runs VBA is installed except Publisher, which Microsoft is
+retiring: Excel, Word, PowerPoint, Access, Outlook (some cases reference its
+object library), Visio and Project; the rest of the suite is left out. The
+oracle runs only in Excel, Word, PowerPoint and Access; Visio and Project are
+installed and checked as registered, for when the oracle supports them. The
+run stops if the runner ends up with another bitness, without one of the
+seven apps, or, unless `build=latest`, with another build.
+
+Office is not activated. Registry values turn off its "Sign in to set up
+Office" screen and its first-run screens, and the policy that turns off
+optional connected experiences stops "Your privacy matters", which the first
+Office app to start on every runner showed without it. That one policy is all
+it takes: measured on fresh runners, it stopped the screen on all nine that
+set it, four of them set up exactly as the workflow is, while setting the
+content-service and diagnostic-data policies as well brought it back on five
+of six, and Office's own notice values, written in advance, did not stop it.
+[setup-vba](https://github.com/DecimalTurn/setup-vba) then trusts access to
+the VBA project object model in each of the four oracle hosts, and
+`.github/scripts/office-start-check.ps1` starts each of them visibly and fails
+if any shows a dialog within 20 seconds, naming it, or cannot start or open a
+file. A new Office build that brings a screen back fails there rather than in
+the middle of the oracle run.
+
+The run page's summary shows the Office build and a PASS/FAIL table of the
+cases. Unless the run is cancelled, the checkpoint file, a line for every case
+that finished, and the oracle's verdict lines are uploaded as the
+`oracle-sample` artifact, with `screen.png`, a screenshot of the runner's
+screen, when an earlier step failed and the screen could be captured; a run
+that fails before the first case finishes has no checkpoint.
+`tests/oracle/runnerSample.test.ts` keeps the sample in step with the corpus
+and the workflow: every case verified and crash-free, each kind in every host,
+the two Outlook cases, and the line the workflow reads the sample from.
+
 ## Requirements
 
 - Windows

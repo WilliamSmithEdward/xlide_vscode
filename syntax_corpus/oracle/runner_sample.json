@@ -1,0 +1,23 @@
+{
+  "description": "The cases .github/workflows/office.yml runs on a GitHub-hosted Windows runner: in each of the four hosts, an accepted and a rejected compile and an accepted and a rejected run, plus two that reference the Outlook object library. tests/oracle/runnerSample.test.ts keeps the list in step with vbe_oracle_cases.json.",
+  "cases": [
+    "normal_function_call",
+    "missing_trailing_required_argument",
+    "integer_assignment_numeric_string_runtime",
+    "integer_assignment_overflow_literal_runtime",
+    "outlook_ref_dim_mailitem_compile",
+    "host_word_compile_valid",
+    "host_word_undeclared_variable_compile",
+    "host_word_object_model_runtime",
+    "host_word_division_by_zero_runtime",
+    "host_powerpoint_compile_valid",
+    "host_powerpoint_undeclared_variable_compile",
+    "host_powerpoint_object_model_runtime",
+    "host_powerpoint_division_by_zero_runtime",
+    "host_access_compile_valid",
+    "host_access_undeclared_variable_compile",
+    "host_access_object_model_runtime",
+    "host_access_division_by_zero_runtime",
+    "outlook_access_ref_wrong_arguments_compile"
+  ]
+}
