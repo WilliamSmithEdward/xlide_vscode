@@ -12,7 +12,7 @@ import {
 import {
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
-	compilerConstantsWithDefaults,
+	win64On,
 } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
@@ -730,7 +730,7 @@ export function checkDeclarePtrSafeForWin64(
 	if (host?.toLowerCase() === 'vb6') {
 		return;
 	}
-	if (!conditionalValueTruthy(compilerConstantsWithDefaults(conditionalCompilation).get('win64'))) {
+	if (!win64On(conditionalCompilation)) {
 		return;
 	}
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -743,16 +743,6 @@ export function checkDeclarePtrSafeForWin64(
 			declaredNameSpan(source, member.span, member.name),
 		);
 	}
-}
-
-function conditionalValueTruthy(value: unknown): boolean {
-	if (typeof value === 'boolean') {
-		return value;
-	}
-	if (typeof value === 'number') {
-		return value !== 0;
-	}
-	return typeof value === 'string' && value.length > 0;
 }
 
 export function checkEventHandlerModuleScope(

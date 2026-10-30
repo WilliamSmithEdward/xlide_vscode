@@ -169,13 +169,17 @@
         "issue215_06_compile",
         "issue215_07_compile",
         "issue215_08_compile",
-        "issue215_10_compile"
+        "issue215_10_compile",
+        "module_const_win64_off_excel_declare_no_ptrsafe",
+        "module_const_win64_off_word_declare_no_ptrsafe",
+        "module_const_win64_off_powerpoint_declare_no_ptrsafe",
+        "module_const_win64_off_access_declare_no_ptrsafe"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "An active Declare without PtrSafe in 64-bit Office, the analyzer's default platform, as in the branch activity: \"The code in this project must be updated for use on 64-bit systems\" (issue #215, measured in 64-bit Excel and Word). Silent when the caller says Win64 is off, in inactive branches such as #If VBA7 ... #Else, and for VB6, which has no PtrSafe.",
+      "notes": "An active Declare without PtrSafe in 64-bit Office, the analyzer's default platform, as in the branch activity: \"The code in this project must be updated for use on 64-bit systems\" (issue #215, measured in 64-bit Excel and Word). Silent when the caller says Win64 is off, in inactive branches such as #If VBA7 ... #Else, and for VB6, which has no PtrSafe. A module's #Const Win64 = 0, or a project argument Win64 = 0, in 64-bit Office turns #If Win64 off and nothing else, so this rule follows the host's Win64 only (measured in Excel, Word, PowerPoint and Access).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -14048,11 +14052,15 @@
         "longlong_named_parenthesized_compile",
         "longlong_qualified_byval_long_compile",
         "longlong_qualified_named_byval_long_compile",
-        "longlong_named_byval_long_compile"
+        "longlong_named_byval_long_compile",
+        "module_const_win64_off_excel_varptr_into_long",
+        "module_const_win64_off_word_varptr_into_long",
+        "module_const_win64_off_powerpoint_varptr_into_long",
+        "module_const_win64_off_access_varptr_into_long"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": ""
+      "notes": "A module's #Const Win64 = 0, or a project argument Win64 = 0, in 64-bit Office turns #If Win64 off and nothing else, so this rule follows the host's Win64 only (measured in Excel, Word, PowerPoint and Access)."
     },
     {
       "code": "addressof-misuse",
@@ -14082,11 +14090,15 @@
         "issue299_30_compile",
         "issue299_31_compile",
         "issue299_34_compile",
-        "issue299_35_compile"
+        "issue299_35_compile",
+        "module_const_win64_off_excel_addressof_byval_long",
+        "module_const_win64_off_word_addressof_byval_long",
+        "module_const_win64_off_powerpoint_addressof_byval_long",
+        "module_const_win64_off_access_addressof_byval_long"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": ""
+      "notes": "A module's #Const Win64 = 0, or a project argument Win64 = 0, in 64-bit Office turns #If Win64 off and nothing else, so this rule follows the host's Win64 only (measured in Excel, Word, PowerPoint and Access)."
     },
     {
       "code": "paste-with-nothing-copied",

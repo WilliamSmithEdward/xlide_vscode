@@ -19,6 +19,11 @@
 // shows the call tip in both forms. Signatures are never invented: a callee
 // with no known signature simply yields no tip.
 
+import {
+	conditionalCompilationKey,
+	createConditionalActivityTracker,
+	type ConditionalCompilationEnvironment,
+} from '../conditional/conditionalCompilation';
 import { parseModule } from '../parser/parseModule';
 import { DeclareNode, ModuleNode, ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletionNamed, MemberCompletionContext } from '../completion/memberAccess';
@@ -148,16 +153,24 @@ interface LocalDeclarations {
 	declares: ReadonlyMap<string, DeclareNode>;
 }
 
-const LOCAL_DECLARATIONS = new WeakMap<ModuleNode, LocalDeclarations>();
+const LOCAL_DECLARATIONS = new WeakMap<ModuleNode, Map<string, LocalDeclarations>>();
 
-/** Retains only declaration nodes; documentation and project context stay live. */
-function localDeclarations(source: string): LocalDeclarations {
+/**
+ * Retains only declaration nodes; documentation and project context stay live.
+ * Only the declarations the conditional compilation compiles count: under
+ * 32-bit Office the #Else arm of #If Win64 declares the procedure.
+ */
+function localDeclarations(source: string, conditionalCompilation: ConditionalCompilationEnvironment | undefined): LocalDeclarations {
 	const module = parseModule(source);
-	const cached = LOCAL_DECLARATIONS.get(module);
+	const environment = conditionalCompilationKey(conditionalCompilation);
+	let byEnvironment = LOCAL_DECLARATIONS.get(module);
+	const cached = byEnvironment?.get(environment);
 	if (cached) { return cached; }
+	const activity = createConditionalActivityTracker(module, conditionalCompilation);
 	const procedures = new Map<string, ProcedureNode>();
 	const declares = new Map<string, DeclareNode>();
 	for (const member of module.members) {
+		if (activity?.isInactive(member.span)) { continue; }
 		if (member.kind === 'Procedure') {
 			const key = member.name.toLowerCase();
 			if (!procedures.has(key)) { procedures.set(key, member); }
@@ -167,16 +180,20 @@ function localDeclarations(source: string): LocalDeclarations {
 		}
 	}
 	const declarations = { procedures, declares };
-	LOCAL_DECLARATIONS.set(module, declarations);
+	if (!byEnvironment) {
+		byEnvironment = new Map();
+		LOCAL_DECLARATIONS.set(module, byEnvironment);
+	}
+	byEnvironment.set(environment, declarations);
 	return declarations;
 }
 
-function findUserProc(source: string, name: string): ProcedureNode | undefined {
-	return localDeclarations(source).procedures.get(name.toLowerCase());
+function findUserProc(source: string, name: string, ctx: SignatureHelpContext): ProcedureNode | undefined {
+	return localDeclarations(source, ctx.conditionalCompilation).procedures.get(name.toLowerCase());
 }
 
-function findUserDeclare(source: string, name: string): DeclareNode | undefined {
-	return localDeclarations(source).declares.get(name.toLowerCase());
+function findUserDeclare(source: string, name: string, ctx: SignatureHelpContext): DeclareNode | undefined {
+	return localDeclarations(source, ctx.conditionalCompilation).declares.get(name.toLowerCase());
 }
 
 /**
@@ -203,11 +220,11 @@ function signatureForCallee(
 	if (site.isMember) {
 		return memberCompletionForCallee(site, source, ctx)?.signature;
 	}
-	const proc = findUserProc(ctx.moduleSource ?? source, site.calleeName);
+	const proc = findUserProc(ctx.moduleSource ?? source, site.calleeName, ctx);
 	if (proc) {
 		return userProcSignature(proc);
 	}
-	const declare = findUserDeclare(ctx.moduleSource ?? source, site.calleeName);
+	const declare = findUserDeclare(ctx.moduleSource ?? source, site.calleeName, ctx);
 	if (declare) {
 		return userDeclareSignature(declare);
 	}
@@ -317,7 +334,7 @@ function signatureDetailsForCallee(
 		return [];
 	}
 	const moduleSource = ctx.moduleSource ?? source;
-	const declare = findUserDeclare(moduleSource, site.calleeName);
+	const declare = findUserDeclare(moduleSource, site.calleeName, ctx);
 	if (declare) {
 		return declareDetails({
 			moduleName: ctx.moduleName,
@@ -389,14 +406,14 @@ function docForCallee(
 	}
 	if (!site.isMember) {
 		const moduleSource = ctx.moduleSource ?? source;
-		const proc = findUserProc(moduleSource, site.calleeName);
+		const proc = findUserProc(moduleSource, site.calleeName, ctx);
 		if (proc) {
 			const inline = extractLeadingDoc(moduleSource, proc.span.start);
 			if (inline) {
 				return inline;
 			}
 		}
-		const declare = findUserDeclare(moduleSource, site.calleeName);
+		const declare = findUserDeclare(moduleSource, site.calleeName, ctx);
 		if (declare) {
 			const inline = extractLeadingDoc(moduleSource, declare.span.start);
 			if (inline) {

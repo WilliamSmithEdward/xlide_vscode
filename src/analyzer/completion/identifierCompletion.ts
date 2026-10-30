@@ -10,6 +10,7 @@
 // Pure analyzer code: depends only on the lexer, the symbol builder, and the
 // host model. See docs/xlide_vba_language_service_roadmap.md (Phase 6).
 
+import type { ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import { tokenize } from '../lexer/tokenize';
 import { completionLineCursorContext } from './cursorContext';
 import { HostObjectModel } from '../host/excelObjectModel';
@@ -81,6 +82,8 @@ export interface IdentifierCompletion {
 
 /** Project/module facts the identifier resolver needs from outside the source. */
 export interface IdentifierCompletionContext {
+	/** The project's conditional compilation, the Office it runs in included; absent is 64-bit Office. */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
 	/** Canonical worksheet/document code names of the workbook project. */
 	codeNames?: string[];
 	/**
@@ -175,6 +178,7 @@ export function createIdentifierCompletionResolver(
 		ctx.moduleName ?? 'Module',
 		ctx.moduleKind ?? 'standard',
 		source,
+		ctx.conditionalCompilation,
 	);
 	return (offset) => identifierCompletionsAt(source, offset, ctx, getSymbols);
 }

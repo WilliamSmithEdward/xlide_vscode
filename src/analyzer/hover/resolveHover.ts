@@ -8,6 +8,7 @@
 // Pure analyzer code: depends only on the lexer, symbol graph, and host model,
 // never on vscode. See docs/xlide_vba_language_service_roadmap.md (Phase 7).
 
+import type { ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import { tokenizeCached } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { firstTokenEndingAtOrAfter, isIdentLike } from '../lexer/tokenHelpers';
@@ -66,6 +67,8 @@ export interface HoverInfo {
 
 /** Project/module facts the hover resolver needs from outside the source. */
 export interface HoverContext {
+	/** The project's conditional compilation, the Office it runs in included; absent is 64-bit Office. */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
 	/** Lowercased worksheet/document code name -> qualified host type. */
 	codeNames?: Record<string, string>;
 	/** Qualified host type that `Me` resolves to in the current module. */
@@ -647,7 +650,7 @@ function findUserSymbol(
 ): VbaSymbol | undefined {
 	let mod;
 	try {
-		mod = editorModuleSymbols(moduleName, ctx.moduleKind ?? 'standard', source);
+		mod = editorModuleSymbols(moduleName, ctx.moduleKind ?? 'standard', source, ctx.conditionalCompilation);
 	} catch {
 		return undefined;
 	}

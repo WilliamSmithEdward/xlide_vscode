@@ -328,12 +328,61 @@ export function parseProjectConditionalConstants(
 /**
  * The constants a directive sees, the defaults for 64-bit Office included:
  * what `conditionalCompilerConstants` gives for the environment the branch
- * activity is decided in (issue #215).
+ * activity is decided in (issue #215). Not for a platform decision, where a
+ * project argument must not count: that is `win64On`. Kept for code outside
+ * this repository that reads the table.
  */
 export function compilerConstantsWithDefaults(
 	env: ConditionalCompilationEnvironment = {},
 ): Map<string, ConditionalValue> {
 	return conditionalCompilerConstants(effectiveConditionalCompilationEnvironment(env));
+}
+
+/**
+ * Whether the code is checked as 64-bit Office: the host's Win64, never the
+ * project's. A project's conditional compilation argument `Win64` decides
+ * `#If Win64` and nothing else: measured in Excel, Word, PowerPoint and
+ * Access, `Win64 = 0` in 64-bit Office still refuses a Declare without
+ * PtrSafe and still takes LongLong, and `Win64 = 1` in 32-bit Office still
+ * compiles that Declare and still refuses LongLong. So the platform rules
+ * read the compiler constants, which the host supplies, and the defaults.
+ */
+export function win64On(env: ConditionalCompilationEnvironment | undefined): boolean {
+	const win64 = conditionalCompilerConstants({ compilerConstants: effectiveConditionalCompilationEnvironment(env).compilerConstants }).get('win64');
+	return typeof win64 === 'number' ? win64 !== 0 : win64 === true;
+}
+
+/** A value with its type, numbers as text: JSON writes Infinity, -Infinity and NaN all as null. */
+function valueKey(value: ConditionalValue): [string, string | boolean] {
+	if (typeof value === 'number') { return ['n', String(value)]; }
+	if (typeof value === 'string') { return ['s', value]; }
+	if (typeof value === 'boolean') { return ['b', value]; }
+	return value.kind === 'date' ? ['d', String(value.serial)] : ['k', value.kind];
+}
+
+/**
+ * An environment as a cache key, for caches of symbols built under it: the
+ * same source has other declarations under another Office or other project
+ * arguments. An absent environment and `{}` are both the defaults. Absent
+ * project arguments are not `{}`: with `{}` a name nothing defines is 0,
+ * and with none it stays unknown, so the two are keyed apart.
+ */
+export function conditionalCompilationKey(env: ConditionalCompilationEnvironment | undefined): string {
+	// The constants as they are read, a name's last value winning whatever its
+	// case, then sorted: two environments built in another order share a key,
+	// and two that read differently never do.
+	const sorted = (constants: Readonly<Record<string, ConditionalValue>> | undefined) => {
+		if (!constants) { return undefined; }
+		const read = new Map<string, ConditionalValue>();
+		for (const [name, value] of Object.entries(constants)) { read.set(name.toLowerCase(), value); }
+		return [...read].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, value]) => [name, ...valueKey(value)]);
+	};
+	// The compiler constants are read over the defaults, which keep their
+	// place in the merge, so the key is taken from the merged table.
+	return JSON.stringify([
+		sorted(effectiveConditionalCompilationEnvironment(env).compilerConstants),
+		sorted(env?.projectConstants) ?? null,
+	]);
 }
 
 export function conditionalCompilerConstants(

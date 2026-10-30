@@ -14,6 +14,7 @@
 //   `Dim t As ProbeLibrary.Thing` is "User-defined type not defined".
 // - The referring project's own names come first: its own Value() wins.
 
+import type { ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import { ProjectIndex } from './projectIndex';
 import type { ModuleSymbolKind } from './symbolModel';
 
@@ -47,9 +48,17 @@ const EXPOSED = /^[ \t]*Attribute[ \t]+VB_Exposed[ \t]*=[ \t]*True\b/im;
 /** No module of the referenced project: < is no identifier character. */
 const OUTSIDE = '<outside>';
 
-/** The surface of a referenced project, from its modules' sources. */
-export function referencedProjectSurface(name: string, modules: readonly ReferencedProjectModuleSource[]): ReferencedProjectSurface {
-	const index = new ProjectIndex();
+/**
+ * The surface of a referenced project, from its modules' sources, under the
+ * conditional compilation it is compiled with: the referring project's Office
+ * and the referenced project's own arguments.
+ */
+export function referencedProjectSurface(
+	name: string,
+	modules: readonly ReferencedProjectModuleSource[],
+	conditionalCompilation?: ConditionalCompilationEnvironment,
+): ReferencedProjectSurface {
+	const index = new ProjectIndex(conditionalCompilation ? { conditionalCompilation } : {});
 	for (const mod of modules) {
 		try {
 			index.setModule({ moduleName: mod.name, moduleKind: mod.kind, source: mod.source });

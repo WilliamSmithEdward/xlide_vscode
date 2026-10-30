@@ -384,6 +384,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				referencedProjectSurfaces: ctx.opts.referencedProjectSurfaces,
 				projectName: ctx.opts.projectName,
 			},
+			ctx.opts.conditionalCompilation,
 		),
 	},
 	{

@@ -17,6 +17,7 @@ import { numberValue } from '../diagnostics/conditionValue';
 import { dateLiteralSerial } from '../constants/dateLiteral';
 import { tokenize, tokenizeCached } from '../lexer/tokenize';
 import { blockHeaderLineSpan, rawExpressionTokens } from '../diagnostics/walker';
+import type { ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import { ProjectIndex } from '../symbols/projectIndex';
 import { resolveMemberDefinitionsAt, privateMemberOwnerAt, type MemberCompletionContext } from '../completion/memberAccess';
 import { resolveBareIdentifierBinding } from '../symbols/nameResolution';
@@ -51,6 +52,8 @@ export interface IntroduceParameterInput {
 	otherModuleSources?: Readonly<Record<string, string>>;
 	/** Host module roles, keyed by module name; omitted roles retain standard-module behavior. */
 	moduleKinds?: Readonly<Record<string, ModuleSymbolKind>>;
+	/** The project's conditional compilation, the Office it runs in included; absent is 64-bit Office. */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
 }
 
 export function introduceParameter(input: IntroduceParameterInput): VbaRefactorResult {
@@ -136,7 +139,7 @@ export function introduceParameter(input: IntroduceParameterInput): VbaRefactorR
 	let otherModulesLoaded = false;
 	const bindingProject = (includeOtherModules: boolean): ProjectIndex => {
 		if (!symbols) {
-			project = new ProjectIndex();
+			project = new ProjectIndex(input.conditionalCompilation ? { conditionalCompilation: input.conditionalCompilation } : {});
 			project.setModule({moduleName: input.moduleName, moduleKind: kinds.get(input.moduleName.toLowerCase()) ?? 'standard', source});
 			symbols = project.getModule(input.moduleName)!;
 			owner = symbols.root.children?.find(symbol => symbol.fullSpan.start === procedure.span.start && symbol.name.toLowerCase() === procedure.name.toLowerCase());

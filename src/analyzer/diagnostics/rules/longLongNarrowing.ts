@@ -14,7 +14,7 @@
 import {
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
-	compilerConstantsWithDefaults,
+	win64On,
 } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
@@ -64,8 +64,7 @@ export function checkLongLongNarrowing(
 	push: PushFn,
 	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
-	const win64 = compilerConstantsWithDefaults(conditionalCompilation).get('win64');
-	if (host?.toLowerCase() === 'vb6' || !(typeof win64 === 'number' ? win64 !== 0 : win64 === true)) {
+	if (host?.toLowerCase() === 'vb6' || !win64On(conditionalCompilation)) {
 		return;
 	}
 	const signatures = callableTypeSignaturesFor(symbols, projectProcedures);

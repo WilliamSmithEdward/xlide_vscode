@@ -21,6 +21,7 @@
 // does not exist yet, and guessing between the two would put a reference
 // suggestion on ordinary broken code.
 
+import type { ConditionalCompilationEnvironment } from '../../conditional/conditionalCompilation';
 import type { ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { isProcedureKind, type ModuleSymbols, type VbaSymbol } from '../../symbols/symbolModel';
@@ -135,9 +136,14 @@ function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): A
  * modules may depend on it before the reference goes, which is what
  * the VBE's own Tools > References dialog never says.
  */
-export function librariesNamedIn(source: string, bindings?: SourceQualifierBindings, projectModules: ReadonlySet<string> = new Set()): Set<string> {
+export function librariesNamedIn(
+	source: string,
+	bindings?: SourceQualifierBindings,
+	projectModules: ReadonlySet<string> = new Set(),
+	conditionalCompilation?: ConditionalCompilationEnvironment,
+): Set<string> {
 	const out = new Set<string>();
-	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
+	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source, {conditionalCompilation})})) {
 		if (!projectModules.has(found.library.toLowerCase())) { out.add(found.library.toLowerCase()); }
 	}
 	return out;
@@ -252,6 +258,8 @@ export function checkMissingLibraryReference(
 	projectModules: ReadonlySet<string> = new Set(),
 	bindings?: SourceQualifierBindings,
 	project?: ProjectNames,
+	/** For the module's own symbols when no bindings are given: absent is 64-bit Office. */
+	conditionalCompilation?: ConditionalCompilationEnvironment,
 ): void {
 	const present = librariesInModel(model);
 	// Nothing is known about any library, so nothing can be said about one
@@ -263,7 +271,7 @@ export function checkMissingLibraryReference(
 	let qualifiers: ReadonlySet<string> | undefined;
 	const tokens = tokenizeCached(source).filter(token => token.kind !== 'comment' && token.kind !== 'newline');
 	const explicit = tokens.some((token, i) => token.rawText.toLowerCase() === 'option' && tokens[i + 1]?.rawText.toLowerCase() === 'explicit');
-	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source)})) {
+	for (const found of qualifiedNamesIn(source, bindings ?? {symbols: buildModuleSymbols('', 'standard', source, {conditionalCompilation})})) {
 		// Without Option Explicit an unknown value receiver is an implicit Variant,
 		// not a missing-library compile error (native Excel control).
 		if (!found.typeQualifier && !explicit) { continue; }

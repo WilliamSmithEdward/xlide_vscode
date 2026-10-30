@@ -8,6 +8,7 @@
 // on vscode. See docs/xlide_vba_language_service_roadmap.md (Host-Context Member
 // Completion addendum).
 
+import type { ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { IDENT_RE, isIdentLike, statementTokensCached } from '../lexer/tokenHelpers';
@@ -66,6 +67,8 @@ import type { FormControlInfo } from '../symbols/projectIndex';
 
 /** Project/module facts the resolver needs that come from outside the source. */
 export interface MemberCompletionContext {
+	/** The project's conditional compilation, the Office it runs in included; absent is 64-bit Office. */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
 	/**
 	 * Lowercased worksheet/document code name -> qualified host type, taken from
 	 * the workbook's VBA project (e.g. "sheet1" -> "Excel.Worksheet",

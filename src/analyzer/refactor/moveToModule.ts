@@ -13,6 +13,7 @@ import {
 import { lookupModuleSource, blankStringLiterals } from './shared';
 import { identifiersIn, tokenName } from '../lexer/tokenHelpers';
 import { tokenizeCached } from '../lexer/tokenize';
+import type { ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import { ProjectIndex } from '../symbols/projectIndex';
 import type { ModuleSymbolKind } from '../symbols/symbolModel';
 import { attachedCommentsStart } from '../docs/docComment';
@@ -43,6 +44,8 @@ export interface MoveToModuleInput {
 	otherModuleSources: Readonly<Record<string, string>>;
 	/** Host module roles; omitted entries retain the legacy standard-module default. */
 	moduleKinds?: Readonly<Record<string, ModuleSymbolKind>>;
+	/** The project's conditional compilation, the Office it runs in included; absent is 64-bit Office. */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
 }
 
 export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
@@ -91,7 +94,7 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	let project: ProjectIndex | undefined;
 	const bindingProject = (): ProjectIndex => {
 		if (!project) {
-			project = new ProjectIndex();
+			project = new ProjectIndex(input.conditionalCompilation ? { conditionalCompilation: input.conditionalCompilation } : {});
 			project.setModule({moduleName: input.moduleName, moduleKind: 'standard', source});
 			for (const [moduleName, otherSource] of Object.entries(input.otherModuleSources)) {
 				if (moduleName.toLowerCase() !== input.moduleName.toLowerCase()) {

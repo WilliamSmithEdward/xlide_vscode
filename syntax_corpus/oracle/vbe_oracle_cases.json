@@ -221849,6 +221849,178 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error",
       "host": "access"
+    },
+    {
+      "id": "module_const_win64_off_excel_declare_no_ptrsafe",
+      "description": "Excel: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: a Declare without PtrSafe is still refused, The code in this project must be updated for use on 64-bit systems, measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\n    Dim n As Long\r\n    n = GetTickCount()\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_excel_varptr_into_long",
+      "description": "Excel: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: VarPtr into a Long is still refused, Type mismatch, measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Main()\r\n    Dim x As Long\r\n    Dim n As Long\r\n    n = VarPtr(x)\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_excel_addressof_byval_long",
+      "description": "Excel: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: AddressOf into a ByVal Long is still refused, Type mismatch, measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Take(ByVal v As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_excel_if_arm_off",
+      "description": "Excel: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: the #If Win64 arm, which names an undefined type, is left out and the module compiles, measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\n#If Win64 Then\r\nPrivate m As NoSuchType\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_word_declare_no_ptrsafe",
+      "description": "Word: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: a Declare without PtrSafe is still refused, The code in this project must be updated for use on 64-bit systems, measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\n    Dim n As Long\r\n    n = GetTickCount()\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_word_varptr_into_long",
+      "description": "Word: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: VarPtr into a Long is still refused, Type mismatch, measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Main()\r\n    Dim x As Long\r\n    Dim n As Long\r\n    n = VarPtr(x)\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_word_addressof_byval_long",
+      "description": "Word: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: AddressOf into a ByVal Long is still refused, Type mismatch, measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Take(ByVal v As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_word_if_arm_off",
+      "description": "Word: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: the #If Win64 arm, which names an undefined type, is left out and the module compiles, measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\n#If Win64 Then\r\nPrivate m As NoSuchType\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_powerpoint_declare_no_ptrsafe",
+      "description": "PowerPoint: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: a Declare without PtrSafe is still refused, The code in this project must be updated for use on 64-bit systems, measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\n    Dim n As Long\r\n    n = GetTickCount()\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_powerpoint_varptr_into_long",
+      "description": "PowerPoint: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: VarPtr into a Long is still refused, Type mismatch, measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Main()\r\n    Dim x As Long\r\n    Dim n As Long\r\n    n = VarPtr(x)\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_powerpoint_addressof_byval_long",
+      "description": "PowerPoint: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: AddressOf into a ByVal Long is still refused, Type mismatch, measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Take(ByVal v As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_powerpoint_if_arm_off",
+      "description": "PowerPoint: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: the #If Win64 arm, which names an undefined type, is left out and the module compiles, measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\n#If Win64 Then\r\nPrivate m As NoSuchType\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_access_declare_no_ptrsafe",
+      "description": "Access: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: a Declare without PtrSafe is still refused, The code in this project must be updated for use on 64-bit systems, measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\n    Dim n As Long\r\n    n = GetTickCount()\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_access_varptr_into_long",
+      "description": "Access: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: VarPtr into a Long is still refused, Type mismatch, measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Main()\r\n    Dim x As Long\r\n    Dim n As Long\r\n    n = VarPtr(x)\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_access_addressof_byval_long",
+      "description": "Access: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: AddressOf into a ByVal Long is still refused, Type mismatch, measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\nSub Take(ByVal v As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "module_const_win64_off_access_if_arm_off",
+      "description": "Access: #Const Win64 = 0 in 64-bit Office turns #If Win64 off and nothing else: the #If Win64 arm, which names an undefined type, is left out and the module compiles, measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "mode": "compile",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "#Const Win64 = 0\r\nOption Explicit\r\n#If Win64 Then\r\nPrivate m As NoSuchType\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
     }
   ]
 }

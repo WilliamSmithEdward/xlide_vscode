@@ -16,7 +16,7 @@ import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
 import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, resolveMemberPresenceSurfaceAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { MSFORMS_FORM_CONTROL_MEMBERS } from '../../host/msFormsFormControlMembers';
-import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import type { ConditionalActivityTracker, ConditionalCompilationEnvironment } from '../../conditional/conditionalCompilation';
 import {
 	resolveHostConstant,
 	resolveHostEnum,
@@ -691,6 +691,7 @@ export function checkUndeclaredVariables(
 	ownMembers: ReadonlySet<string> = new Set(),
 	procedureFilter?: (member: ProcedureNode) => boolean,
 	project: ProjectQualifiers = {},
+	conditionalCompilation?: ConditionalCompilationEnvironment,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
@@ -790,6 +791,7 @@ export function checkUndeclaredVariables(
 		model: hostModel,
 		projectClassMembers: projectMembers,
 		projectVisibleSymbols,
+		conditionalCompilation,
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }

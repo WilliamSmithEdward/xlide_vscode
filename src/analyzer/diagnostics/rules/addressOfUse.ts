@@ -20,7 +20,7 @@
 import {
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
-	compilerConstantsWithDefaults,
+	win64On,
 } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, Span } from '../../parser/nodes';
@@ -64,8 +64,7 @@ export function checkAddressOfUse(
 	if (!/\bAddressOf\b/i.test(source)) {
 		return;
 	}
-	const win64 = compilerConstantsWithDefaults(conditionalCompilation).get('win64');
-	const is64 = typeof win64 === 'number' ? win64 !== 0 : win64 === true;
+	const is64 = win64On(conditionalCompilation);
 	const explicit = /^[ \t]*Option[ \t]+Explicit\b/im.test(source);
 	const signatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const moduleMembers = new Map((symbols.root.children ?? []).map((child) => [child.name.toLowerCase(), child.kind]));

@@ -1,4 +1,5 @@
 import { projectSetterValueType } from './projectSetterValueType';
+import { conditionalCompilationKey, type ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import { completionLineCursorContext } from './cursorContext';
 import { resolveMemberCompletionNamed, type MemberCompletionContext } from './memberAccess';
 import { resolveExpressionType, resolveSourceAssignmentBindingAt } from '../expression/resolveExpressionType';
@@ -58,7 +59,7 @@ export function resolveAssignmentValueCompletion(
 	if (!name) { return undefined; }
 	const expressionCtx = {
 		model: ctx.model, memberContext: ctx, moduleName: ctx.moduleName, moduleKind: ctx.moduleKind,
-		projectVisibleSymbols: ctx.projectSymbols,
+		projectVisibleSymbols: ctx.projectSymbols, conditionalCompilation: ctx.conditionalCompilation,
 	};
 	// Resolve the member before its index arguments, using its setter type.
 	const member = target[named.index - 1]?.rawText === '.'
@@ -114,17 +115,18 @@ function hostEnumValues(type: string, ctx: AssignmentValueCompletionContext): Om
 }
 
 const LOCAL_ENUM_CACHE_MAX = 4;
-const localEnumCache: { source: string; enums: Map<string, VbaSymbol> }[] = [];
+const localEnumCache: { source: string; environment: string; enums: Map<string, VbaSymbol> }[] = [];
 
-function localEnums(source: string): Map<string, VbaSymbol> {
-	const cached = localEnumCache.find(entry => entry.source === source);
+function localEnums(source: string, conditionalCompilation: ConditionalCompilationEnvironment | undefined): Map<string, VbaSymbol> {
+	const environment = conditionalCompilationKey(conditionalCompilation);
+	const cached = localEnumCache.find(entry => entry.source === source && entry.environment === environment);
 	if (cached) { return cached.enums; }
 	const enums = new Map<string, VbaSymbol>();
 	// Reuse the shared editor snapshot instead of parsing a second symbol graph.
-	for (const symbol of editorModuleSymbols('Module', 'standard', source).root.children ?? []) {
+	for (const symbol of editorModuleSymbols('Module', 'standard', source, conditionalCompilation).root.children ?? []) {
 		if (symbol.kind === 'enum') { enums.set(symbol.name.toLowerCase(), symbol); }
 	}
-	localEnumCache.unshift({ source, enums });
+	localEnumCache.unshift({ source, environment, enums });
 	if (localEnumCache.length > LOCAL_ENUM_CACHE_MAX) { localEnumCache.pop(); }
 	return enums;
 }
@@ -139,7 +141,7 @@ export function resolveEnumValues(source: string, type: string, ctx: AssignmentV
 	}
 	const ownModule = type.slice(0, type.lastIndexOf('.')).toLowerCase() === (ctx.moduleName ?? 'Module').toLowerCase();
 	const local = ctx.projectClassMembers === undefined && (!type.includes('.') || ownModule)
-		? localEnums(source).get(bare.toLowerCase()) : undefined;
+		? localEnums(source, ctx.conditionalCompilation).get(bare.toLowerCase()) : undefined;
 	if (local && type.includes('.')) { return undefined; }
 	if (local) {
 		return { enumName: local.name, origin: 'source', qualifiedEnumName: `${ctx.moduleName ?? 'Module'}.${local.name}`,

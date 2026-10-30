@@ -9,7 +9,7 @@ const D = 'Dim q As LongLong, p As LongPtr, n As Long, i As Integer, s As String
 
 function found(body: string, extra = '', win64 = 1): string[] {
 	const src = `Option Explicit\nFunction Main() As Variant\n    ${D}${body}\nEnd Function\nPrivate Sub TakeByValLong(ByVal v As Long)\nEnd Sub\n${extra}`;
-	return analyzeModule(src, { conditionalCompilation: { projectConstants: { Win64: win64 } } } as never)
+	return analyzeModule(src, { conditionalCompilation: { projectConstants: {}, compilerConstants: { Win64: win64 } } })
 		.filter((diag) => diag.severity === 'error').map((diag) => diag.code);
 }
 
@@ -26,6 +26,13 @@ describe('a LongLong where a narrower whole number goes', () => {
 		for (const body of ['Dim d As Double\n    d = q', 'Dim v As Variant\n    v = q', 's = q', 'n = CLng(q)', 'q = n', 'p = n', 'Main = (q = n)', 'n = q / 1']) {
 			expect(found(body), body).toEqual([]);
 		}
+	});
+
+	it('is still a Type mismatch where only the project says Win64 = 0', () => {
+		// Measured: a project argument turns #If Win64 off, not 64-bit Office.
+		const src = `Option Explicit\nFunction Main() As Variant\n    ${D}n = q\nEnd Function\n`;
+		expect(analyzeModule(src, { conditionalCompilation: { projectConstants: { Win64: 0 } } })
+			.filter((diag) => diag.severity === 'error').map((diag) => diag.code)).toEqual(['longlong-narrowing']);
 	});
 
 	it('is left alone where Win64 is off, as in 32-bit Office', () => {

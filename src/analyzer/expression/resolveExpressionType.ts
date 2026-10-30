@@ -13,6 +13,7 @@
 // than a span. This composes them for a span
 // (github.com/WilliamSmithEdward/xlide_vscode/issues/61).
 
+import { conditionalCompilationKey, type ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
 import type { MemberCompletionContext } from '../completion/memberAccess';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import { tokenize } from '../lexer/tokenize';
@@ -49,6 +50,8 @@ export interface ExpressionTypeContext {
 	projectVisibleSymbols?: readonly VbaSymbol[];
 	/** Member-resolution context, when the caller already has one built. */
 	memberContext?: MemberCompletionContext;
+	/** The project's conditional compilation, the Office it runs in included; absent is 64-bit Office. */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
 }
 
 export interface ExpressionTypeInfo {
@@ -80,6 +83,8 @@ interface BoundModule {
 	source: string;
 	moduleName: string;
 	moduleKind: ModuleSymbolKind;
+	/** The conditional compilation the symbols were built under, as a key. */
+	environment: string;
 	module: ReturnType<typeof parseModule>;
 	symbols: ReturnType<typeof buildModuleSymbols>;
 }
@@ -89,10 +94,13 @@ function boundModule(
 	source: string,
 	moduleName: string,
 	moduleKind: ModuleSymbolKind,
+	conditionalCompilation?: ConditionalCompilationEnvironment,
 ): BoundModule {
+	const environment = conditionalCompilationKey(conditionalCompilation);
 	for (let i = 0; i < boundModuleCache.length; i += 1) {
 		const hit = boundModuleCache[i];
-		if (hit.source === source && hit.moduleName === moduleName && hit.moduleKind === moduleKind) {
+		if (hit.source === source && hit.moduleName === moduleName && hit.moduleKind === moduleKind
+			&& hit.environment === environment) {
 			// Adopt the caller's instance so later lookups settle on the pointer
 			// rather than comparing the whole module again.
 			hit.source = source;
@@ -108,8 +116,9 @@ function boundModule(
 		source,
 		moduleName,
 		moduleKind,
+		environment,
 		module,
-		symbols: buildModuleSymbols(moduleName, moduleKind, source, { parsedModule: module }),
+		symbols: buildModuleSymbols(moduleName, moduleKind, source, { parsedModule: module, conditionalCompilation }),
 	};
 	boundModuleCache.unshift(entry);
 	if (boundModuleCache.length > BOUND_MODULE_CACHE_MAX) {
@@ -210,6 +219,7 @@ export function resolveExpressionType(
 		source,
 		ctx.moduleName ?? 'Module',
 		ctx.moduleKind ?? 'standard',
+		ctx.conditionalCompilation,
 	);
 	const { symbols } = bound;
 	const proc = enclosingProcedure(bound, span);
@@ -254,7 +264,7 @@ export function resolveExpressionType(
 export function resolveSourceAssignmentBindingAt(
 	source: string, span: Span, name: string, ctx: ExpressionTypeContext = {},
 ): BareIdentifierResolution & { setterValueType?: string; setterValueIsArray?: boolean } {
-	const bound = boundModule(source, ctx.moduleName ?? 'Module', ctx.moduleKind ?? 'standard');
+	const bound = boundModule(source, ctx.moduleName ?? 'Module', ctx.moduleKind ?? 'standard', ctx.conditionalCompilation);
 	const proc = enclosingProcedure(bound, span);
 	const binding = resolveBareIdentifierBinding({
 		currentModule: bound.symbols,
