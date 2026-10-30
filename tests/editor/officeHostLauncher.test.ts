@@ -153,6 +153,38 @@ describe('Word and PowerPoint F5 macro launcher scripts', () => {
         expect(script).toContain('XLIDE_MACRO_ERROR|');
     });
 
+    it('stops before Run in a database Access does not trust, and says why (issue #1531)', () => {
+        const script = buildAccessMacroLaunchScript('C:\\work\\Orders.accdb', 'Main');
+        // Trust is read after the open and before Run; only an explicit
+        // False stops, so an Access that cannot answer runs as before.
+        expect(script.indexOf('$trusted = $app.CurrentProject.IsTrusted')).toBeGreaterThan(script.indexOf('$app.OpenCurrentDatabase($targetPath)'));
+        expect(script.indexOf('$trusted = $app.CurrentProject.IsTrusted')).toBeLessThan(script.indexOf('$app.Run($macroName)'));
+        expect(script).toContain('try { $trusted = $app.CurrentProject.IsTrusted } catch { }');
+        expect(script).toContain('if ($trusted -eq $false) {');
+        expect(script).toContain('if ((Get-XlideZone $targetPath) -ge 3) { throw "RUN_FAILED|Access opened the database');
+        expect(script).toMatch(/RUN_FAILED\|Access opened the database with its code disabled, because Windows marks the file as downloaded[^"]*Unblock/);
+        expect(script).toMatch(/RUN_FAILED\|Access opened the database with its code disabled, so nothing ran\. Select Enable Content[^"]*Trusted Locations/);
+        // The Trust Center's choice stands.
+        expect(script).not.toContain('AutomationSecurity');
+        expect(script).not.toMatch(/Set-Content[^\n]*Zone\.Identifier|Remove-Item[^\n]*Zone\.Identifier|Unblock-File/);
+    });
+
+    it('names a downloaded file when Run fails in Excel, Word or PowerPoint (issue #1531)', () => {
+        const scripts: Array<[string, string]> = [
+            ['Excel', buildExcelLaunchScript({ filePath: 'C:\\work\\Book.xlsm', attachToRunning: true, mode: { kind: 'macroReadOnly', macroName: 'Module1.Main' } })],
+            ['Word', buildWordMacroLaunchScript('C:\\work\\Report.docm', 'Module1.Main')],
+            ['PowerPoint', buildPowerPointMacroLaunchScript('C:\\work\\Deck.pptm', 'Module1.Main')],
+        ];
+        for (const [app, script] of scripts) {
+            expect(script, app).toContain('function Get-XlideZone($path)');
+            expect(script, app).toContain(`RUN_FAILED|${app} did not run the macro, and Windows marks the file as downloaded from the internet`);
+            // Only on a failure, and the application's own error otherwise.
+            expect(script, app).toContain('if ((Get-XlideZone $targetPath) -ge 3) { throw $downloadedRunFailure }');
+            expect(script, app).toContain('throw ("RUN_FAILED|XLIDE could not run the macro: " + $runError)');
+            expect(script.indexOf('$downloadedRunFailure = '), app).toBeLessThan(script.indexOf('throw $downloadedRunFailure'));
+        }
+    });
+
     it('escapes single quotes in interpolated host values', () => {
         const script = buildWordMacroLaunchScript("C:\\work\\Bob's Report.docm", 'Module1.Main');
         expect(script).toContain("$targetPath = 'C:\\work\\Bob''s Report.docm'");
