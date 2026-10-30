@@ -59,6 +59,91 @@ public static class XlideUser32 {
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 }
 
+// Office's macro Security Notice (issue #1529). Loading a referenced
+// project's file raises it in PowerPoint, and in Word with the VBE shown, and
+// References.AddFromFile does not return until it is answered. The watcher
+// never answers it: it closes the notice, which declines, records its title,
+// and the case ends as an infrastructure failure with no verdict. It looks
+// only at windows of the host process the worker started, and only while a
+// project reference is being added. English titles only.
+public static class XlideSecurityNoticeWatcher {
+    private const uint WM_CLOSE = 0x0010;
+    private static Thread watcherThread;
+    private static volatile bool stopRequested;
+    private static volatile string seenTitle;
+    private static readonly ManualResetEvent stopEvent = new ManualResetEvent(false);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    public static bool IsNoticeTitle(string title) {
+        return title == "Microsoft Excel Security Notice"
+            || title == "Microsoft Word Security Notice"
+            || title == "Microsoft PowerPoint Security Notice"
+            || title == "Microsoft Access Security Notice";
+    }
+
+    public static void Start(uint hostProcessId, int maxSeconds) {
+        Stop();
+        seenTitle = null;
+        if (hostProcessId == 0) {
+            return;
+        }
+        stopRequested = false;
+        stopEvent.Reset();
+        watcherThread = new Thread(delegate() { Watch(hostProcessId, maxSeconds); });
+        watcherThread.IsBackground = true;
+        watcherThread.Start();
+    }
+
+    // The title of the notice it closed since Start, or null.
+    public static string Stop() {
+        stopRequested = true;
+        stopEvent.Set();
+        if (watcherThread != null && watcherThread.IsAlive) {
+            watcherThread.Join(5000);
+        }
+        watcherThread = null;
+        return seenTitle;
+    }
+
+    private static void Watch(uint hostProcessId, int maxSeconds) {
+        DateTime deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, maxSeconds));
+        while (!stopRequested && DateTime.UtcNow < deadline) {
+            EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
+                uint windowProcessId;
+                GetWindowThreadProcessId(hWnd, out windowProcessId);
+                if (windowProcessId != hostProcessId || !IsWindowVisible(hWnd)) {
+                    return true;
+                }
+                StringBuilder text = new StringBuilder(256);
+                GetWindowText(hWnd, text, text.Capacity);
+                string title = text.ToString();
+                if (IsNoticeTitle(title)) {
+                    seenTitle = title;
+                    PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                }
+                return true;
+            }, IntPtr.Zero);
+            stopEvent.WaitOne(100);
+        }
+    }
+}
+
 public static class XlideVbeDialogWatcher {
     private const int WM_CLOSE = 0x0010;
     private const int WM_COMMAND = 0x0111;
@@ -1481,6 +1566,7 @@ function Invoke-OracleCase {
         $result.hostBuild = Get-HostBuild $appPid
         $script:appCases += 1
 
+        $script:securityNotice = $null
         Set-Stage "create_file"
         $created = New-OracleContainer $app
         $container = $created.Container
@@ -1499,7 +1585,16 @@ function Invoke-OracleCase {
         }
         if ($case.PSObject.Properties.Name -contains "projectReference" -and $case.projectReference) {
             Set-Stage "add_project_reference"
-            $madeProvider = New-ProjectReference $app $vbProject $case $containerPath
+            [XlideSecurityNoticeWatcher]::Start($appPid, $DialogWatchSeconds)
+            try {
+                $madeProvider = New-ProjectReference $app $vbProject $case $containerPath
+            }
+            finally {
+                $script:securityNotice = [XlideSecurityNoticeWatcher]::Stop()
+            }
+            if ($script:securityNotice) {
+                throw "Security notice declined."
+            }
             if ($madeProvider.VbProject) {
                 Remove-ComObjectReference $vbProject
                 $vbProject = $madeProvider.VbProject
@@ -1627,7 +1722,15 @@ function Invoke-OracleCase {
     }
     catch {
         $dialog = Read-DialogResult
-        if ($null -ne $dialog) {
+        if ($script:securityNotice) {
+            # No verdict: the case's code never compiled with the reference
+            # Office asked about (issue #1529).
+            $result.outcome = "worker_error"
+            $result.stage = "security_notice"
+            $result.message = "Office showed '" + $script:securityNotice + "' while adding the project reference. The oracle declined it and records no verdict. Office's Trust Center decides whether the notice appears."
+            $result.hresult = $null
+        }
+        elseif ($null -ne $dialog) {
             Set-DialogOutcome $dialog ($mode -eq "compile")
         }
         elseif (($stage -eq "add_module" -or $stage -eq "add_modules") -and $InsertionRefusals -contains $_.Exception.Message) {
@@ -1647,6 +1750,7 @@ function Invoke-OracleCase {
     }
     finally {
         try { [XlideVbeDialogWatcher]::Stop() } catch { }
+        try { [void][XlideSecurityNoticeWatcher]::Stop() } catch { }
         $closed = $true
         if ($null -ne $container) {
             try { Close-OracleContainer $app $container } catch { $closed = $false }

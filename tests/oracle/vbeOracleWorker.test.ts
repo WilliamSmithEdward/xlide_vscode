@@ -278,3 +278,83 @@ ConvertTo-Json -InputObject @($results) -Compress
     ]);
     expect(results).toEqual(expected);
 }, 20_000);
+
+describe('the macro Security Notice (issue #1529)', () => {
+    const worker = readOracle('vbe_oracle_worker.ps1').replaceAll('\r\n', '\n');
+
+    it('declines the notice while a project reference is added, and records no verdict', () => {
+        const stage = worker.indexOf('Set-Stage "add_project_reference"');
+        const next = worker.indexOf('Set-Stage', stage + 1);
+        const adding = worker.slice(stage, next);
+        expect(adding).toContain('[XlideSecurityNoticeWatcher]::Start($appPid, $DialogWatchSeconds)');
+        expect(adding).toContain('$script:securityNotice = [XlideSecurityNoticeWatcher]::Stop()');
+        expect(worker).toContain('$result.stage = "security_notice"');
+        // Never pressed: the watcher only posts WM_CLOSE, and no button is clicked.
+        const watcher = worker.slice(worker.indexOf('public static class XlideSecurityNoticeWatcher'), worker.indexOf('public static class XlideVbeDialogWatcher'));
+        expect(watcher).toContain('PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero)');
+        expect(watcher).not.toMatch(/BM_CLICK|Invoke\(|SendKeys|Enable Macros/);
+        // No Trust Center setting, Trusted Location or AutomationSecurity is written for it.
+        expect(watcher).not.toMatch(/Registry|AutomationSecurity|Trusted/);
+    });
+
+    it.skipIf(process.platform !== 'win32')('closes only a notice of the watched process, and only one so titled', () => {
+        const start = worker.indexOf('public static class XlideSecurityNoticeWatcher');
+        const source = 'using System;\nusing System.Runtime.InteropServices;\nusing System.Text;\nusing System.Threading;\n'
+            + worker.slice(start, worker.indexOf('public static class XlideVbeDialogWatcher'));
+        // Stand-in windows of this PowerShell, placed off screen. Process 4 is
+        // System, which owns no window: watching it must close nothing.
+        const script = String.raw`
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -TypeDefinition $env:XLIDE_NOTICE_WATCHER
+function New-StandIn($title) {
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = $title
+    $form.ShowInTaskbar = $false
+    $form.StartPosition = 'Manual'
+    $form.Location = New-Object System.Drawing.Point(-32000, -32000)
+    $form.Show()
+    return $form
+}
+function Watch-For($processId, $seconds) {
+    [XlideSecurityNoticeWatcher]::Start([uint32]$processId, 10)
+    $until = (Get-Date).AddSeconds($seconds)
+    while ((Get-Date) -lt $until) { [System.Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 20 }
+    $started = Get-Date
+    $title = [XlideSecurityNoticeWatcher]::Stop()
+    return @{ title = $title; stopMs = ((Get-Date) - $started).TotalMilliseconds }
+}
+$notice = New-StandIn 'Microsoft PowerPoint Security Notice'
+$other = New-StandIn 'Microsoft PowerPoint'
+$elsewhere = Watch-For 4 1
+$noticeAfterElsewhere = $notice.Visible
+$own = Watch-For $PID 2
+$none = Watch-For $PID 1
+$otherAfterOwn = -not $other.IsDisposed
+$other.Close()
+[pscustomobject]@{
+    elsewhereTitle = $elsewhere.title
+    noticeAfterElsewhere = $noticeAfterElsewhere
+    ownTitle = $own.title
+    noticeAfterOwn = $notice.Visible
+    otherAfterOwn = $otherAfterOwn
+    noneTitle = $none.title
+    noneStopMs = $none.stopMs
+} | ConvertTo-Json -Compress
+`;
+        const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
+            encoding: 'utf8', timeout: 30_000, env: { ...process.env, XLIDE_NOTICE_WATCHER: source },
+        });
+        expect(run.error).toBeUndefined();
+        expect(run.status, run.stderr).toBe(0);
+        const seen = JSON.parse(run.stdout.trim());
+        expect(seen.elsewhereTitle).toBeNull();
+        expect(seen.noticeAfterElsewhere).toBe(true);
+        expect(seen.ownTitle).toBe('Microsoft PowerPoint Security Notice');
+        expect(seen.noticeAfterOwn).toBe(false);
+        expect(seen.otherAfterOwn).toBe(true);
+        // A notice that never comes is not waited for.
+        expect(seen.noneTitle).toBeNull();
+        expect(seen.noneStopMs).toBeLessThan(1000);
+    }, 40_000);
+});
