@@ -224553,6 +224553,870 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_excel_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 excel: a Declare without PtrSafe is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_off_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 excel: a Declare without PtrSafe under a module #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_off_declare_ptrsafe_compile",
+      "description": "Issue #1528 excel: a PtrSafe Declare under a module #Const Win64 = 0 compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_excel_off_else_arm_declare_compile",
+      "description": "Issue #1528 excel: the #Else arm of #If Win64, without PtrSafe, under #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_off_if_arm_skipped_compile",
+      "description": "Issue #1528 excel: the #If Win64 arm without PtrSafe is inactive under #Const Win64 = 0 compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_excel_varptr_long_compile",
+      "description": "Issue #1528 excel: VarPtr assigned to a Long is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_off_varptr_long_compile",
+      "description": "Issue #1528 excel: VarPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_off_varptr_longptr_compile",
+      "description": "Issue #1528 excel: VarPtr assigned to a LongPtr under #Const Win64 = 0 compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As LongPtr\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_excel_off_longptr_into_long_compile",
+      "description": "Issue #1528 excel: a LongPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim p As LongPtr\r\n    Dim x As Long\r\n    x = p\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_addressof_long_compile",
+      "description": "Issue #1528 excel: AddressOf passed ByVal As Long is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_off_addressof_long_compile",
+      "description": "Issue #1528 excel: AddressOf passed ByVal As Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_excel_off_addressof_longptr_compile",
+      "description": "Issue #1528 excel: AddressOf passed ByVal As LongPtr under #Const Win64 = 0 compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As LongPtr)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_word_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 word: a Declare without PtrSafe is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_off_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 word: a Declare without PtrSafe under a module #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_off_declare_ptrsafe_compile",
+      "description": "Issue #1528 word: a PtrSafe Declare under a module #Const Win64 = 0 compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_word_off_else_arm_declare_compile",
+      "description": "Issue #1528 word: the #Else arm of #If Win64, without PtrSafe, under #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_off_if_arm_skipped_compile",
+      "description": "Issue #1528 word: the #If Win64 arm without PtrSafe is inactive under #Const Win64 = 0 compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_word_varptr_long_compile",
+      "description": "Issue #1528 word: VarPtr assigned to a Long is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_off_varptr_long_compile",
+      "description": "Issue #1528 word: VarPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_off_varptr_longptr_compile",
+      "description": "Issue #1528 word: VarPtr assigned to a LongPtr under #Const Win64 = 0 compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As LongPtr\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_word_off_longptr_into_long_compile",
+      "description": "Issue #1528 word: a LongPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim p As LongPtr\r\n    Dim x As Long\r\n    x = p\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_addressof_long_compile",
+      "description": "Issue #1528 word: AddressOf passed ByVal As Long is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_off_addressof_long_compile",
+      "description": "Issue #1528 word: AddressOf passed ByVal As Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_word_off_addressof_longptr_compile",
+      "description": "Issue #1528 word: AddressOf passed ByVal As LongPtr under #Const Win64 = 0 compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As LongPtr)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_powerpoint_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 powerpoint: a Declare without PtrSafe is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_off_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 powerpoint: a Declare without PtrSafe under a module #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_off_declare_ptrsafe_compile",
+      "description": "Issue #1528 powerpoint: a PtrSafe Declare under a module #Const Win64 = 0 compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_powerpoint_off_else_arm_declare_compile",
+      "description": "Issue #1528 powerpoint: the #Else arm of #If Win64, without PtrSafe, under #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_off_if_arm_skipped_compile",
+      "description": "Issue #1528 powerpoint: the #If Win64 arm without PtrSafe is inactive under #Const Win64 = 0 compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_powerpoint_varptr_long_compile",
+      "description": "Issue #1528 powerpoint: VarPtr assigned to a Long is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_off_varptr_long_compile",
+      "description": "Issue #1528 powerpoint: VarPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_off_varptr_longptr_compile",
+      "description": "Issue #1528 powerpoint: VarPtr assigned to a LongPtr under #Const Win64 = 0 compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As LongPtr\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_powerpoint_off_longptr_into_long_compile",
+      "description": "Issue #1528 powerpoint: a LongPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim p As LongPtr\r\n    Dim x As Long\r\n    x = p\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_addressof_long_compile",
+      "description": "Issue #1528 powerpoint: AddressOf passed ByVal As Long is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_off_addressof_long_compile",
+      "description": "Issue #1528 powerpoint: AddressOf passed ByVal As Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_powerpoint_off_addressof_longptr_compile",
+      "description": "Issue #1528 powerpoint: AddressOf passed ByVal As LongPtr under #Const Win64 = 0 compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As LongPtr)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_access_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 access: a Declare without PtrSafe is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_off_declare_no_ptrsafe_compile",
+      "description": "Issue #1528 access: a Declare without PtrSafe under a module #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_off_declare_ptrsafe_compile",
+      "description": "Issue #1528 access: a PtrSafe Declare under a module #Const Win64 = 0 compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_access_off_else_arm_declare_compile",
+      "description": "Issue #1528 access: the #Else arm of #If Win64, without PtrSafe, under #Const Win64 = 0 is rejected: Compile error: The code in this project must be updated for use on 64-bit systems.  Please review and update Declare statements and then mark them with the PtrSafe attribute.. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_off_if_arm_skipped_compile",
+      "description": "Issue #1528 access: the #If Win64 arm without PtrSafe is inactive under #Const Win64 = 0 compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\n#If Win64 Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_access_varptr_long_compile",
+      "description": "Issue #1528 access: VarPtr assigned to a Long is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_off_varptr_long_compile",
+      "description": "Issue #1528 access: VarPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As Long\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_off_varptr_longptr_compile",
+      "description": "Issue #1528 access: VarPtr assigned to a LongPtr under #Const Win64 = 0 compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim y As Long\r\n    Dim x As LongPtr\r\n    x = VarPtr(y)\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1528_access_off_longptr_into_long_compile",
+      "description": "Issue #1528 access: a LongPtr assigned to a Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Main()\r\n    Dim p As LongPtr\r\n    Dim x As Long\r\n    x = p\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_addressof_long_compile",
+      "description": "Issue #1528 access: AddressOf passed ByVal As Long is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_off_addressof_long_compile",
+      "description": "Issue #1528 access: AddressOf passed ByVal As Long under #Const Win64 = 0 is rejected: Compile error: Type mismatch. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As Long)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1528_access_off_addressof_longptr_compile",
+      "description": "Issue #1528 access: AddressOf passed ByVal As LongPtr under #Const Win64 = 0 compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#Const Win64 = 0\r\nSub Take(ByVal p As LongPtr)\r\nEnd Sub\r\nSub Callback()\r\nEnd Sub\r\nSub Main()\r\n    Take AddressOf Callback\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
