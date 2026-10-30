@@ -2,6 +2,38 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.3] - 2026-10-30
+
+Completion across line breaks, legacy PowerPoint files, two declarations
+the VBE refuses, and a referenced project moved with its consumer. Every
+fix here started from an issue Sam (@swsammy) filed, and each was measured
+in Excel, Word, PowerPoint and Access.
+
+- Read only the caret's logical line for type and identifier completion.
+  The empty row below `Dim t As` gets the statement-start list, not the
+  type list, `Dim t As Long ` no longer reopens `Long`, and `As _` on the
+  line above still completes a type (#1527).
+- Treat PowerPoint 97-2003 templates and shows (`.pot`, `.pps`) as
+  PowerPoint files. They were read as Excel files. Creating a project in
+  `.pot`, `.pps` or `.ppsx` is refused instead of writing an Excel
+  workbook under that name (#1533).
+- Report `WithEvents` of a UserForm or document module that declares no
+  Event ("Object does not source automation events"), and a standard
+  module's name used as a type ("A module is not a valid type") (#1530).
+- Say why F5 ran nothing in an Access database Access does not trust, and
+  name a file marked as downloaded when a run fails in Excel, Word or
+  PowerPoint. XLIDE changes no Trust Center setting and answers no prompt
+  (#1531).
+- Find a referenced VBA project moved together with the file that
+  references it, in Word, PowerPoint and Access, by looking beside that
+  file for the recorded file name. A network or device path is never
+  looked for (#1532).
+- VBE oracle: decline Office's macro Security Notice when adding a project
+  reference and stop the run, instead of hanging until the case times out
+  (#1529). New cases pin the 64-bit rules under a module `#Const Win64 = 0`
+  (#1528).
+- Move the Semgrep image and the GitHub Actions pins (#1534, #1536, #1537).
+
 ## [11.2.2] - 2026-10-28
 
 Names reached through a referenced VBA project, ActiveX controls on Word
