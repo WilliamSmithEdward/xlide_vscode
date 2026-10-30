@@ -184,10 +184,13 @@ export function buildExcelLaunchScript(options: ExcelLaunchScriptOptions): strin
         '}',
         ...EXCEL_FOREGROUND_LINES,
         '$macroRef = "\'" + ($workbook.Name -replace "\'", "\'\'") + "\'!" + $macroName',
+        ...downloadedRunFailureLines('Excel'),
         'try {',
         '  Invoke-XlideCom { $excel.Run($macroRef) }',
         '} catch {',
-        '  throw ("RUN_FAILED|XLIDE could not run the macro: " + $_.Exception.Message)',
+        '  $runError = $_.Exception.Message',
+        '  if ((Get-XlideZone $targetPath) -ge 3) { throw $downloadedRunFailure }',
+        '  throw ("RUN_FAILED|XLIDE could not run the macro: " + $runError)',
         '}',
         '[Console]::Out.WriteLine("XLIDE_MACRO_OK")',
         '} catch {',
@@ -237,8 +240,9 @@ export function buildWordMacroLaunchScript(filePath: string, macroName: string, 
         // Documents.Open(FileName, ConfirmConversions, ReadOnly, AddToRecentFiles)
         'try { $doc = Invoke-XlideCom { $app.Documents.Open($targetPath, $false, $true, $false) } } catch { throw ("REOPEN_FAILED|XLIDE could not open the document. If it is open outside XLIDE, close it in Word and try again: " + $_.Exception.Message) }',
         'try { $doc.Activate() } catch { }',
+        ...downloadedRunFailureLines('Word'),
         // Word resolves Module.Proc and rejects document-qualified names.
-        'try { Invoke-XlideCom { $app.Run($macroName) } } catch { throw ("RUN_FAILED|XLIDE could not run the macro: " + $_.Exception.Message) }',
+        'try { Invoke-XlideCom { $app.Run($macroName) } } catch { $runError = $_.Exception.Message; if ((Get-XlideZone $targetPath) -ge 3) { throw $downloadedRunFailure }; throw ("RUN_FAILED|XLIDE could not run the macro: " + $runError) }',
         '[Console]::Out.WriteLine("XLIDE_MACRO_OK")',
         '} catch {',
         '  [Console]::Error.WriteLine("XLIDE_MACRO_ERROR|" + ($_.Exception.Message -replace "[\\r\\n]+", " "))',
@@ -269,6 +273,7 @@ export function buildAccessMacroLaunchScript(filePath: string, procedureName: st
 		'try {',
 		`$macroName = ${psSingleQuoted(procedureName)}`,
 		...accessDatabaseLines(filePath, attachToRunning),
+		...ACCESS_TRUST_LINES,
 		// Access resolves a bare procedure name and refuses a qualified one.
 		// F5 targets a Function as readily as a Sub here, so its return value
 		// is swallowed rather than printed over the script's own output.
@@ -280,6 +285,49 @@ export function buildAccessMacroLaunchScript(filePath: string, procedureName: st
 		'}',
 	].join('\n');
 }
+
+/**
+ * The zone Windows records for a downloaded file; 3 (Internet) and 4
+ * (Restricted) block its macros. A file with no Zone.Identifier stream is 0.
+ * Only read: XLIDE never changes a file's zone.
+ */
+const ZONE_FUNCTION = 'function Get-XlideZone($path) { $zone = 0; try { foreach ($line in @(Get-Content -LiteralPath $path -Stream Zone.Identifier -ErrorAction Stop)) { if ($line -match "^ZoneId=(\\d+)") { $zone = [int]$Matches[1] } } } catch { }; return $zone }';
+
+/**
+ * Where Run fails on a file marked as downloaded, which blocks its macros, the
+ * reason replaces the application's bare error: Word's is "Command failed",
+ * after a macros-blocked security dialog it leaves open (issue #1531,
+ * measured in Word 16.0, build 20527). Excel and PowerPoint ran
+ * the same downloaded copies on that machine, so the hint appears only on a
+ * failure.
+ */
+function downloadedRunFailureLines(appName: string): string[] {
+	return [
+		ZONE_FUNCTION,
+		`$downloadedRunFailure = "RUN_FAILED|${appName} did not run the macro, and Windows marks the file as downloaded from the internet, which blocks its macros. Close it in ${appName}, open the file's Properties in File Explorer, select Unblock, then press F5 again."`,
+	];
+}
+
+/**
+ * A database Access does not trust opens with its code disabled, and Run then
+ * fails with "Exception from HRESULT: 0x800A9D9F", which says nothing about
+ * why (issue #1531). The script reads CurrentProject.IsTrusted after the open
+ * and stops on an explicit False with what to do; an Access that cannot
+ * answer runs the procedure as before. The Trust Center's choice stands:
+ * XLIDE never changes it, a Trusted Location or a file's zone, and opening
+ * with code enabled would also run the database's AutoExec macro and startup
+ * form. A file marked as downloaded (zone 3 or 4) gets a Security Risk bar
+ * with no Enable Content, so it is told apart.
+ */
+const ACCESS_TRUST_LINES: readonly string[] = [
+	ZONE_FUNCTION,
+	'$trusted = $null',
+	'try { $trusted = $app.CurrentProject.IsTrusted } catch { }',
+	'if ($trusted -eq $false) {',
+	'  if ((Get-XlideZone $targetPath) -ge 3) { throw "RUN_FAILED|Access opened the database with its code disabled, because Windows marks the file as downloaded from the internet, so nothing ran. Close the database, open the file\'s Properties in File Explorer, select Unblock, then press F5 again." }',
+	'  throw "RUN_FAILED|Access opened the database with its code disabled, so nothing ran. Select Enable Content on Access\'s message bar and press F5 again. Or add the database\'s folder under Trusted Locations in Access\'s Trust Center, close the database and press F5 again. If Access shows neither, whoever manages Access on this computer decides which databases may run code."',
+	'}',
+];
 
 /**
  * Two Access rules, both measured on Access 16.0. An instance automation
@@ -382,7 +430,8 @@ export function buildPowerPointMacroLaunchScript(filePath: string, macroName: st
         'try { $pres.Windows.Item(1).Activate() } catch { }',
         // PowerPoint takes the presentation-qualified File.pptm!Module.Proc form.
         '$macroRef = $pres.Name + "!" + $macroName',
-        'try { Invoke-XlideCom { [void]$app.GetType().InvokeMember("Run", [Reflection.BindingFlags]::InvokeMethod, $null, $app, @($macroRef)) } } catch { throw ("RUN_FAILED|XLIDE could not run the macro: " + $_.Exception.Message) }',
+        ...downloadedRunFailureLines('PowerPoint'),
+        'try { Invoke-XlideCom { [void]$app.GetType().InvokeMember("Run", [Reflection.BindingFlags]::InvokeMethod, $null, $app, @($macroRef)) } } catch { $runError = $_.Exception.Message; if ((Get-XlideZone $targetPath) -ge 3) { throw $downloadedRunFailure }; throw ("RUN_FAILED|XLIDE could not run the macro: " + $runError) }',
         '[Console]::Out.WriteLine("XLIDE_MACRO_OK")',
         '} catch {',
         '  [Console]::Error.WriteLine("XLIDE_MACRO_ERROR|" + ($_.Exception.Message -replace "[\\r\\n]+", " "))',
