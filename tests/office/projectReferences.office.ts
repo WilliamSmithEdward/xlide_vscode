@@ -52,6 +52,12 @@ async function openInAccess(file: string, label: string): Promise<Record<string,
 	const result = await psFile([
 		'$ErrorActionPreference = "Continue"',
 		'$app = [Activator]::CreateInstance([type]::GetTypeFromProgID("Access.Application"))',
+		// Access starts at msoAutomationSecurityByUI (2) under automation, where
+		// the others start at msoAutomationSecurityLow (1), so a database outside
+		// a trusted location opened with its code disabled and the probe failed
+		// with 0x800A9D9F (issue #1529). 1 applies to this instance and the
+		// check's scratch copy only, as the oracle worker does.
+		'$app.AutomationSecurity = 1',
 		`$app.OpenCurrentDatabase(${q(file)})`,
 		...report('$app', '$app.Run("Report")'),
 		'$app.CloseCurrentDatabase()',
