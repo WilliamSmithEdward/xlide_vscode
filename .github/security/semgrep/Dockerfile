@@ -2,4 +2,4 @@
 # with every library it runs on. update-semgrep-image.yml proposes new
 # versions of it. The
 # rules themselves come from the Semgrep registry on each run.
-FROM semgrep/semgrep:1.181.0@sha256:81474464c1f07483ba0682a44787fd93c91397419762a04abe2bafaae396304b
+FROM semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6
