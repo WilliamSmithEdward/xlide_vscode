@@ -31,6 +31,9 @@ import * as identifiers from '../../src/analyzer/completion/identifierCompletion
 import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../../src/analyzer/call/callContext';
 import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 import type { EditorProjectContext, VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
 
 function prepareRequest(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
@@ -95,6 +98,29 @@ describe('completion provider surface', () => {
         expect(plain.projectContext.buildEditorProjectContextWithin).not.toHaveBeenCalled();
         const directive = await request("' @xlide-");
         expect(directive.items.map(item => item.label)).toContain('@xlide-test');
+    });
+    const directiveLabels = (items: { label: unknown }[]) => items.map(item => item.label)
+        .filter(label => typeof label === 'string' && label.startsWith('@'));
+    const hosts: [string, EditorProjectContext][] = [
+        ['Excel', { host: 'excel', hostModel: getExcelObjectModel() }],
+        ['Word', { host: 'word', hostModel: getWordObjectModel() }],
+        ['PowerPoint', { host: 'powerpoint', hostModel: getPowerPointObjectModel() }],
+        ['Access', { host: 'access', hostModel: getAccessObjectModel() }],
+    ];
+    it.each(hosts.flatMap(([name, context]) => ['Dim t _', 'x = 1 + _', 'Dim t As Long, _', 'Dim t As Long _', 'x = 1: Dim t _ \t']
+        .map(above => [name, above, context] as const)))('%s: offers no test directives on the row continuing %j', async (_name, above, context) => {
+        const prepared = prepareRequest('    ', context, 4, `Sub Demo()\n${above}\n`);
+        expect(directiveLabels((await prepared.run(' ')).items)).toEqual([]);
+        expect(directiveLabels((await prepared.run()).items)).toEqual([]);
+    });
+    it.each([['    @xl', 'Dim t _'], ['    ', 'Dim t As Long _\u3000']])('offers no test directives at %j on the row continuing %j', async (line, above) => {
+        expect(directiveLabels((await prepareRequest(line, {}, line.length, `Sub Demo()\n${above}\n`).run()).items)).toEqual([]);
+    });
+    it.each(['', "' Checks the total _\n", "' Checks _\n' the total _\n", "x = 1 ' note _\n", 'Rem note _\n', 'x = "text _\n', 'abc_\n'])('still offers test directives on the row after %j', async above => {
+        const prepared = prepareRequest('    ', {}, 4, `Sub Demo()\n${above}`);
+        const directives = ['@xlide-test', '@xlide-test-skip', '@xlide-test-xfail'];
+        expect(directiveLabels((await prepared.run(' ')).items)).toEqual(directives);
+        expect(directiveLabels((await prepared.run()).items)).toEqual(directives);
     });
 
     it('includes project classes alongside built-in types after As', async () => {
