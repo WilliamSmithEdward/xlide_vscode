@@ -302,11 +302,20 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			return new vscode.CompletionList([], false);
 		}
 		const directiveCompletions = this._testDirectiveCompletions(document, position);
-		const directiveItems = directiveCompletions.map(
+		let directiveItems = directiveCompletions.map(
 			(completion) => this._toTestDirectiveItem(completion, position.line),
 		);
 		if (directiveCompletions.some((completion) => completion.exclusive)) {
 			return new vscode.CompletionList(directiveItems, false);
+		}
+		// A directive is a comment line of its own, so a row that carries on a
+		// statement from the row above cannot hold one. A row carrying on a
+		// comment is still comment text, and test discovery reads it.
+		if (directiveItems.length > 0 && position.line > 0 && /_\s*$/.test(document.lineAt(position.line - 1).text)) {
+			const cursor = completionLineCursorContext(document.getText(), document.offsetAt(position));
+			if (!cursor.inComment && cursor.statementStart < document.offsetAt(new vscode.Position(position.line, 0))) {
+				directiveItems = [];
+			}
 		}
 
 		// A space is typed far more often than it opens a grammar position
