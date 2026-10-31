@@ -5,10 +5,19 @@
 //
 // This replaces npm-run-all, whose minimatch 3 carries GHSA-g3hv-75wg-m249
 // with no fixed release on that line.
+//
+// Each watcher runs through npm's own CLI, which npm names in npm_execpath
+// for every script it runs, so no shell starts it on any platform.
 import { spawn } from 'node:child_process';
 
+const npmCli = process.env.npm_execpath;
+if (!npmCli) {
+  console.error('Run this through npm: npm run watch');
+  process.exit(1);
+}
+
 const children = ['watch:esbuild', 'watch:tsc'].map((script) =>
-  spawn('npm', ['run', script], { stdio: 'inherit', shell: true }),
+  spawn(process.execPath, [npmCli, 'run', script], { stdio: 'inherit' }),
 );
 
 let exiting = false;
