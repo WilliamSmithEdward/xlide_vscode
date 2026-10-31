@@ -4,7 +4,9 @@
 // DefType of the handler's module, with a type character winning over both;
 // library and UserForm events included. A project Collection that declares
 // an Event can be listened to `WithEvents ... As Collection`, and
-// `As VBA.Collection` never can. The cases are the issue1493_* fixtures in
+// `As VBA.Collection` never can. In 64-bit Office a LongPtr parameter takes
+// a LongLong handler and the reverse, while an Enum parameter takes Long but
+// not LongPtr. The cases are the issue1493_* fixtures in
 // syntax_corpus/oracle/vbe_oracle_cases.json; each handler holds a statement,
 // since the VBE checks an empty one only when its module runs (issue #195).
 
@@ -35,7 +37,7 @@ function errors(oracleCase: Pick<OracleCase, 'host' | 'modules'>): string[] {
 
 describe('events and their handlers (issue #1493)', () => {
 	it('has every measured case', () => {
-		expect(measured).toHaveLength(118);
+		expect(measured).toHaveLength(164);
 	});
 
 	it.each(measured.map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s agrees with the VBE', (_id, oracleCase) => {
