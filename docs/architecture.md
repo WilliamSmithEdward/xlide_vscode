@@ -1442,7 +1442,9 @@ into a pure analyzer layer and a thin VS Code provider:
   handlers, and chart document modules get `Chart_*` handlers. UserForm
   handler authoring stays out: designer-backed form/control event metadata is a
   permanent won't-implement (see the Won't Implement section in
-  `docs/spec/MS-VBAL.verification-map.md`). Existing handlers are not re-suggested, and
+  `docs/spec/MS-VBAL.verification-map.md`). No stub is offered inside a
+  procedure, Type or Enum, including an unfinished one, or on a row that
+  continues the line above. Existing handlers are not re-suggested, and
   accepting an event completion inserts either the full `Private Sub ... End
   Sub` stub or only the declaration tail after an existing `Private Sub`
   prefix. Known workbook/worksheet/chart event-handler-shaped `Sub`

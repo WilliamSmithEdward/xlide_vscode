@@ -3,6 +3,7 @@ import {
 	EventHandlerCompletionContext,
 	resolveEventHandlerCompletions,
 } from '../../src/analyzer';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 
 function at(src: string, marker: string): number {
 	const idx = src.indexOf(marker);
@@ -194,5 +195,46 @@ describe('Word document event handlers (issue #25)', () => {
 			documentType: 'workbook',
 		});
 		expect(got).not.toContain('Document_Open');
+	});
+});
+
+describe('where a handler stub is offered', () => {
+	// One handler per Office host, typed far enough to name it.
+	const hosts: readonly (readonly [string, EventHandlerCompletionContext, string, string])[] = [
+		['Excel ThisWorkbook', { moduleName: 'ThisWorkbook', moduleKind: 'document', documentType: 'workbook', host: 'excel' }, 'Workbook_O', 'Workbook_Open'],
+		['Word ThisDocument', { moduleName: 'ThisDocument', moduleKind: 'document', documentType: 'document', host: 'word' }, 'Document_O', 'Document_Open'],
+		['a PowerPoint UserForm', { moduleName: 'UserForm1', moduleKind: 'userform', host: 'powerpoint' }, 'UserForm_I', 'UserForm_Initialize'],
+		['an Access form', { moduleName: 'Form_Orders', moduleKind: 'userform', host: 'access', meType: 'Access.Form', model: getAccessObjectModel() }, 'Form_Loa', 'Form_Load'],
+	];
+	const atEnd = (src: string, ctx: EventHandlerCompletionContext) =>
+		resolveEventHandlerCompletions(src, src.length, ctx).map((item) => item.name);
+
+	it.each(hosts)('offers none in an unfinished procedure at the end of the module, or in a Type or Enum (%s)', (_, ctx, typed, handler) => {
+		for (const eol of ['\n', '\r\n']) {
+			expect(atEnd(`Option Explicit${eol}Sub Work()${eol}${typed}`, ctx)).toEqual([]);
+			expect(atEnd(`Option Explicit${eol}Private Enum Kind${eol}${typed}`, ctx)).toEqual([]);
+			expect(atEnd(`Option Explicit${eol}Private Type Point${eol}${typed}`, ctx)).toEqual([]);
+			expect(names(`Private Enum Kind${eol}${typed}${eol}End Enum${eol}`, `${eol}${typed}`, ctx)).toEqual([]);
+			expect(names(`Private Type Point${eol}${typed}${eol}End Type${eol}`, `${eol}${typed}`, ctx)).toEqual([]);
+			expect(atEnd(`Option Explicit${eol}Sub Work()${eol}End Sub${eol}${typed}`, ctx)).toEqual([handler]);
+		}
+	});
+
+	it.each(hosts)('offers none on a row that continues the line above (%s)', (_, ctx, typed, handler) => {
+		for (const eol of ['\n', '\r\n']) {
+			expect(atEnd(`Option Explicit${eol}Const Limit = _${eol}${typed}`, ctx)).toEqual([]);
+			expect(atEnd(`Option Explicit${eol}' a note _${eol}${typed}`, ctx)).toEqual([]);
+			expect(atEnd(`Option Explicit${eol}Const Limit = 1${eol}${typed}`, ctx)).toEqual([handler]);
+		}
+	});
+
+	it.each(hosts)('completes the name on an unfinished header row, whatever follows it (%s)', (_, ctx, typed, handler) => {
+		for (const after of ['', '\n', '\r\n', '\n\nPrivate Sub Work()\nEnd Sub\n']) {
+			const tail = completions(`Option Explicit\nPrivate Sub ${typed}${after}`, `Sub ${typed}`, ctx);
+			expect(tail.map((item) => item.name)).toEqual([handler]);
+			expect(tail[0].insertText.startsWith(`${handler}(`)).toBe(true);
+		}
+		// The row below the unfinished header is still its body.
+		expect(names(`Private Sub Work()\n${typed}\n`, `\n${typed}`, ctx)).toEqual([]);
 	});
 });
