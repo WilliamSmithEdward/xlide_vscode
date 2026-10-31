@@ -31,6 +31,46 @@ function fields(lines: readonly string[]): Record<string, string> {
     }));
 }
 
+/**
+ * Puts a window of the check's own in front, just before the refresh: Windows
+ * gives the foreground to the Excel the check has just shown, and "stays
+ * behind whatever was in front" says nothing when that is Excel. The window
+ * asks for the foreground attached to the input of the thread that holds it,
+ * and runs on a thread of its own, so it keeps answering while the refresh
+ * runs. Show returns its handle, or 0 if that took more than ten seconds.
+ */
+const FRONT_WINDOW = [
+    "Add-Type -ReferencedAssemblies System.Windows.Forms -TypeDefinition @'",
+    'using System; using System.Runtime.InteropServices; using System.Threading; using System.Windows.Forms;',
+    'public static class XlideFrontWindow {',
+    '    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();',
+    '    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr pid);',
+    '    [DllImport("user32.dll")] static extern bool AttachThreadInput(uint attach, uint attachTo, bool on);',
+    '    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);',
+    '    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();',
+    '    public static long Show() {',
+    '        IntPtr handle = IntPtr.Zero;',
+    '        ManualResetEvent shown = new ManualResetEvent(false);',
+    '        Thread thread = new Thread(delegate() {',
+    '            Form form = new Form { Text = "XLIDE live preview check" };',
+    '            form.Show();',
+    '            uint front = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero), own = GetCurrentThreadId();',
+    '            bool attached = front != 0 && front != own && AttachThreadInput(own, front, true);',
+    '            SetForegroundWindow(form.Handle);',
+    '            if (attached) { AttachThreadInput(own, front, false); }',
+    '            handle = form.Handle;',
+    '            shown.Set();',
+    '            Application.Run(form);',
+    '        });',
+    '        thread.SetApartmentState(ApartmentState.STA);',
+    '        thread.IsBackground = true;',
+    '        thread.Start();',
+    '        return shown.WaitOne(10000) ? handle.ToInt64() : 0;',
+    '    }',
+    '}',
+    "'@",
+];
+
 async function waitForFile(file: string, timeoutMs: number): Promise<void> {
     const until = Date.now() + timeoutMs;
     while (!fs.existsSync(file)) {
@@ -72,6 +112,7 @@ async function followOneSave(): Promise<FollowedSave> {
 
     const run = psFile([
         '$ErrorActionPreference = "Continue"',
+        ...FRONT_WINDOW,
         'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);\' -Name Front -Namespace XlideLive',
         'function Get-Front { $hwnd = [XlideLive.Front]::GetForegroundWindow(); $owner = 0; [void][XlideLive.Front]::GetWindowThreadProcessId($hwnd, [ref]$owner); $name = ""; try { $name = (Get-Process -Id $owner -ErrorAction Stop).ProcessName } catch { }; return ([string]$hwnd + ":" + $name) }',
         '$own = New-Object -ComObject Excel.Application',
@@ -94,6 +135,7 @@ async function followOneSave(): Promise<FollowedSave> {
         'Write-Place "before" $wb',
         `Set-Content -Path ${q(ready)} -Value "ready"`,
         `while (-not (Test-Path ${q(go)})) { Start-Sleep -Milliseconds 100 }`,
+        '"front.window=" + [XlideFrontWindow]::Show()',
         '"front.before=" + (Get-Front)',
         refreshAgainstOwnExcel(file),
         '"front.after=" + (Get-Front)',
@@ -125,15 +167,7 @@ async function followOneSave(): Promise<FollowedSave> {
 
 describe.runIf(await hostInstalled('excel'))('Excel as a live preview', () => {
     it('follows a save, keeping the sheet, selection and scroll, without running Workbook_Open again', async () => {
-        // Whether the check's own Excel takes the foreground when it is shown
-        // is Windows' call, and "stays behind whatever was in front" says
-        // nothing when that was Excel. It happened in two runs of fifteen, so
-        // the scenario runs again, a bounded number of times, until it was not.
-        let followed = await followOneSave();
-        for (let attempt = 1; attempt < 3 && /:EXCEL$/i.test(followed.seen['front.before'] ?? ''); attempt++) {
-            followed = await followOneSave();
-        }
-        const { seen, err, opened } = followed;
+        const { seen, err, opened } = await followOneSave();
         expect(seen['XLIDE_REFRESH|refreshed'], err.join('\n')).toBe('True');
         expect(seen['before.sheet']).toBe('Sheet2');
         for (const part of ['sheet', 'selection', 'activeCell', 'scroll', 'readOnly']) {
@@ -149,7 +183,8 @@ describe.runIf(await hostInstalled('excel'))('Excel as a live preview', () => {
         expect(opened).toEqual(['opened']);
         expect(seen.events).toBe('True');
         // Whatever was in front stays there: the window, as `hwnd:process`.
-        expect(seen['front.before']).not.toMatch(/:EXCEL$/i);
-        expect(seen['front.after']).toBe(seen['front.before']);
+        // That is the check's own window, which is not Excel.
+        expect(seen['front.before'], `the check's own window was not in front\n${err.join('\n')}`).toBe(`${seen['front.window']}:powershell`);
+        expect(seen['front.after'], 'the refresh moved the foreground').toBe(seen['front.before']);
     });
 });
