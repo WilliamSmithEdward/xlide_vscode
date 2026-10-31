@@ -2,9 +2,9 @@
 # is published, whatever this schedule says. Patch and minor bumps come as
 # one pull request per ecosystem, so a week's routine updates are one review.
 # The GitHub Actions entry keeps the commit SHAs the workflows pin current,
-# the Docker entry the ClamAV image the malware scan runs (GitHub refuses
-# Dependabot's Semgrep image updates; update-semgrep-image.yml moves that),
-# and the pip entry zizmor's hash-locked install.
+# and the pip entry zizmor's hash-locked install. GitHub refuses
+# Dependabot's image updates, so update-images.yml moves the ClamAV and
+# Semgrep images.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -49,20 +49,6 @@ updates:
     groups:
       actions:
         patterns: ['*']
-        update-types: [minor, patch]
-
-  - package-ecosystem: docker
-    directories: [/.github/security/clamav]
-    schedule:
-      interval: weekly
-      day: monday
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: chore(ci)
-    groups:
-      minor-and-patch:
-        patterns: ["*"]
         update-types: [minor, patch]
 
   # zizmor, which the Security workflow installs from a hash-locked file.
