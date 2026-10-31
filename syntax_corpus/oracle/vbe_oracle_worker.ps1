@@ -1382,6 +1382,17 @@ function New-ProjectReference($App, $VbProject, $Case, [string]$CasePath) {
             Remove-ComObjectReference $provider
             $provider = $null
         }
+        # A reference that loads the add-in itself raises PowerPoint's macro
+        # Security Notice, with the VBE shown or hidden and at
+        # AutomationSecurity 1 or 3 (issue #1529). Loading it through AddIns first
+        # raises none, and the reference then takes the loaded project.
+        # PowerPoint drops the add-in again when the case's presentation
+        # closes. Measured in builds 20527 and 12527, from the temp folder.
+        if ($script:hostName -eq "powerpoint") {
+            $addIn = $App.AddIns.Add($path)
+            try { $addIn.Loaded = -1 }        # msoTrue
+            finally { Remove-ComObjectReference $addIn }
+        }
         $reference = $VbProject.References.AddFromFile($path)
         if ([string]$reference.Name -cne [string]$spec.name) {
             throw "The reference is named '$($reference.Name)', not '$($spec.name)'."
@@ -1391,7 +1402,9 @@ function New-ProjectReference($App, $VbProject, $Case, [string]$CasePath) {
         try { Close-OracleContainer $App $provider } catch { }
         Remove-ComObjectReference $providerProject
         Remove-ComObjectReference $provider
-        if (Test-Path -LiteralPath $path) { try { Remove-Item -LiteralPath $path -Force } catch { } }
+        # A loaded add-in holds its file until the host quits; the case
+        # deletes it then.
+        if (Test-Path -LiteralPath $path) { try { Remove-Item -LiteralPath $path -Force } catch { $script:providerLeft = $path } }
         throw
     }
     finally {
@@ -1567,6 +1580,7 @@ function Invoke-OracleCase {
         $script:appCases += 1
 
         $script:securityNotice = $null
+        $script:providerLeft = $null
         Set-Stage "create_file"
         $created = New-OracleContainer $app
         $container = $created.Container
@@ -1585,6 +1599,12 @@ function Invoke-OracleCase {
         }
         if ($case.PSObject.Properties.Name -contains "projectReference" -and $case.projectReference) {
             Set-Stage "add_project_reference"
+            # Word raises the Security Notice for the referenced template
+            # while the VBE is shown, as it is in an instance kept from a
+            # compile case, and not once it is hidden again (issue #1529).
+            # A compile shows it again; a run case leaves it hidden, as a
+            # fresh instance has it.
+            $app.VBE.MainWindow.Visible = $false
             [XlideSecurityNoticeWatcher]::Start($appPid, $DialogWatchSeconds)
             try {
                 $madeProvider = New-ProjectReference $app $vbProject $case $containerPath
@@ -1592,6 +1612,10 @@ function Invoke-OracleCase {
             finally {
                 $script:securityNotice = [XlideSecurityNoticeWatcher]::Stop()
             }
+            # Kept before a declined notice ends the case, so the provider is
+            # still closed and deleted after it.
+            $provider = $madeProvider.Container
+            $providerPath = $madeProvider.Path
             if ($script:securityNotice) {
                 throw "Security notice declined."
             }
@@ -1599,8 +1623,6 @@ function Invoke-OracleCase {
                 Remove-ComObjectReference $vbProject
                 $vbProject = $madeProvider.VbProject
             }
-            $provider = $madeProvider.Container
-            $providerPath = $madeProvider.Path
         }
         if ($case.PSObject.Properties.Name -contains "documentControls" -and $case.documentControls) {
             Set-Stage "add_document_controls"
@@ -1770,11 +1792,21 @@ function Invoke-OracleCase {
         if ($closed -and $null -ne $script:app) {
             try { $closed = (Get-OpenContainerCount $script:app) -eq 0 } catch { $closed = $false }
         }
+        # PowerPoint's provider add-in leaves with the case's presentation. An
+        # instance that still lists any add-in, the provider's or another, is
+        # not kept.
+        if ($closed -and $providerPath -and $script:hostName -eq "powerpoint") {
+            try { $closed = $script:app.AddIns.Count -eq 0 } catch { $closed = $false }
+        }
         $evidence = $result.outcome -eq "accepted" -or $result.outcome -eq "rejected"
         if (-not $closed -or -not $evidence -or $mode -ne "compile" -or $script:hostName -eq "access" -or $script:appCases -ge $CasesPerInstance) {
             Stop-OracleHost
         }
 
+        if ($script:providerLeft) {
+            if (Test-Path -LiteralPath $script:providerLeft) { try { Remove-Item -LiteralPath $script:providerLeft -Force } catch { } }
+            $script:providerLeft = $null
+        }
         if ($providerPath) {
             foreach ($candidate in @($providerPath, [IO.Path]::ChangeExtension($providerPath, ".laccdb"))) {
                 if (Test-Path -LiteralPath $candidate) { try { Remove-Item -LiteralPath $candidate -Force } catch { } }

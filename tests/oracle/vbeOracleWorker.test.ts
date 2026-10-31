@@ -36,7 +36,11 @@ describe('VBE oracle worker', () => {
             const arm = new RegExp(`"${host}" \\{([\\s\\S]*?)\\n        \\}`).exec(settings)?.[1] ?? '';
             expect(arm, host).toMatch(/\$App\.Visible = (\$true|-1)/);
         }
-        expect(worker).not.toMatch(/\.Visible = (\$false|0)\b/);
+        // The one exception: the VBE is hidden while a project reference is
+        // added (issue #1529). The host itself stays visible.
+        const referenceHide = '$app.VBE.MainWindow.Visible = $false';
+        expect(worker.split(referenceHide)).toHaveLength(2);
+        expect(worker.replace(referenceHide, '')).not.toMatch(/\.Visible = (\$false|0)\b/);
         expect(worker).toContain('$app.VBE.MainWindow.Visible = $true');
     });
 
@@ -288,6 +292,10 @@ describe('the macro Security Notice (issue #1529)', () => {
         const adding = worker.slice(stage, next);
         expect(adding).toContain('[XlideSecurityNoticeWatcher]::Start($appPid, $DialogWatchSeconds)');
         expect(adding).toContain('$script:securityNotice = [XlideSecurityNoticeWatcher]::Stop()');
+        // The provider is kept before the case ends, so it is still deleted.
+        const kept = adding.indexOf('$providerPath = $madeProvider.Path');
+        expect(kept).toBeGreaterThan(-1);
+        expect(kept).toBeLessThan(adding.indexOf('throw "Security notice declined."'));
         expect(worker).toContain('$result.stage = "security_notice"');
         // Never pressed: the watcher only posts WM_CLOSE, and no button is clicked.
         const watcher = worker.slice(worker.indexOf('public static class XlideSecurityNoticeWatcher'), worker.indexOf('public static class XlideVbeDialogWatcher'));
@@ -295,6 +303,37 @@ describe('the macro Security Notice (issue #1529)', () => {
         expect(watcher).not.toMatch(/BM_CLICK|Invoke\(|SendKeys|Enable Macros/);
         // No Trust Center setting, Trusted Location or AutomationSecurity is written for it.
         expect(watcher).not.toMatch(/Registry|AutomationSecurity|Trusted/);
+    });
+
+    it('adds the reference in the ways that raise no notice', () => {
+        // Word: with the VBE hidden, which a kept instance has shown.
+        const stage = worker.indexOf('Set-Stage "add_project_reference"');
+        const adding = worker.slice(stage, worker.indexOf('Set-Stage', stage + 1));
+        const hidden = adding.indexOf('$app.VBE.MainWindow.Visible = $false');
+        const watched = adding.indexOf('[XlideSecurityNoticeWatcher]::Start(');
+        expect(hidden).toBeGreaterThan(-1);
+        expect(watched).toBeGreaterThan(hidden);
+        // PowerPoint, and only PowerPoint: the add-in loaded through AddIns
+        // before the reference names it.
+        const making = worker.slice(worker.indexOf('function New-ProjectReference('), worker.indexOf('function New-AccessProjectReference('));
+        const loading = [
+            '        if ($script:hostName -eq "powerpoint") {',
+            '            $addIn = $App.AddIns.Add($path)',
+            '            try { $addIn.Loaded = -1 }        # msoTrue',
+            '            finally { Remove-ComObjectReference $addIn }',
+            '        }',
+            '        $reference = $VbProject.References.AddFromFile($path)',
+        ].join('\n');
+        expect(making).toContain(loading);
+        expect(making.split('AddIns.Add(')).toHaveLength(2);
+        expect(making).not.toMatch(/Registry|AutomationSecurity\s*=|Trusted Location|\.Registered|AutoLoad/);
+        // A loaded add-in holds its file, so a failed reference leaves the
+        // file to be deleted after the host quits.
+        expect(making).toContain('catch { $script:providerLeft = $path }');
+        const cleanup = worker.slice(worker.indexOf('Stop-OracleHost\n        }\n\n        if ($script:providerLeft)'));
+        expect(cleanup).toContain('Remove-Item -LiteralPath $script:providerLeft -Force');
+        // An instance that still lists an add-in after the case is not kept.
+        expect(worker).toContain('try { $closed = $script:app.AddIns.Count -eq 0 } catch { $closed = $false }');
     });
 
     it.skipIf(process.platform !== 'win32')('closes only a notice of the watched process, and only one so titled', () => {
