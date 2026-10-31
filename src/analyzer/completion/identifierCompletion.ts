@@ -11,6 +11,8 @@
 // host model. See docs/xlide_vba_language_service_roadmap.md (Phase 6).
 
 import { tokenize } from '../lexer/tokenize';
+import type { VbaToken } from '../lexer/tokenKinds';
+import { isTypeSuffixOf, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
 import { completionLineCursorContext } from './cursorContext';
 import { HostObjectModel } from '../host/excelObjectModel';
 import {
@@ -132,7 +134,11 @@ const DECLARATION_INTRODUCERS = new Set([
 	'type',
 	'enum',
 	'declare',
+	'event',
 ]);
+
+/** Keywords whose operand is a label or line number. */
+const LABEL_KEYWORDS = new Set(['goto', 'gosub', 'resume']);
 
 const BOOLEAN_LITERAL_COMPLETIONS: readonly IdentifierCompletion[] = [
 	{
@@ -190,19 +196,28 @@ function identifierCompletionsAt(
 	// checks near the end of a large class pay for all preceding statements.
 	// A line break ends the statement, so the row below `Dim`, `As`, `x.` or
 	// `t =` is a statement start, as it is to the VBE (#1527).
-	const tokens = completionLineCursorContext(source, offset).significantTokens;
+	const cursor = completionLineCursorContext(source, offset);
+	const tokens = cursor.significantTokens;
 
 	// Identify the partial identifier being typed (if any) and the token that
-	// immediately precedes it.
+	// immediately precedes it. A word the caret has moved past (`Call `) is
+	// that preceding token, not the start of the name.
 	let last = tokens.length - 1;
 	let partial = '';
-	if (last >= 0 && isIdentLike(tokens[last])) {
+	if (isTypeSuffixOf(tokens[last], tokens[last - 1])) {
+		last -= 1; // `total$` is one finished word
+	}
+	if (last >= 0 && tokens[last] === cursor.partialToken) {
 		partial = tokens[last].rawText;
 		last -= 1;
 	} else if (last >= 0 && tokens[last].kind === 'newline') {
 		// Statement start: offer everything.
 		last -= 1;
-	} else if (last >= 0 && !isIdentLike(tokens[last])) {
+	} else if (last >= 0 && isIdentLike(tokens[last])) {
+		if (finishedWordEndsList(tokens, last, cursor.statementStart)) {
+			return [];
+		}
+	} else if (last >= 0) {
 		// After an operator/paren/comma/etc. - a fresh expression position.
 		// Leave `last` pointing at that token for the context check below.
 	}
@@ -361,6 +376,85 @@ function addInScopeSymbols(
 			}
 		}
 	}
+}
+
+/**
+ * Whether the word the caret has moved past leaves no expression to start:
+ * a name being declared (`Dim first, second `, `Sub Test(ByVal value `), a
+ * type name (`As Long `, `New Excel.Application `, `Implements Shape `,
+ * `TypeOf x Is Range `) or a label (`GoTo `, `Resume Next `).
+ */
+function finishedWordEndsList(tokens: readonly VbaToken[], last: number, statementStart: number): boolean {
+	// The statement, or the part of it after a single-line If's Then or Else.
+	let first = last;
+	while (first > 0 && tokens[first - 1].start >= statementStart && !/^(then|else)$/i.test(tokens[first - 1].rawText)) {
+		first -= 1;
+	}
+	const statement = tokensWithoutLeadingLineNumber(tokens.slice(first, last + 1));
+	if (DECLARATION_INTRODUCERS.has(statement[0].rawText.toLowerCase()) && inDeclaredNames(statement)) {
+		return true;
+	}
+	let name = statement.length - 1;
+	while (name >= 2 && statement[name - 1].rawText === '.' && isIdentLike(statement[name - 2])) {
+		name -= 2;
+	}
+	const word = statement[statement.length - 1].rawText.toLowerCase();
+	const before = name > 0 && isIdentLike(statement[name - 1]) ? statement[name - 1].rawText.toLowerCase() : '';
+	const typeOf = before === 'is' && isTypeOfOperand(statement, name - 1);
+	return LABEL_KEYWORDS.has(word) || LABEL_KEYWORDS.has(before) || before === 'as' || before === 'new'
+		|| word === 'implements' || before === 'implements' || typeOf;
+}
+
+/** Whether the `Is` at `is` belongs to a `TypeOf x Is` test, not an object comparison. */
+function isTypeOfOperand(statement: readonly VbaToken[], is: number): boolean {
+	let depth = 0;
+	for (let i = is - 1; i >= 0; i -= 1) {
+		const word = statement[i].rawText.toLowerCase();
+		if (word === ')') {
+			depth += 1;
+		} else if (word === '(' && depth > 0) {
+			depth -= 1;
+		} else if (depth === 0 && word === 'typeof') {
+			return true;
+		} else if (depth === 0 && /^(and|or|xor|not|eqv|imp|is|then|\(|,|=)$/.test(word)) {
+			return false;
+		}
+	}
+	return false;
+}
+
+/**
+ * Whether the last token of a declaration stands where names and types are
+ * written: outside parentheses, or in a procedure's parameter list, and
+ * before that item's `=`. Array bounds, a constant's value and a
+ * parameter's default are expressions.
+ */
+function inDeclaredNames(statement: readonly VbaToken[]): boolean {
+	const procedure = statement.some(token => /^(sub|function|property|declare|event)$/i.test(token.rawText));
+	let depth = 0;
+	let parameters = false;
+	let value = false;
+	for (const token of statement.slice(0, -1)) {
+		if (token.rawText === '(') {
+			depth += 1;
+			if (procedure && depth === 1 && !parameters) {
+				parameters = true;
+				value = false;
+			}
+		} else if (token.rawText === ')') {
+			depth -= 1;
+			if (parameters && depth === 0) {
+				value = false; // the parameter list ends; `As` its return type follows
+			}
+		} else if (depth === 0 || (parameters && depth === 1)) {
+			if (token.rawText === ',') {
+				value = false;
+			} else if (token.rawText === '=') {
+				value = true;
+			}
+		}
+	}
+	return !value && (depth === 0 || (parameters && depth === 1));
 }
 
 function isBooleanLiteralCompletionContext(

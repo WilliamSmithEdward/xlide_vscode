@@ -26,6 +26,8 @@ vi.mock('../../src/analyzer/call/callContext', async () => {
 
 import * as vscode from 'vscode';
 import { projectOptions } from '../analyzer/diagnostics/helpers';
+import { hostObjectModelForToken } from '../../src/analyzer/host/hostRegistry';
+import { OFFICE_HOST_APPS, type OfficeHostApp } from '../../src/officeHostApps';
 import * as lexer from '../../src/analyzer/lexer/tokenize';
 import * as identifiers from '../../src/analyzer/completion/identifierCompletion';
 import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
@@ -104,6 +106,40 @@ describe('completion provider surface', () => {
     it('uses the document host rather than Excel for type completion', async () => {
         const result = await request('Dim thing As Range', { host: 'word', hostModel: getWordObjectModel() });
         expect(result.items.find(item => item.label === 'Range')?.detail).toBe('Word type');
+    });
+    const hostGlobals: Record<OfficeHostApp, string> = { excel: 'ActiveSheet', word: 'ActiveDocument', powerpoint: 'ActivePresentation', access: 'DoCmd' };
+    describe.each(Object.keys(OFFICE_HOST_APPS) as OfficeHostApp[])('after a word and a space in %s', host => {
+        const context = { host, hostModel: hostObjectModelForToken(host) };
+        const others = Object.values(hostGlobals).filter(name => name !== hostGlobals[host]);
+        const prelude = 'Sub Helper()\nEnd Sub\nSub Demo()\nDim total As Long\n';
+        const labels = async (line: string, trigger?: string, before = prelude) =>
+            (await prepareRequest(line, context, undefined, before).run(trigger)).items.map(item => String(item.label));
+        it.each(['Call ', 'If ', 'MsgBox ', 'Debug.Print ', 'For i = 1 To ', 'Call total$ '])('offers the general list on Ctrl+Space after %j', async line => {
+            const got = await labels(line);
+            expect(got).toEqual(expect.arrayContaining(['total', 'Helper', 'MsgBox', hostGlobals[host]]));
+            expect(got.filter(label => others.includes(label))).toEqual([]);
+        });
+        it('offers the general list on Ctrl+Space on a continued row', async () => {
+            expect(await labels('    ', undefined, `${prelude}Call _\n`)).toEqual(expect.arrayContaining(['total', 'Helper', 'MsgBox']));
+        });
+        it.each(['Call ', 'If ', 'For i = 1 To ', 'For Each v In ', 'Not ', 'Call total$ ', 'If total% '])('opens no general list on a typed space after %j', async line => {
+            expect(await labels(line, ' ')).toEqual([]);
+        });
+        it('opens no general list on a typed space on a continued row', async () => {
+            // The test directives offered on any continued row are a separate issue.
+            expect((await labels('    ', ' ', `${prelude}Call _\n`)).filter(label => !label.startsWith('@'))).toEqual([]);
+        });
+        it.each([
+            ['Call He', undefined, 'Helper'],
+            ['MsgBox to', undefined, 'total'],
+            ['Debug.Pr', undefined, 'Print'],
+            ['Exit ', ' ', 'Sub'],
+            ['x = ', undefined, 'total'],
+            // Assert's Boolean argument, as `Call Paint ` offers an enum's values.
+            ['Debug.Assert ', ' ', 'True'],
+        ])('still completes %j on trigger %j', async (line, trigger, expected) => {
+            expect(await labels(line, trigger)).toContain(expected);
+        });
     });
     it.each(['caf\u00e9', '\u0915\u093e'])('replaces the whole Unicode member prefix %s including its suffix', async prefix => {
         const result = await request(`obj.${prefix}tail`, {

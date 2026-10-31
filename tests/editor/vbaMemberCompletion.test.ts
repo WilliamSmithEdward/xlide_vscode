@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	ProjectIndex,
 	resolveMemberCompletions,
+	hasMemberCompletions,
 	resolveMemberDefinitionsAt,
 	tokenize,
 	resolveHostConstant,
@@ -583,6 +584,28 @@ describe('member completion - runtime objects', () => {
 		expect(print?.signature).toContain('ParamArray OutputList As Variant');
 		expect(print?.surfaceExhaustive).toBe(true);
 		expect(assert?.signature).toContain('BooleanExpression As Boolean');
+	});
+
+	it.each([
+		['Debug.Print ', []],
+		['Debug.Print total ', []],
+		['Debug.Print _\n    ', []],
+		['Debug.Pr', ['Print']],
+		['Debug. ', ['Assert', 'Print']],
+	])('lists members only for the name touching the cursor in %j', (line, expected) => {
+		const src = `Sub Test()\n    ${line}\nEnd Sub\n`;
+		expect(names(src, line).sort()).toEqual(expected);
+		expect(hasMemberCompletions(src, dotOffset(src, line))).toBe(expected.length > 0);
+	});
+
+	it('does not resolve the receiver of a member name the cursor has moved past', () => {
+		for (const [line, resolves] of [['Debug.Print ', false], ['Debug.Print _\n    ', false], ['Debug.Pr', true]] as const) {
+			const src = `Sub Test()\n    ${line}\nEnd Sub\n`;
+			const read = new Set<string>();
+			const ctx = new Proxy({}, { get: (_target, key) => { read.add(String(key)); return undefined; } });
+			resolveMemberCompletions(src, dotOffset(src, line), ctx);
+			expect([...read].some(key => key !== 'sourceTokens'), line).toBe(resolves);
+		}
 	});
 
 	it('offers verified Err object members', () => {
