@@ -428,6 +428,21 @@ suite('Completion editor surface', () => {
         }
         console.log(`Completion large module ms: first=${times[0].toFixed(1)}, repeated=[${times.slice(1).map(time => time.toFixed(1)).join(',')}]`);
     });
+    test('a Sub snippet steps from its name to its parameters to its body', async () => {
+        const { document } = await probe('SubParameters', 'Option Explicit\nSub\n', '\nSub');
+        await vscode.commands.executeCommand('editor.action.triggerSuggest');
+        await until(async () => {
+            await vscode.commands.executeCommand('acceptSelectedSuggestion');
+            return /End Sub/.test(document.getText()) || undefined;
+        }, 'accepting the Sub snippet must insert the block', 4000);
+        await vscode.commands.executeCommand('type', { text: 'Work' });
+        await vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
+        await vscode.commands.executeCommand('type', { text: 'ByVal n As Long' });
+        await vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
+        await vscode.commands.executeCommand('type', { text: 'Debug.Print n' });
+        assert.equal(document.lineAt(1).text, 'Sub Work(ByVal n As Long)');
+        assert.match(document.getText(), /\n[ \t]+Debug\.Print n\n/);
+    });
     test('returns Cells for a corrected worksheet prefix', async () => {
         const { document, editor, caret } = await probe('CompletionPrefix', 'Sub Demo()\nThisWorkbook.Sheets(1).cez\nEnd Sub\n', '.cez');
         assert.deepEqual(labels(await completions(document, caret)), []);
