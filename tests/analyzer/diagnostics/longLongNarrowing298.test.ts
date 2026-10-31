@@ -9,7 +9,7 @@ const D = 'Dim q As LongLong, p As LongPtr, n As Long, i As Integer, s As String
 
 function found(body: string, extra = '', win64 = 1): string[] {
 	const src = `Option Explicit\nFunction Main() As Variant\n    ${D}${body}\nEnd Function\nPrivate Sub TakeByValLong(ByVal v As Long)\nEnd Sub\n${extra}`;
-	return analyzeModule(src, { conditionalCompilation: { projectConstants: { Win64: win64 } } } as never)
+	return analyzeModule(src, { conditionalCompilation: { compilerConstants: { Win64: win64 } } })
 		.filter((diag) => diag.severity === 'error').map((diag) => diag.code);
 }
 
