@@ -328,12 +328,27 @@ export function parseProjectConditionalConstants(
 /**
  * The constants a directive sees, the defaults for 64-bit Office included:
  * what `conditionalCompilerConstants` gives for the environment the branch
- * activity is decided in (issue #215).
+ * activity is decided in (issue #215). Not for deciding whether the code
+ * runs in 64-bit Office, where a project argument must not count: that is
+ * `hostWin64`.
  */
 export function compilerConstantsWithDefaults(
 	env: ConditionalCompilationEnvironment = {},
 ): Map<string, ConditionalValue> {
 	return conditionalCompilerConstants(effectiveConditionalCompilationEnvironment(env));
+}
+
+/**
+ * Win64 as the host has it, over the defaults, never the project's: what a
+ * rule reads to tell whether the code runs in 64-bit Office. A project's
+ * conditional compilation argument `Win64 = 0` (Tools > Project Properties)
+ * turns `#If Win64` off and nothing else: measured in 64-bit Excel, Word,
+ * PowerPoint and Access, a Declare without PtrSafe is still refused, and
+ * VarPtr into a Long and AddressOf into a ByVal Long are still a Type
+ * mismatch. A module's `#Const Win64 = 0` is the same (issue #1528).
+ */
+export function hostWin64(env: ConditionalCompilationEnvironment | undefined): ConditionalValue | undefined {
+	return conditionalCompilerConstants({ compilerConstants: effectiveConditionalCompilationEnvironment(env).compilerConstants }).get('win64');
 }
 
 export function conditionalCompilerConstants(

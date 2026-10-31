@@ -15,12 +15,14 @@
 //    "Expected Sub, Function, or Property"; on a VBA function such as Len:
 //    "Syntax error"; on a Declare: "Invalid use of AddressOf operator";
 //  - into a ByVal Long, Integer or Byte parameter in 64-bit VBA: "Type
-//    mismatch", since AddressOf gives a LongPtr (#298).
+//    mismatch", since AddressOf gives a LongPtr (#298). 64-bit is the
+//    host's Win64, not a project argument or a #Const (see hostWin64).
 
 import {
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
 	compilerConstantsWithDefaults,
+	hostWin64,
 } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, Span } from '../../parser/nodes';
@@ -58,13 +60,18 @@ export function checkAddressOfUse(
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
 	conditionalCompilation: ConditionalCompilationEnvironment | undefined,
+	host: string | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	if (!/\bAddressOf\b/i.test(source)) {
 		return;
 	}
-	const win64 = compilerConstantsWithDefaults(conditionalCompilation).get('win64');
+	// VB6 keeps the reading it had, the project's Win64 included: what it
+	// should read there is unmeasured.
+	const win64 = host?.toLowerCase() === 'vb6'
+		? compilerConstantsWithDefaults(conditionalCompilation).get('win64')
+		: hostWin64(conditionalCompilation);
 	const is64 = typeof win64 === 'number' ? win64 !== 0 : win64 === true;
 	const explicit = /^[ \t]*Option[ \t]+Explicit\b/im.test(source);
 	const signatures = callableTypeSignaturesFor(symbols, projectProcedures);

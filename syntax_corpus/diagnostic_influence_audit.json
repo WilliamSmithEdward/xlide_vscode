@@ -161,7 +161,7 @@
     {
       "code": "declare-missing-ptrsafe",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel and Word 16.0 (64-bit, build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #215); issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle",
+      "sourceOfTruth": "Excel and Word 16.0 (64-bit, build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #215); issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle; a project argument Win64 = 0 (Tools > Project Properties), which the oracle cannot set, typed into the Project Properties dialog and compiled: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit), 2026-10-31 (tests/analyzer/diagnostics/win64ProjectArgument.test.ts)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue215_01_compile",
@@ -195,7 +195,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "An active Declare without PtrSafe in 64-bit Office, the analyzer's default platform, as in the branch activity: \"The code in this project must be updated for use on 64-bit systems\" (issue #215, measured in 64-bit Excel and Word). Silent when the caller says Win64 is off, in inactive branches such as #If VBA7 ... #Else, and for VB6, which has no PtrSafe. Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one.",
+      "notes": "An active Declare without PtrSafe in 64-bit Office, the analyzer's default platform, as in the branch activity: \"The code in this project must be updated for use on 64-bit systems\" (issue #215, measured in 64-bit Excel and Word). Silent when the caller says the host's Win64 is off, in inactive branches such as #If VBA7 ... #Else, and for VB6, which has no PtrSafe. Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one. A project argument Win64 = 0 is the same: 64-bit Office still applies this rule, so the rule does not read the project's Win64 either.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -14142,7 +14142,7 @@
       "code": "longlong-narrowing",
       "status": "vbe-oracle-verified",
       "diagnosticKind": "compile-error",
-      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle",
+      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch; Excel 16.0 (Office Home 2024, 64-bit) through pyVBAharness, 2026-10-15: cases that Excel compiles or runs where this rule fired, and controls it still reports; issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle; a project argument Win64 = 0 (Tools > Project Properties), which the oracle cannot set, typed into the Project Properties dialog and compiled: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit), 2026-10-31 (tests/analyzer/diagnostics/win64ProjectArgument.test.ts)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue298_01_compile",
@@ -14196,13 +14196,13 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": " Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one."
+      "notes": " Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one. A project argument Win64 = 0 is the same: 64-bit Office still applies this rule, so the rule does not read the project's Win64 either."
     },
     {
       "code": "addressof-misuse",
       "status": "vbe-oracle-verified",
       "diagnosticKind": "compile-error",
-      "sourceOfTruth": "Excel/VBE compile oracle: AddressOf only as an argument, on a procedure of a standard module; issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle",
+      "sourceOfTruth": "Excel/VBE compile oracle: AddressOf only as an argument, on a procedure of a standard module; issue #1528 under a module #Const Win64 = 0, which turns only #If Win64 off: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit) through the VBE oracle; a project argument Win64 = 0 (Tools > Project Properties), which the oracle cannot set, typed into the Project Properties dialog and compiled: Excel, Word, PowerPoint and Access 16.0 (build 20527, 64-bit), 2026-10-31 (tests/analyzer/diagnostics/win64ProjectArgument.test.ts)",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue299_01_compile",
@@ -14242,7 +14242,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": " Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one."
+      "notes": " Issue #1528: 64-bit Office still applies this rule under a module #Const Win64 = 0, which only turns #If Win64 off, so the rule reads the host compiler constant and not the module one. A project argument Win64 = 0 is the same: 64-bit Office still applies this rule, so the rule does not read the project's Win64 either."
     },
     {
       "code": "paste-with-nothing-copied",
