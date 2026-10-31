@@ -695,10 +695,11 @@ function toCompletion(
 	insertMode: LineCompletionContext['insertMode'],
 ): EventHandlerCompletion {
 	const signature = `${definition.name}(${definition.params})`;
+	// A snippet's tab is one indentation level in the editor's own settings.
 	const insertText =
 		insertMode === 'declarationTail'
-			? `${signature}\n    $0\nEnd Sub`
-			: `Private Sub ${signature}\n    $0\nEnd Sub`;
+			? `${signature}\n\t$0\nEnd Sub`
+			: `Private Sub ${signature}\n\t$0\nEnd Sub`;
 	return {
 		name: definition.name,
 		signature,

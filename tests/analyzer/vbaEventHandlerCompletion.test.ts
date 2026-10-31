@@ -134,7 +134,7 @@ describe('event-handler completion', () => {
 			moduleKind: 'document',
 			documentType: 'workbook',
 		}).find((completion) => completion.name === 'Workbook_Open');
-		expect(item?.insertText).toBe('Private Sub Workbook_Open()\n    $0\nEnd Sub');
+		expect(item?.insertText).toBe('Private Sub Workbook_Open()\n\t$0\nEnd Sub');
 	});
 
 	it('inserts chart event handler stubs from chart document modules', () => {
@@ -145,7 +145,7 @@ describe('event-handler completion', () => {
 			documentType: 'chart',
 		}).find((completion) => completion.name === 'Chart_MouseDown');
 		expect(item?.insertText).toBe(
-			'Private Sub Chart_MouseDown(ByVal Button As Long, ByVal Shift As Long, ByVal X As Long, ByVal Y As Long)\n    $0\nEnd Sub',
+			'Private Sub Chart_MouseDown(ByVal Button As Long, ByVal Shift As Long, ByVal X As Long, ByVal Y As Long)\n\t$0\nEnd Sub',
 		);
 	});
 
@@ -156,7 +156,7 @@ describe('event-handler completion', () => {
 			moduleKind: 'document',
 			documentType: 'workbook',
 		}).find((completion) => completion.name === 'Workbook_Open');
-		expect(item?.insertText).toBe('Workbook_Open()\n    $0\nEnd Sub');
+		expect(item?.insertText).toBe('Workbook_Open()\n\t$0\nEnd Sub');
 	});
 });
 

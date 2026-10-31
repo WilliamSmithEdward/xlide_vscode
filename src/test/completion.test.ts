@@ -6,7 +6,7 @@ import { VbaEditorProjectContextService } from '../vbaEditorProjectContext';
 import { VbaTypeSemanticTokensProvider } from '../vbaSemanticTokensProvider';
 import type { VbaProjectIndexService } from '../vbaProjectIndexService';
 import { backspaceNeedsExtension } from '../vbaEditorCommands';
-import { activate, closeAllEditors, open, until, workspaceRoot, writeModule } from './support';
+import { activate, closeAllEditors, moduleUri, open, until, workspaceRoot, writeModule } from './support';
 
 async function probe(name: string, source: string, marker: string): Promise<{ document: vscode.TextDocument; editor: vscode.TextEditor; caret: vscode.Position }> {
     const file = path.join(workspaceRoot(), `${name}.bas`);
@@ -383,6 +383,49 @@ suite('Completion editor surface', () => {
         assert.ok(after.projectTypes?.some(type => type.name === 'ProbeType'));
         service.dispose();
     });
+    for (const [insertSpaces, tabSize, indentSize, unit] of [[true, 2, 2, '  '], [true, 8, 3, '   '], [false, 4, 4, '\t']] as const) {
+        const indentation = insertSpaces ? `${indentSize} spaces (tab size ${tabSize})` : 'tabs';
+        test(`an accepted block snippet indents with ${indentation}`, async () => {
+            const source = `Sub Demo()\n${unit}While\nEnd Sub\n`;
+            const { document, editor } = await probe(`SnippetIndent${tabSize}${indentSize}`, source, `${unit}While`);
+            editor.options = { insertSpaces, tabSize, indentSize };
+            await vscode.commands.executeCommand('editor.action.triggerSuggest');
+            await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                return /Wend/.test(document.getText()) || undefined;
+            }, 'accepting the While snippet must insert the block', 4000);
+            await vscode.commands.executeCommand('leaveSnippet');
+            assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 6),
+                [`${unit}While condition`, '', `${unit}${unit}`, '', `${unit}Wend`]);
+        });
+        test(`Smart Enter indents a block body with ${indentation}`, async () => {
+            const source = `Sub Demo()\n${unit}If ready Then\nEnd Sub\n`;
+            const { document, editor } = await probe(`SmartEnterIndent${tabSize}${indentSize}`, source, 'If ready Then');
+            editor.options = { insertSpaces, tabSize, indentSize };
+            await vscode.commands.executeCommand('type', { text: '\n' });
+            await until(() => /End If/.test(document.getText()) || undefined, 'Smart Enter should insert End If', 4000);
+            assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 6),
+                [`${unit}If ready Then`, '', `${unit}${unit}`, '', `${unit}End If`]);
+        });
+        test(`an accepted Workbook_Open stub indents with ${indentation}`, async () => {
+            // ThisWorkbook is the fixture's own document module. The text is
+            // set in the editor, so the teardown's revert leaves the file as it was.
+            const document = await open(moduleUri('ThisWorkbook'));
+            const editor = vscode.window.activeTextEditor!;
+            await editor.edit(edit => edit.replace(new vscode.Range(0, 0, document.lineCount, 0), 'Option Explicit\nWorkbook_Ope\n'));
+            editor.options = { insertSpaces, tabSize, indentSize };
+            const caret = new vscode.Position(1, 'Workbook_Ope'.length);
+            editor.selection = new vscode.Selection(caret, caret);
+            await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+            await vscode.commands.executeCommand('editor.action.triggerSuggest');
+            await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                return /Workbook_Open\(\)/.test(document.getText()) || undefined;
+            }, 'accepting Workbook_Open must insert the handler', 4000);
+            assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 4),
+                ['Private Sub Workbook_Open()', unit, 'End Sub']);
+        });
+    }
     test('Smart Enter seeds a With member and undo restores the original source', async () => {
         const source = 'Sub Demo()\n\tWith ActiveSheet\n\tEnd With\nEnd Sub\n';
         const { document, editor } = await probe('SmartEnterUndo', source, 'With ActiveSheet');

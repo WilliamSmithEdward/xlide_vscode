@@ -57,9 +57,24 @@ import {
 } from './vbaTestDirectiveCompletion';
 import { startPerformanceTrace } from './performanceTrace';
 import { vbaColorNameShadowedAt } from './vbaColors';
+import { vbaIndentUnit } from './vbaSmartEnter';
 
 export const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
+
+/** One indentation level in the editor that shows `document`, else in its settings. */
+function editorIndentUnit(document: vscode.TextDocument): string {
+	const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);
+	if (editor) {
+		return vbaIndentUnit(editor.options);
+	}
+	const settings = vscode.workspace.getConfiguration('editor', document);
+	return vbaIndentUnit({
+		insertSpaces: settings.get('insertSpaces'),
+		tabSize: settings.get('tabSize'),
+		indentSize: settings.get('indentSize'),
+	});
+}
 
 /**
  * A member's name as code has to write it. A name that is not an identifier,
@@ -412,13 +427,16 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			return list(labels.map((label) => this._toProcedureLabelItem(label, range)));
 		}
 
+		// One level of the editor's indentation, read once for all snippets.
+		let unit: string | undefined;
+		const indentUnit = (): string => unit ??= editorIndentUnit(document);
 		const keywords = resolveKeywordCompletions(source, offset, {
 			blockLayout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
 		});
 		if (keywords.exclusive) {
 			return list([
 				...directiveItems,
-				...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+				...keywords.items.map((item) => this._toKeywordItem(item, range, document, indentUnit)),
 			]);
 		}
 
@@ -469,7 +487,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				&& (!prioritizedNames.has(id.name.toLowerCase()) || shadowedColors.has(id.name.toLowerCase())
 					|| (id.kind !== 'constant' && id.kind !== 'enumMember')))
 				.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
-			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+			...keywords.items.map((item) => this._toKeywordItem(item, range, document, indentUnit)),
 		]);
 		}
 		const preferred = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
@@ -504,7 +522,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			),
 			...idents.filter(id => !preferred.has(id.name.toLowerCase()) || !matchesEnum(id))
 				.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
-			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+			...keywords.items.map((item) => this._toKeywordItem(item, range, document, indentUnit)),
 		]);
 	}
 
@@ -680,6 +698,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		keyword: KeywordCompletion,
 		range: vscode.Range,
 		document: vscode.TextDocument,
+		indentUnit: () => string,
 	): vscode.CompletionItem {
 		const kind = keyword.kind === 'snippet'
 			? vscode.CompletionItemKind.Snippet
@@ -696,6 +715,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			? new vscode.SnippetString(materializeKeywordSnippet(
 				keyword.insertText,
 				this._lineIndent(document, range.start.line),
+				indentUnit(),
 			))
 			: keyword.insertText;
 		if (keyword.kind === 'snippet') {

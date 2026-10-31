@@ -291,3 +291,49 @@ it('reuses the unfiltered binding list across shadowed enum constants',async()=>
  expect(result.items.find(item=>item.label==='msoFalse')?.insertText).toBe('MsoTriState.msoFalse');
  expect(resolve).toHaveBeenCalledTimes(2);
 });
+
+describe('inserted blocks in the editor indentation', () => {
+    function requestAt(source: string, line: number, column: number, context: EditorProjectContext, options?: object) {
+        const lines = source.split('\n');
+        const document = {
+            uri: { scheme: 'xlide-vba', path: `/Book.xlsm/${context.moduleName}.bas`, toString: () => `xlide-vba:/Book.xlsm/${context.moduleName}.bas` },
+            version: 1, languageId: 'vba',
+            getText: () => source,
+            offsetAt: (position: vscode.Position) => lines.slice(0, position.line).reduce((total, text) => total + text.length + 1, 0) + position.character,
+            lineAt: (index: number) => ({ text: lines[index] }),
+        };
+        Object.assign(vscode.window, { visibleTextEditors: options ? [{ document, options }] : [] });
+        const projectContext = {
+            cachedEditorProjectContext: vi.fn(() => context),
+            readyEditorProjectContext: vi.fn(() => undefined),
+            localEditorProjectContext: vi.fn(() => context),
+            warmEditorProjectContext: vi.fn(),
+            buildEditorProjectContextWithin: vi.fn(async () => context),
+        };
+        const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
+        return provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(line, column));
+    }
+    afterEach(() => { Object.assign(vscode.window, { visibleTextEditors: [] }); });
+
+    it.each([
+        [{ insertSpaces: true, tabSize: 8, indentSize: 3 }, '   '],
+        [{ insertSpaces: false, tabSize: 4, indentSize: 4 }, '\t'],
+        [undefined, '    '],
+    ])('writes a block snippet body in the editor indentation %j', async (options, unit) => {
+        const result = await requestAt('Sub Demo()\n  Wh\nEnd Sub\n', 1, 4, { moduleName: 'Module1', moduleKind: 'standard' }, options);
+        const item = result.items.find(candidate => candidate.label === 'While')!;
+        expect((item.insertText as vscodeTypes.SnippetString).value).toBe(`While \${1:condition}\n\n  ${unit}$0\n\n  Wend`);
+        expect(item.keepWhitespace).toBe(true);
+    });
+
+    it.each([
+        ['an Excel workbook module', { moduleName: 'ThisWorkbook', moduleKind: 'document', documentType: 'workbook', host: 'excel' }, 'Workbook_O', 'Workbook_Open'],
+        ['a Word document module', { moduleName: 'ThisDocument', moduleKind: 'document', documentType: 'document', host: 'word' }, 'Document_O', 'Document_Open'],
+        ['a PowerPoint UserForm', { moduleName: 'UserForm1', moduleKind: 'userform', host: 'powerpoint' }, 'UserForm_I', 'UserForm_Initialize'],
+    ] as const)('leaves a handler stub tab in %s for VS Code to convert', async (_, context, typed, handler) => {
+        const result = await requestAt(`Option Explicit\n${typed}\n`, 1, typed.length, context as EditorProjectContext, { insertSpaces: true, tabSize: 2, indentSize: 2 });
+        const item = result.items.find(candidate => candidate.label === handler)!;
+        expect((item.insertText as vscodeTypes.SnippetString).value).toBe(`Private Sub ${handler}()\n\t$0\nEnd Sub`);
+        expect(item.keepWhitespace).toBeUndefined();
+    });
+});

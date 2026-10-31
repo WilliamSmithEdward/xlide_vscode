@@ -38,8 +38,31 @@ export interface VbaSmartBlockInsertion {
 
 export type VbaSmartBlockLayout = 'comfy' | 'compact';
 
+/** The indentation level a snippet or block template is written with. */
 export const VBA_BLOCK_INDENT_UNIT = '\t';
 export const DEFAULT_VBA_SMART_BLOCK_LAYOUT: VbaSmartBlockLayout = 'comfy';
+
+/** The editor options that decide what one indentation level is. */
+export interface VbaIndentOptions {
+    insertSpaces?: boolean | string;
+    tabSize?: number | string;
+    indentSize?: number | string;
+}
+
+/**
+ * One indentation level as the editor writes it: a tab, or with
+ * `insertSpaces` as many spaces as its indent size, which VS Code takes from
+ * `tabSize` unless `editor.indentSize` is set.
+ */
+export function vbaIndentUnit(options: VbaIndentOptions): string {
+    if (options.insertSpaces === false) {
+        return '\t';
+    }
+    const size = [options.indentSize, options.tabSize]
+        .map(Number)
+        .find((value) => Number.isInteger(value) && value > 0);
+    return ' '.repeat(size ?? 4);
+}
 
 export function normalizeSmartBlockLayout(value: unknown): VbaSmartBlockLayout {
     return value === 'compact' ? 'compact' : DEFAULT_VBA_SMART_BLOCK_LAYOUT;

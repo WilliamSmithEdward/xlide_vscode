@@ -462,7 +462,7 @@ describe('the editor, from the database on disk to the completion list', () => {
 		expect(stubs.filter((stub) => /^UserForm_/.test(stub.name))).toEqual([]);
 
 		const load = stubs.find((stub) => stub.name === 'Form_Load');
-		expect(load?.insertText).toBe('Private Sub Form_Load()\n    $0\nEnd Sub');
+		expect(load?.insertText).toBe('Private Sub Form_Load()\n\t$0\nEnd Sub');
 		expect(load?.detail).toBe('Form event handler');
 		expect(load?.documentation).toContain('Occurs when a form is opened');
 		expect(stubs.find((stub) => stub.name === 'Qty_AfterUpdate')?.detail).toBe('Textbox event handler');
@@ -494,7 +494,7 @@ describe('the editor, from the database on disk to the completion list', () => {
 		const ctx = toEventHandlerCompletionContext(context!);
 		const tail = resolveEventHandlerCompletions(typed, typed.length, ctx);
 		expect(tail.map((stub) => stub.name)).toEqual(['Qty_AfterUpdate']);
-		expect(tail[0].insertText).toBe('Qty_AfterUpdate()\n    $0\nEnd Sub');
+		expect(tail[0].insertText).toBe('Qty_AfterUpdate()\n\t$0\nEnd Sub');
 
 		const inside = 'Option Explicit\r\n\r\nPrivate Sub Go()\r\n    \r\nEnd Sub\r\n';
 		const offset = inside.indexOf('    \r\n') + 4;
