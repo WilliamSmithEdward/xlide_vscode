@@ -417,16 +417,24 @@ fails ends the case as a `worker_error`, never as evidence:
   opens the case's again. The provider is deleted after the case.
   `tests/helpers/oracleModuleInput.ts` reads it for the analyzer as the
   engine reads a referenced project.
-  Loading the provider can raise Office's macro Security Notice: in
-  PowerPoint, and in Word with the VBE shown (issue #1529). `AddFromFile`
-  does not return until it is answered. The worker never answers it. While
-  the reference is added it watches the host process it started for a
-  window titled `Microsoft <host> Security Notice` (English titles only),
-  closes it, which declines, and ends the case as a `worker_error` at stage
-  `security_notice` with no verdict. That stops the run as any
-  infrastructure failure does, and a checkpoint does not keep it. Whether
-  the notice appears is the Trust Center's call, which the oracle never
-  changes.
+  Loading the provider can raise Office's macro Security Notice (issue
+  #1529), and `AddFromFile` does not return until it is answered. With the
+  Trust Center at its default, PowerPoint raises it for a referenced add-in
+  in the temp folder, with the VBE shown or hidden and at
+  `AutomationSecurity` 1 or 3, and Word raises it for a referenced template
+  while the VBE is shown, as it is in an instance kept from a compile case.
+  Excel and Access raised none in the same measurements. So the worker adds
+  the reference with the VBE hidden, and in PowerPoint loads the add-in
+  through `AddIns` first, which raises no notice and loads it with its
+  macros enabled; PowerPoint drops it again when the case's presentation
+  closes. Measured in builds 20527 and 12527 (32-bit). The worker never
+  answers a notice. While the reference is added it watches the host process
+  it started for a window titled `Microsoft <host> Security Notice` (English
+  titles only), closes it, which declines, and ends the case as a
+  `worker_error` at stage `security_notice` with no verdict. That stops the
+  run as any infrastructure failure does, and a checkpoint does not keep it.
+  Whether the notice appears is the Trust Center's call, which the oracle
+  never changes.
 - `implicitMembers`, `designerClass` and `predeclaredId` are the analyzer's
   side of the same facts. `tests/helpers/oracleModuleInput.ts` hands them,
   and the controls `designerControls` names, to the analyzer, and every
