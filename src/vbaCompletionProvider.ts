@@ -16,6 +16,7 @@ import * as vscode from 'vscode';
 import { assignmentValueTriggerMayComplete, completionLineCursorContext } from './analyzer/completion/cursorContext';
 import { assignmentTargetAt, resolveAssignmentValueCompletion } from './analyzer/completion/assignmentValueCompletion';
 import { macroNameStringMayResolveAt } from './analyzer/completion/macroNames';
+import { isIdentLike, isTypeSuffixOf } from './analyzer/lexer/tokenHelpers';
 import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
 import { isVbaDocument } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
@@ -440,7 +441,14 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		);
 		if (!argumentValues && (context?.triggerCharacter === '=' ||
 			(context?.triggerCharacter === ' ' && assignmentTargetAt(source, offset)))) { return list([]); }
-		const idents = resolveIdentifierCompletions(source, offset, identCtx);
+		// A typed space after a word (`Call `, `If `) opens no general list;
+		// Ctrl+Space still offers it there.
+		const cursor = completionLineCursorContext(source, offset);
+		const lastToken = cursor.significantTokens.at(-1);
+		const afterWord = lastToken && !cursor.partialToken
+			&& (isIdentLike(lastToken) || isTypeSuffixOf(lastToken, cursor.significantTokens.at(-2)));
+		const idents = context?.triggerCharacter === ' ' && afterWord
+			? [] : resolveIdentifierCompletions(source, offset, identCtx);
 		if (argumentValues?.enumName === 'ColorConstants') {
 		const identifiersByName = new Map((argumentValues ? idents : []).map(id => [id.name.toLowerCase(), id]));
 		const prioritizedNames = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
