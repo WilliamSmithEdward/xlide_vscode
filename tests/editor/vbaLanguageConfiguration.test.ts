@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
+import { formatVbaModule } from '../../src/analyzer/format/formatModule';
 import { detectSmartBlockOpener } from '../../src/vbaSmartEnter';
 import { VBA_SMART_BLOCK_SNIPPETS } from '../../src/vbaSmartBlockSnippets';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from '../../src/xlideVbaEditorOverrides';
@@ -179,6 +180,92 @@ describe('VBA language configuration', () => {
 			expect(decrease.test(line), line).toBe(true);
 		}
 		expect(decrease.test('    EndIfDone = 1')).toBe(false);
+	});
+
+	it('indents after a Type, an Enum and a Static Property with modifiers, as the formatter does', () => {
+		// The formatter's modifiers (Global before Type or Enum follows it; no
+		// oracle case has it). Oracle:
+		// modifier_type_enum_static_property_headers_{excel,word,powerpoint,access}_compile
+		// (Public Type, Private Enum, Public and Private Static Property) and
+		// static_public_property_compile (`Static Public`).
+		const config = loadConfig();
+		for (const line of [
+			'Public Type Rec', 'Private Enum Colour', 'Global Type Pair',
+			'Public Static Property Get Total() As Long', 'Private Static Property Let Total(ByVal v As Long)',
+			'Static Public Property Get P() As Long', 'Friend Static Property Set Target(ByVal o As Object)',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: false, enter: true });
+		}
+		// A Type field named Type or Enum is no header.
+		for (const line of ['Type As Long', 'Enum As Long']) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+	});
+
+	it('outdents #Else and #ElseIf and indents after them, as after #If', () => {
+		const config = loadConfig();
+		for (const line of ['#Else', '#ElseIf Win64 Then', '# Else \' 32-bit', '#ElseIf #12:00:00 PM# = 0.5 Then', '#ElseIf True Then: \' note']) {
+			expect(lineRules(config, line), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+		// Not complete yet, like `#If VBA7` without Then.
+		expect(lineRules(config, '#ElseIf Win64')).toEqual({ increase: false, decrease: true, enter: false });
+		expect(lineRules(config, '#ElseIf  Then')).toEqual({ increase: false, decrease: true, enter: false });
+		expect(lineRules(config, '#If  Then')).toEqual({ increase: false, decrease: false, enter: false });
+		expect(lineRules(config, '#End If')).toEqual({ increase: false, decrease: true, enter: false });
+	});
+
+	it('reindents headers with modifiers and directive arms as Format Document lays them out, for each Office host', () => {
+		const config = loadConfig();
+		const modules = [
+			[
+				'Public Type Rec',
+				'    n As Long',
+				'End Type',
+				'Private Enum Colour',
+				'    Red',
+				'End Enum',
+				'Public Static Property Get Total() As Long',
+				'    Total = ThisWorkbook.Sheets.Count',
+				'End Property',
+			],
+			[
+				'Sub Main()',
+				'    #If Win64 Then',
+				'        n = ActiveDocument.Paragraphs.Count',
+				'    #ElseIf VBA7 Then',
+				'        n = 7',
+				'    #Else',
+				'        n = 0',
+				'    #End If',
+				'End Sub',
+			],
+			[
+				'Global Type Pair',
+				'    a As Long',
+				'End Type',
+				'Static Public Property Let Name(ByVal v As String)',
+				'    ActivePresentation.Slides(1).Name = v',
+				'End Property',
+			],
+			[
+				'#If VBA7 Then',
+				'    Private Type Row',
+				'        ID As Long',
+				'    End Type',
+				'#Else',
+				'    Private Type Row',
+				'        ID As Integer',
+				'    End Type',
+				'#End If',
+				'Function Main() As Variant',
+				'    Main = CurrentDb.TableDefs.Count',
+				'End Function',
+			],
+		].map((lines) => lines.join('\r\n'));
+		for (const source of modules) {
+			expect(formatted(source), source).toBe(source);
+			expect(reindent(config, source), source).toBe(source);
+		}
 	});
 
 	it('contributes the shared Smart Enter/snippet block layout setting', () => {
@@ -504,3 +591,50 @@ describe('VBA language configuration', () => {
 		}
 	});
 });
+
+interface LineRules {
+	increase: boolean;
+	decrease: boolean;
+	enter: boolean;
+}
+
+function lineRules(config: VbaLanguageConfiguration, line: string): LineRules {
+	return {
+		increase: new RegExp(config.indentationRules?.increaseIndentPattern ?? '').test(line),
+		decrease: new RegExp(config.indentationRules?.decreaseIndentPattern ?? '').test(line),
+		enter: enterRuleMatches(config, line),
+	};
+}
+
+/**
+ * Reindent Lines as VS Code computes it (getReindentEditOperations in
+ * src/vs/editor/contrib/indentation/common/indentation.ts), for rules with no
+ * indentNextLine or unIndentedLine pattern: a line matching the decrease
+ * pattern moves out one level, and the line after one matching the increase
+ * pattern moves in one. Starts from column 1, four spaces a level. Unlike
+ * VS Code it leaves blank lines empty and does not skip a line that starts
+ * inside a string; the modules here have neither.
+ */
+function reindent(config: VbaLanguageConfiguration, source: string): string {
+	const increase = new RegExp(config.indentationRules?.increaseIndentPattern ?? '');
+	const decrease = new RegExp(config.indentationRules?.decreaseIndentPattern ?? '');
+	const lines = source.split('\r\n').map((line) => line.trimStart());
+	let level = increase.test(lines[0]) ? 1 : 0;
+	const out = [lines[0]];
+	for (const line of lines.slice(1)) {
+		if (decrease.test(line)) {
+			level = Math.max(0, level - 1);
+		}
+		out.push(line === '' ? '' : '    '.repeat(level) + line);
+		if (increase.test(line)) {
+			level++;
+		}
+	}
+	return out.join('\r\n');
+}
+
+/** Format Document's layout of the same module. */
+function formatted(source: string): string | undefined {
+	const unindented = source.split('\r\n').map((line) => line.trimStart()).join('\r\n');
+	return formatVbaModule(unindented, { tabSize: 4, insertSpaces: true }).text;
+}

@@ -7,6 +7,7 @@
 import './typeLookbackSurfaces.test';
 import './completionLogicalLine.test';
 import './formatting.test';
+import './indentationRules.test';
 import './hoverSnapshotSurfaces.test';
 import './prefixWindowSurfaces.test';
 import './deadCode.test';
