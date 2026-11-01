@@ -173,6 +173,20 @@ describe('VBA language configuration', () => {
 		expect(enterRuleMatches(config, '    total = a_')).toBe(false);
 	});
 
+	it('starts a fold at a Property with Static among its modifiers, as at a Sub or Function', () => {
+		// Oracle: issue1496_{,word_,powerpoint_,access_}static_public_property_compile
+		// (`Static Public Property Get` and `Let` compile in all four hosts).
+		const start = new RegExp(loadConfig().folding?.markers?.start ?? '');
+		for (const modifiers of ['', 'Public ', 'Private ', 'Friend ', 'Static ', 'Public Static ', 'Static Public ', 'Private Static ', 'Static Private ', 'Friend Static ', 'Static Friend ']) {
+			for (const header of ['Sub Main()', 'Function Count() As Long', 'Property Get Count() As Long', 'Property Let Count(ByVal v As Long)', 'Property Set Target(ByVal o As Object)']) {
+				expect(start.test(`${modifiers}${header}`), `${modifiers}${header}`).toBe(true);
+				expect(start.test(`    ${modifiers}${header}`), `indented ${modifiers}${header}`).toBe(true);
+			}
+		}
+		expect(start.test('Static n As Long')).toBe(false);
+		expect(start.test('Public Property')).toBe(false);
+	});
+
 	it('outdents the one-word EndIf like End If (issue #88)', () => {
 		const decrease = new RegExp(loadConfig().indentationRules?.decreaseIndentPattern ?? '');
 		for (const line of ['    EndIf', '    endif', '    End If']) {
