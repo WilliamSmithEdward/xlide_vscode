@@ -181,6 +181,43 @@ describe('VBA language configuration', () => {
 		expect(decrease.test('    EndIfDone = 1')).toBe(false);
 	});
 
+	it('answers quickly on long lines of blanks, letters, digits, punctuation, strings or keywords after any keyword', () => {
+		// The line-continuation rule began with `.*`, so its search for ` _`
+		// started over at every character: about 0.3 s for a line of 16,000
+		// blanks. A run that two parts of any pattern can both read slows a
+		// line the same way. VS Code compiles these patterns without flags; each
+		// is tried with the `i` flag too, which takes a different path through
+		// the regex engine. Each of these lines takes a few milliseconds when the
+		// time grows with the line's length, far under the bound even on a busy
+		// machine.
+		const config = loadConfig();
+		const sources = [
+			...Object.values(config.indentationRules ?? {}),
+			...(config.onEnterRules ?? []).map((rule) => rule.beforeText ?? ''),
+		];
+		const patterns = ['', 'i'].flatMap((flags) => sources.map((source) => new RegExp(source, flags)));
+		const keywords = [
+			'', 'If', 'If a', 'ElseIf', 'Else', 'Case', 'For', 'For i =', 'For Each x In', 'Do', 'Do While', 'While', 'With',
+			'Select Case', 'Public Sub', 'Property Get', 'Public Type', 'Enum', '#If', '#ElseIf', '#Else', 'End', 'Next',
+		];
+		const fragments = [
+			' ', '\t', 'a', '_', ':', '"', "'", '1', '.', ' a', ': ', '" ', ' _', '1:', ':=', '"a"', 'Then ', 'To ', ': End If ',
+		];
+		const n = 20000;
+		for (const keyword of keywords) {
+			for (const fragment of fragments) {
+				for (const ending of ['', 'x', ' Then', '"', ': Next']) {
+					const line = `    ${keyword}${fragment.repeat(n)}${ending}`;
+					const start = performance.now();
+					for (const pattern of patterns) {
+						pattern.test(line);
+					}
+					expect(performance.now() - start, JSON.stringify(`${keyword}${fragment}...${ending}`)).toBeLessThan(250);
+				}
+			}
+		}
+	});
+
 	it('contributes the shared Smart Enter/snippet block layout setting', () => {
 		const setting = loadPackage()
 			.contributes
