@@ -39,6 +39,7 @@ import './shapeEditorIdentity.test';
 import './smartEnterSurfaces.test';
 import './propertyFolding.test';
 import './grammar.test';
+import './wordPattern.test';
 
 import './completion.test';
 import './editorSurfaces.test';
