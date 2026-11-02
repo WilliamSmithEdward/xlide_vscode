@@ -8,13 +8,14 @@
 // argument such as Mid's Start. VarPtr, ObjPtr and StrPtr return a LongPtr,
 // so `n = VarPtr(x)`, how 32-bit code keeps a pointer, stops compiling.
 // CLng(q) converts; a Double, Variant or String takes the value; `q / 1`
-// is a Double. The rule follows the Win64 compiler constant: in 32-bit
-// Office LongPtr is a Long and there is no LongLong.
+// is a Double. The rule follows the host's Win64 compiler constant, not a
+// project argument or a #Const (see hostWin64): in 32-bit Office LongPtr is a
+// Long and there is no LongLong.
 
 import {
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
-	compilerConstantsWithDefaults,
+	hostWin64,
 } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, Span , ProcedureNode } from '../../parser/nodes';
@@ -64,7 +65,7 @@ export function checkLongLongNarrowing(
 	push: PushFn,
 	procedureFilter?: (member: ProcedureNode) => boolean,
 ): void {
-	const win64 = compilerConstantsWithDefaults(conditionalCompilation).get('win64');
+	const win64 = hostWin64(conditionalCompilation);
 	if (host?.toLowerCase() === 'vb6' || !(typeof win64 === 'number' ? win64 !== 0 : win64 === true)) {
 		return;
 	}
