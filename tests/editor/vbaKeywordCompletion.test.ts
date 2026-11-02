@@ -35,6 +35,20 @@ describe('keyword completion - statement snippets', () => {
 		);
 	});
 
+	it('writes each template tab as one level of the editor indentation', () => {
+		const snippet = 'Select Case ${1:expression}\n\n\tCase ${2:value}\n\n\t\t$0\n\nEnd Select';
+
+		expect(materializeKeywordSnippet(snippet, '', '  ')).toBe(
+			'Select Case ${1:expression}\n\n  Case ${2:value}\n\n    $0\n\nEnd Select',
+		);
+		expect(materializeKeywordSnippet(snippet, '    ', '    ')).toBe(
+			'Select Case ${1:expression}\n\n        Case ${2:value}\n\n            $0\n\n    End Select',
+		);
+		expect(materializeKeywordSnippet(snippet, '\t', '\t')).toBe(
+			'Select Case ${1:expression}\n\n\t\tCase ${2:value}\n\n\t\t\t$0\n\n\tEnd Select',
+		);
+	});
+
 	it('uses one literal tab body unit across block archetype snippets', () => {
 		const statementItems = resolveKeywordCompletions('Sub T()\n    wh\nEnd Sub\n', at('Sub T()\n    wh\nEnd Sub\n', '    wh')).items;
 		expect(statementItems.find((item) => item.label === 'While')?.insertText).toBe(

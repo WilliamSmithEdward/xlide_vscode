@@ -410,14 +410,23 @@ export function resolveKeywordCompletions(
 	return { items: [], exclusive: false };
 }
 
+/**
+ * A keyword snippet as the editor inserts it, which keeps its whitespace as
+ * given: each tab the template indents with becomes one level of the editor's
+ * indentation, and each line but empty ones takes the current line's indent.
+ */
 export function materializeKeywordSnippet(
 	insertText: string,
 	baseIndent: string,
+	indentUnit: string = I,
 ): string {
+	const indented = indentUnit === I
+		? insertText
+		: insertText.replace(/^\t+/gm, (tabs) => indentUnit.repeat(tabs.length));
 	if (!baseIndent) {
-		return insertText;
+		return indented;
 	}
-	return insertText.replace(/\n(?!\n|$)/g, `\n${baseIndent}`);
+	return indented.replace(/\n(?!\n|$)/g, `\n${baseIndent}`);
 }
 
 function completionContext(source: string, offset: number): CompletionContext | undefined {

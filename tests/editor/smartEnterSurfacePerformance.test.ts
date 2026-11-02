@@ -40,6 +40,7 @@ function enterScenario(source: string, previousLine: number) {
     const replacements: string[] = [];
     const editor = {
         document,
+        options: { insertSpaces: false, tabSize: 4, indentSize: 4 },
         selection: { isEmpty: true, anchor: new vscode.Position(previousLine + 1, 0), active: new vscode.Position(previousLine + 1, 0) },
         edit: vi.fn(async (apply: (edit: unknown) => void) => {
             apply({ replace: (_range: unknown, text: string) => replacements.push(text), insert: vi.fn() });

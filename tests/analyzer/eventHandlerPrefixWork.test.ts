@@ -16,7 +16,7 @@ describe('event completion prefix gates',()=>{
  });
  it.each(contexts.slice(1))('looks up only the matching control owner (%j)',ctx=>{
   const source='Button999_C',events=vi.spyOn(host,'getHostEvents');
-  expect(resolveEventHandlerCompletions(source,source.length,ctx)).toEqual([{name:'Button999_Click',signature:'Button999_Click()',detail:'Button event handler',documentation:'Control clicks.',insertText:'Private Sub Button999_Click()\n    $0\nEnd Sub'}]);
+  expect(resolveEventHandlerCompletions(source,source.length,ctx)).toEqual([{name:'Button999_Click',signature:'Button999_Click()',detail:'Button event handler',documentation:'Control clicks.',insertText:'Private Sub Button999_Click()\n\t$0\nEnd Sub'}]);
   expect(events).toHaveBeenCalledTimes(1);
  });
  it('retains existing-handler exclusion and reads changing designer context',()=>{

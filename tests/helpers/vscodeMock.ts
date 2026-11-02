@@ -70,6 +70,7 @@ export class MarkdownString {
 	supportThemeIcons = false;
 	constructor(public value = '') {}
 	appendMarkdown = vi.fn((text: string) => { this.value += text; });
+	appendCodeblock = vi.fn((code: string, language = '') => { this.value += `\n\`\`\`${language}\n${code}\n\`\`\`\n`; });
 }
 
 export class ThemeIcon {
@@ -151,6 +152,7 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 			showSaveDialog: vi.fn(async () => undefined),
 			showWarningMessage: vi.fn(async () => undefined),
 			tabGroups: { all: [], close: vi.fn(async () => true) },
+			visibleTextEditors: [],
 		},
 		workspace: {
 			textDocuments: [],
