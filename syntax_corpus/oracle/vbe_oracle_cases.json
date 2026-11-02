@@ -226706,6 +226706,1110 @@
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
       "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "issue1553_excel_private_const_compile",
+      "description": "Issue #1553 excel: a module-level Private Const As a standard module is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_public_const_compile",
+      "description": "Issue #1553 excel: a module-level Public Const As a standard module is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_procedure_const_compile",
+      "description": "Issue #1553 excel: a Const inside a procedure As a standard module is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Module2 = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_own_name_const_compile",
+      "description": "Issue #1553 excel: a Const As its own module's name is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module1 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_second_const_compile",
+      "description": "Issue #1553 excel: the second Const of a list As a standard module is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const A As Long = 1, B As Module2 = 2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_long_const_compile",
+      "description": "Issue #1553 excel: control: a Const As Long beside a standard module compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Long = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_word_private_const_compile",
+      "description": "Issue #1553 word: a module-level Private Const As a standard module is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_public_const_compile",
+      "description": "Issue #1553 word: a module-level Public Const As a standard module is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_procedure_const_compile",
+      "description": "Issue #1553 word: a Const inside a procedure As a standard module is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Module2 = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_own_name_const_compile",
+      "description": "Issue #1553 word: a Const As its own module's name is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module1 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_second_const_compile",
+      "description": "Issue #1553 word: the second Const of a list As a standard module is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const A As Long = 1, B As Module2 = 2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_long_const_compile",
+      "description": "Issue #1553 word: control: a Const As Long beside a standard module compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Long = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_powerpoint_private_const_compile",
+      "description": "Issue #1553 powerpoint: a module-level Private Const As a standard module is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_public_const_compile",
+      "description": "Issue #1553 powerpoint: a module-level Public Const As a standard module is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_procedure_const_compile",
+      "description": "Issue #1553 powerpoint: a Const inside a procedure As a standard module is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Module2 = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_own_name_const_compile",
+      "description": "Issue #1553 powerpoint: a Const As its own module's name is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module1 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_second_const_compile",
+      "description": "Issue #1553 powerpoint: the second Const of a list As a standard module is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const A As Long = 1, B As Module2 = 2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_long_const_compile",
+      "description": "Issue #1553 powerpoint: control: a Const As Long beside a standard module compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Long = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_access_private_const_compile",
+      "description": "Issue #1553 access: a module-level Private Const As a standard module is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_public_const_compile",
+      "description": "Issue #1553 access: a module-level Public Const As a standard module is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Const C As Module2 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_procedure_const_compile",
+      "description": "Issue #1553 access: a Const inside a procedure As a standard module is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Module2 = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_own_name_const_compile",
+      "description": "Issue #1553 access: a Const As its own module's name is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Module1 = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_second_const_compile",
+      "description": "Issue #1553 access: the second Const of a list As a standard module is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const A As Long = 1, B As Module2 = 2\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_long_const_compile",
+      "description": "Issue #1553 access: control: a Const As Long beside a standard module compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Long = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_excel_collection_const_compile",
+      "description": "Issue #1553 excel: control: a module-level Const As Collection is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Collection = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_procedure_collection_const_compile",
+      "description": "Issue #1553 excel: control: a Const inside a procedure As Collection is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Collection = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_procedure_unknown_const_compile",
+      "description": "Issue #1553 excel: control: a Const inside a procedure As an undefined name is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As NoSuchType = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_procedure_long_const_compile",
+      "description": "Issue #1553 excel: control: a Const inside a procedure As Long compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Long = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_word_collection_const_compile",
+      "description": "Issue #1553 word: control: a module-level Const As Collection is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Collection = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_procedure_collection_const_compile",
+      "description": "Issue #1553 word: control: a Const inside a procedure As Collection is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Collection = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_procedure_unknown_const_compile",
+      "description": "Issue #1553 word: control: a Const inside a procedure As an undefined name is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As NoSuchType = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_procedure_long_const_compile",
+      "description": "Issue #1553 word: control: a Const inside a procedure As Long compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Long = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_powerpoint_collection_const_compile",
+      "description": "Issue #1553 powerpoint: control: a module-level Const As Collection is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Collection = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_procedure_collection_const_compile",
+      "description": "Issue #1553 powerpoint: control: a Const inside a procedure As Collection is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Collection = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_procedure_unknown_const_compile",
+      "description": "Issue #1553 powerpoint: control: a Const inside a procedure As an undefined name is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As NoSuchType = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_procedure_long_const_compile",
+      "description": "Issue #1553 powerpoint: control: a Const inside a procedure As Long compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Long = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_access_collection_const_compile",
+      "description": "Issue #1553 access: control: a module-level Const As Collection is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Collection = 1\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_procedure_collection_const_compile",
+      "description": "Issue #1553 access: control: a Const inside a procedure As Collection is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Collection = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_procedure_unknown_const_compile",
+      "description": "Issue #1553 access: control: a Const inside a procedure As an undefined name is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As NoSuchType = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_procedure_long_const_compile",
+      "description": "Issue #1553 access: control: a Const inside a procedure As Long compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Long = 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1553_excel_object_const_compile",
+      "description": "Issue #1553 excel: control: a module-level Const As Object is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Object = Nothing\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_excel_procedure_object_const_compile",
+      "description": "Issue #1553 excel: control: a Const inside a procedure As Object is rejected: Compile error: Expected: type name. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "excel",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Object = Nothing\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_object_const_compile",
+      "description": "Issue #1553 word: control: a module-level Const As Object is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Object = Nothing\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_word_procedure_object_const_compile",
+      "description": "Issue #1553 word: control: a Const inside a procedure As Object is rejected: Compile error: Expected: type name. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "word",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Object = Nothing\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_object_const_compile",
+      "description": "Issue #1553 powerpoint: control: a module-level Const As Object is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Object = Nothing\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_powerpoint_procedure_object_const_compile",
+      "description": "Issue #1553 powerpoint: control: a Const inside a procedure As Object is rejected: Compile error: Expected: type name. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "powerpoint",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Object = Nothing\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_object_const_compile",
+      "description": "Issue #1553 access: control: a module-level Const As Object is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const C As Object = Nothing\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1553_access_procedure_object_const_compile",
+      "description": "Issue #1553 access: control: a Const inside a procedure As Object is rejected: Compile error: Expected: type name. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "host": "access",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Const C As Object = Nothing\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Sub P()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

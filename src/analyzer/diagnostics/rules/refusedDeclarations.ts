@@ -79,7 +79,7 @@ export function checkRefusedDeclarations(
 				}
 				forEachVariableGroup(member.body, (group) => {
 					if (group.isConst) {
-						checkConstTypes(source, group.declarations, activity, push);
+						checkConstTypes(source, group.declarations, 'procedure', activity, push);
 					}
 				}, activity);
 				break;
@@ -131,7 +131,7 @@ export function checkRefusedDeclarations(
 			}
 			case 'VariableGroup':
 				if (member.isConst) {
-					checkConstTypes(source, member.declarations, activity, push);
+					checkConstTypes(source, member.declarations, 'module', activity, push);
 				}
 				// Static keeps a local's value between calls, and means nothing
 				// outside a procedure (issue #216).
@@ -186,9 +186,17 @@ export function checkRefusedDeclarations(
 	}
 }
 
+/**
+ * A Const declared As a type VBA does not own. The VBE's message depends on
+ * where: "Expected: type name" at module level and "Syntax error" inside a
+ * procedure, a standard module's name included, while Object is "Invalid
+ * data type for constant" at either level (issue #1553, measured in Excel,
+ * Word, PowerPoint and Access 16.0).
+ */
 function checkConstTypes(
 	source: string,
 	declarations: readonly VariableDeclNode[],
+	scope: 'module' | 'procedure',
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -198,11 +206,12 @@ function checkConstTypes(
 			continue;
 		}
 		const object = asType.toLowerCase() === 'object';
+		const vbeError = scope === 'procedure' ? 'Syntax error' : 'Expected: type name';
 		push(
 			'constInvalidType',
 			object
 				? `A Const cannot be declared As Object. This is a VBE compile error: Invalid data type for constant.`
-				: `A Const can only be declared As one of VBA's own types, not As ${asType}. This is a VBE compile error: Expected: type name.`,
+				: `A Const can only be declared As one of VBA's own types, not As ${asType}. This is a VBE compile error: ${vbeError}.`,
 			declaredNameSpan(source, decl.span, decl.name),
 		);
 	}
