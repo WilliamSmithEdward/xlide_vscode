@@ -78,6 +78,7 @@ async function lineTokens(lines: string[]): Promise<string[][]> {
 
 const KEYWORD = 'keyword.control.vba';
 const NAME = 'variable.other.vba';
+const MEMBER = 'variable.other.member.vba';
 
 suite('VBA grammar', () => {
 	suiteSetup(async () => {
@@ -234,5 +235,32 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[8], [`Exit ${KEYWORD}`, `Property ${KEYWORD}`]);
 		assert.deepEqual(lines[10], [`Exit ${KEYWORD}`, `For ${KEYWORD}`, `Exit ${KEYWORD}`, `Do ${KEYWORD}`]);
 		assert.deepEqual(lines[11], [`ExitSub ${NAME}`, `Exit_Sub ${NAME}`]);
+	});
+
+	test('colors a name after . or ! as a member, whatever it is spelled like (issue #1574)', async () => {
+		const lines = await lineTokens([
+			'ws.Range("A1").End(xlUp).Select',
+			'wb.Close: doc.Close: pres.Close: db.Close',
+			'Debug.Print rs!Date',
+			'With rs: .Close: x = !Date: End With',
+			's = re.Replace(t, shp.Left)',
+			'n = VBA.Len(s) + Excel.xlUp',
+			'x! = y! + Len(s)',
+			'If True Then Exit Sub Else End',
+		]);
+		const members = lines.map((line) => line.filter((word) => word.endsWith(MEMBER)).map((word) => word.split(' ')[0]));
+		assert.deepEqual(members, [
+			['Range', 'End', 'Select'],
+			['Close', 'Close', 'Close', 'Close'],
+			['Print', 'Date'],
+			['Close', 'Date'],
+			['Replace', 'Left'],
+			['Len', 'xlUp'],
+			[],
+			[],
+		]);
+		assert.deepEqual(lines[3].slice(0, 2), [`With ${KEYWORD}`, `rs ${NAME}`]);
+		assert.deepEqual(lines[6], [`x ${NAME}`, `y ${NAME}`, 'Len support.function.builtin.vba', `s ${NAME}`]);
+		assert.deepEqual(lines[7], [`If ${KEYWORD}`, 'True constant.language.vba', `Then ${KEYWORD}`, `Exit ${KEYWORD}`, `Sub ${KEYWORD}`, `Else ${KEYWORD}`, `End ${KEYWORD}`]);
 	});
 });

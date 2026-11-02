@@ -10,6 +10,7 @@
     { "include": "#directives" },
     { "include": "#strings" },
     { "include": "#numbers" },
+    { "include": "#members" },
     { "include": "#procedures" },
     { "include": "#declarations" },
     { "include": "#types" },
@@ -131,6 +132,11 @@
           "match": "(?i)#[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*(?:(?:(?:[0-9]+|(?:jan(?:u(?:a(?:r(?:y)?)?)?)?|feb(?:r(?:u(?:a(?:r(?:y)?)?)?)?)?|mar(?:c(?:h)?)?|apr(?:i(?:l)?)?|may|jun(?:e)?|jul(?:y)?|aug(?:u(?:s(?:t)?)?)?|sep(?:t(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)?|oct(?:o(?:b(?:e(?:r)?)?)?)?|nov(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?|dec(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)(?![a-z])\\.?)(?:(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[-/,][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*|[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]+)(?:[0-9]+|(?:jan(?:u(?:a(?:r(?:y)?)?)?)?|feb(?:r(?:u(?:a(?:r(?:y)?)?)?)?)?|mar(?:c(?:h)?)?|apr(?:i(?:l)?)?|may|jun(?:e)?|jul(?:y)?|aug(?:u(?:s(?:t)?)?)?|sep(?:t(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)?|oct(?:o(?:b(?:e(?:r)?)?)?)?|nov(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?|dec(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)(?![a-z])\\.?)){1,2}(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]+[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?|[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+)?(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?)?))?|[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?|[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+)?(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?)?))[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*)?#"
         }
       ]
+    },
+    "members": {
+      "comment": "A name right after . or ! is looked up on what stands before it, whatever it is spelled like: rng.End, wb.Close, Debug.Print, rs!Date. The ! of a type suffix has no name right after it",
+      "name": "variable.other.member.vba",
+      "match": "(?<=[.!])[A-Za-z_][A-Za-z0-9_]*"
     },
     "procedures": {
       "patterns": [
@@ -289,11 +295,6 @@
     },
     "identifiers": {
       "patterns": [
-        {
-          "comment": "Member access: identifier after a dot",
-          "name": "variable.other.member.vba",
-          "match": "(?<=\\.)([A-Za-z_][A-Za-z0-9_]*)"
-        },
         {
           "comment": "Foreign name: [Identifier With Spaces]",
           "name": "variable.other.foreign.vba",
