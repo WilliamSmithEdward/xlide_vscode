@@ -97,6 +97,17 @@ describe('keyword completion - statement snippets', () => {
 		}
 	});
 
+	it('gives Sub and Function snippets a parameter tab stop before the body', () => {
+		const all = resolveKeywordCompletions('\n', 0).items;
+		const text = (label: string) => all.find((item) => item.label === label)?.insertText;
+		expect(text('Sub')).toBe('Sub ${1:Name}($2)\n\n\t$0\n\nEnd Sub');
+		expect(text('Private Sub')).toBe('Private Sub ${1:Name}($2)\n\n\t$0\n\nEnd Sub');
+		expect(text('Public Sub')).toBe('Public Sub ${1:Name}($2)\n\n\t$0\n\nEnd Sub');
+		expect(text('Function')).toBe('Function ${1:Name}($2) As ${3:Variant}\n\n\t$0\n\nEnd Function');
+		expect(text('Private Function')).toBe('Private Function ${1:Name}($2) As ${3:Variant}\n\n\t$0\n\nEnd Function');
+		expect(text('Public Function')).toBe('Public Function ${1:Name}($2) As ${3:Variant}\n\n\t$0\n\nEnd Function');
+	});
+
 	it('filters statement snippets by typed prefix', () => {
 		const src = 'Sub T()\n    Wi\nEnd Sub\n';
 		expect(labels(src, '    Wi')).toEqual(['With']);
