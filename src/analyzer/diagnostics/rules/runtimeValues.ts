@@ -560,12 +560,21 @@ function numberArgumentGroup(toks: readonly VbaToken[], index: number): VbaToken
 	return group.length > 0 ? group : undefined;
 }
 
+/**
+ * The integer a token group evaluates to. An empty group, the missing
+ * argument of `Mid(s, ) = "z"` or `DateSerial(2026, , 1)`, has no value: read
+ * unguarded it threw, and the rule's visitor stopped for the rest of the
+ * module (issue #1564).
+ */
 function integerGroupValue(
 	source: string,
 	span: Span,
 	group: readonly VbaToken[],
 	constants: IntegerConstantLookup,
 ): number | undefined {
+	if (group.length === 0) {
+		return undefined;
+	}
 	return evaluateIntegerConstantExpression(
 		source.slice(span.start + group[0].start, span.start + group[group.length - 1].end),
 		constants,
