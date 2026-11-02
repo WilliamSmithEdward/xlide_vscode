@@ -4,6 +4,7 @@ import {
 	resolveEventHandlerCompletions,
 } from '../../src/analyzer';
 import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
+import { OFFICE_HOST_APPS, type OfficeHostApp } from '../../src/officeHostApps';
 
 function at(src: string, marker: string): number {
 	const idx = src.indexOf(marker);
@@ -205,6 +206,7 @@ describe('where a handler stub is offered', () => {
 		['Word ThisDocument', { moduleName: 'ThisDocument', moduleKind: 'document', documentType: 'document', host: 'word' }, 'Document_O', 'Document_Open'],
 		['a PowerPoint UserForm', { moduleName: 'UserForm1', moduleKind: 'userform', host: 'powerpoint' }, 'UserForm_I', 'UserForm_Initialize'],
 		['an Access form', { moduleName: 'Form_Orders', moduleKind: 'userform', host: 'access', meType: 'Access.Form', model: getAccessObjectModel() }, 'Form_Loa', 'Form_Load'],
+		['a class module', { moduleName: 'Account', moduleKind: 'class', host: 'excel' }, 'Class_T', 'Class_Terminate'],
 	];
 	const atEnd = (src: string, ctx: EventHandlerCompletionContext) =>
 		resolveEventHandlerCompletions(src, src.length, ctx).map((item) => item.name);
@@ -236,5 +238,60 @@ describe('where a handler stub is offered', () => {
 		}
 		// The row below the unfinished header is still its body.
 		expect(names(`Private Sub Work()\n${typed}\n`, `\n${typed}`, ctx)).toEqual([]);
+	});
+});
+
+describe('class module event handlers', () => {
+	const hosts = Object.keys(OFFICE_HOST_APPS) as OfficeHostApp[];
+
+	it.each(hosts)('offers Class_Initialize and Class_Terminate in a %s class module', (host) => {
+		const src = 'Option Explicit\nPrivate m As Long\nC';
+		expect(completions(src, '\nC', { moduleName: 'Account', moduleKind: 'class', host })).toEqual([
+			{
+				name: 'Class_Initialize',
+				signature: 'Class_Initialize()',
+				detail: 'Class event handler',
+				documentation: 'Occurs when an instance of the class is created.',
+				insertText: 'Private Sub Class_Initialize()\n\t$0\nEnd Sub',
+			},
+			{
+				name: 'Class_Terminate',
+				signature: 'Class_Terminate()',
+				detail: 'Class event handler',
+				documentation: 'Occurs when all references to an instance of the class are removed from memory.',
+				insertText: 'Private Sub Class_Terminate()\n\t$0\nEnd Sub',
+			},
+		]);
+	});
+
+	it('offers them in a VB6 class module too', () => {
+		expect(names('Option Explicit\nClass_', 'Class_', { moduleName: 'Account', moduleKind: 'class', host: 'vb6' }))
+			.toEqual(['Class_Initialize', 'Class_Terminate']);
+	});
+
+	it('offers both on an empty module-level line and only the tail after Private Sub', () => {
+		const ctx: EventHandlerCompletionContext = { moduleName: 'Account', moduleKind: 'class' };
+		expect(names('Option Explicit\n', 'Explicit\n', ctx)).toEqual(['Class_Initialize', 'Class_Terminate']);
+		const tail = completions('Private Sub Class_T', 'Class_T', ctx);
+		expect(tail.map((item) => item.insertText)).toEqual(['Class_Terminate()\n\t$0\nEnd Sub']);
+	});
+
+	it('leaves out a handler the class already has, and offers none inside a procedure', () => {
+		const ctx: EventHandlerCompletionContext = { moduleName: 'Account', moduleKind: 'class' };
+		const src = 'Private Sub class_initialize()\nEnd Sub\nClass_\nSub Work()\n    Class_\nEnd Sub\n';
+		expect(names(src, 'End Sub\nClass_', ctx)).toEqual(['Class_Terminate']);
+		expect(names(src, '    Class_', ctx)).toEqual([]);
+	});
+
+	it.each([
+		['an Excel workbook module', { moduleName: 'ThisWorkbook', moduleKind: 'document', documentType: 'workbook', host: 'excel' }],
+		['an Excel worksheet module', { moduleName: 'Sheet1', moduleKind: 'document', documentType: 'worksheet', host: 'excel' }],
+		['a Word document module', { moduleName: 'ThisDocument', moduleKind: 'document', documentType: 'document', host: 'word' }],
+		['a PowerPoint UserForm', { moduleName: 'UserForm1', moduleKind: 'userform', host: 'powerpoint' }],
+		['an Access form module', { moduleName: 'Form_Orders', moduleKind: 'userform', host: 'access', meType: 'Access.Form' }],
+		['an Access report module', { moduleName: 'Report_Orders', moduleKind: 'userform', host: 'access', meType: 'Access.Report' }],
+		['a standard module', { moduleName: 'Module1', moduleKind: 'standard', host: 'excel' }],
+	] as const)('offers no Class_ handler in %s', (_, ctx) => {
+		expect(names('Option Explicit\nClass_', 'Class_', ctx)).toEqual([]);
 	});
 });

@@ -356,27 +356,29 @@ it('reuses the unfiltered binding list across shadowed enum constants',async()=>
  expect(resolve).toHaveBeenCalledTimes(2);
 });
 
+/** Asks the provider at a position, with `context` as the module's project context and `options` as its editor's. */
+function requestAt(source: string, line: number, column: number, context: EditorProjectContext, options?: object) {
+    const lines = source.split('\n');
+    const document = {
+        uri: { scheme: 'xlide-vba', path: `/Book.xlsm/${context.moduleName}.bas`, toString: () => `xlide-vba:/Book.xlsm/${context.moduleName}.bas` },
+        version: 1, languageId: 'vba',
+        getText: () => source,
+        offsetAt: (position: vscode.Position) => lines.slice(0, position.line).reduce((total, text) => total + text.length + 1, 0) + position.character,
+        lineAt: (index: number) => ({ text: lines[index] }),
+    };
+    Object.assign(vscode.window, { visibleTextEditors: options ? [{ document, options }] : [] });
+    const projectContext = {
+        cachedEditorProjectContext: vi.fn(() => context),
+        readyEditorProjectContext: vi.fn(() => undefined),
+        localEditorProjectContext: vi.fn(() => context),
+        warmEditorProjectContext: vi.fn(),
+        buildEditorProjectContextWithin: vi.fn(async () => context),
+    };
+    const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
+    return provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(line, column));
+}
+
 describe('inserted blocks in the editor indentation', () => {
-    function requestAt(source: string, line: number, column: number, context: EditorProjectContext, options?: object) {
-        const lines = source.split('\n');
-        const document = {
-            uri: { scheme: 'xlide-vba', path: `/Book.xlsm/${context.moduleName}.bas`, toString: () => `xlide-vba:/Book.xlsm/${context.moduleName}.bas` },
-            version: 1, languageId: 'vba',
-            getText: () => source,
-            offsetAt: (position: vscode.Position) => lines.slice(0, position.line).reduce((total, text) => total + text.length + 1, 0) + position.character,
-            lineAt: (index: number) => ({ text: lines[index] }),
-        };
-        Object.assign(vscode.window, { visibleTextEditors: options ? [{ document, options }] : [] });
-        const projectContext = {
-            cachedEditorProjectContext: vi.fn(() => context),
-            readyEditorProjectContext: vi.fn(() => undefined),
-            localEditorProjectContext: vi.fn(() => context),
-            warmEditorProjectContext: vi.fn(),
-            buildEditorProjectContextWithin: vi.fn(async () => context),
-        };
-        const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
-        return provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(line, column));
-    }
     afterEach(() => { Object.assign(vscode.window, { visibleTextEditors: [] }); });
 
     it.each([
@@ -399,5 +401,38 @@ describe('inserted blocks in the editor indentation', () => {
         const item = result.items.find(candidate => candidate.label === handler)!;
         expect((item.insertText as vscodeTypes.SnippetString).value).toBe(`Private Sub ${handler}()\n\t$0\nEnd Sub`);
         expect(item.keepWhitespace).toBeUndefined();
+    });
+});
+
+describe('a class module offers its handlers beside the other items', () => {
+    const labels = (list: vscodeTypes.CompletionList) => list.items.map(item => item.label as string);
+    // The empty line right below a declaration, and before the first procedure.
+    const source = 'Option Explicit\nPrivate cTotal As Long\n\nSub Helper()\nEnd Sub\n';
+    afterEach(() => { Object.assign(vscode.window, { visibleTextEditors: [] }); });
+
+    it.each(['excel', 'word', 'powerpoint', 'access'] as const)('offers a %s class module its handlers beside the keywords and identifiers', async host => {
+        const context: EditorProjectContext = { moduleName: 'Account', moduleKind: 'class', host };
+        const result = await requestAt(source, 2, 0, context);
+        expect(labels(result)).toEqual(expect.arrayContaining(['Class_Initialize', 'Class_Terminate', 'Private Sub', 'Dim']));
+        const typed = await requestAt(source.replace('Long\n\n', 'Long\nC\n'), 2, 1, context);
+        expect(labels(typed)).toEqual(expect.arrayContaining(['Class_Initialize', 'Class_Terminate', 'Call', 'cTotal']));
+        const item = result.items.find(candidate => candidate.label === 'Class_Initialize')!;
+        expect((item.insertText as vscodeTypes.SnippetString).value).toBe('Private Sub Class_Initialize()\n\t$0\nEnd Sub');
+        expect(item.keepWhitespace).toBeUndefined();
+    });
+
+    it.each([
+        ['an Excel workbook module', { moduleName: 'ThisWorkbook', moduleKind: 'document', documentType: 'workbook', host: 'excel' }, 'Workbook_Open'],
+        ['a Word document module', { moduleName: 'ThisDocument', moduleKind: 'document', documentType: 'document', host: 'word' }, 'Document_Open'],
+        ['a PowerPoint UserForm', { moduleName: 'UserForm1', moduleKind: 'userform', host: 'powerpoint' }, 'UserForm_Initialize'],
+    ] as const)('offers %s its own handlers in place of the list, and no Class_ handler', async (_, context, own) => {
+        const offered = labels(await requestAt(source, 2, 0, context as EditorProjectContext));
+        expect(offered).toContain(own);
+        expect(offered.filter(label => /^Class_/.test(label) || label === 'Dim')).toEqual([]);
+    });
+
+    it('offers an Access form module no Class_ handler', async () => {
+        const offered = labels(await requestAt(source, 2, 0, { moduleName: 'Form_Orders', moduleKind: 'userform', host: 'access', meType: 'Access.Form' }));
+        expect(offered.filter(label => /^Class_/.test(label))).toEqual([]);
     });
 });

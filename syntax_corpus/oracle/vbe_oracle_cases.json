@@ -227904,6 +227904,196 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid",
       "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "class_handlers_excel_runtime",
+      "description": "Excel: a class module's Private Sub Class_Initialize() and Private Sub Class_Terminate(), with a tab body and a two-space body as completion inserts them, compile and run when an instance is created and released (Fired = 11). Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialize()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminate()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "class_handlers_misspelled_excel_runtime",
+      "description": "Excel: control for class_handlers_excel_runtime: handlers misspelled Class_Initialise and Class_Terminat are ordinary procedures that never run, so Fired stays 0 and Main raises error 5. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialise()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminat()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "class_handlers_word_runtime",
+      "description": "Word: a class module's Private Sub Class_Initialize() and Private Sub Class_Terminate(), with a tab body and a two-space body as completion inserts them, compile and run when an instance is created and released (Fired = 11). Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialize()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminate()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "class_handlers_misspelled_word_runtime",
+      "description": "Word: control for class_handlers_word_runtime: handlers misspelled Class_Initialise and Class_Terminat are ordinary procedures that never run, so Fired stays 0 and Main raises error 5. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialise()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminat()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "word"
+    },
+    {
+      "id": "class_handlers_powerpoint_runtime",
+      "description": "PowerPoint: a class module's Private Sub Class_Initialize() and Private Sub Class_Terminate(), with a tab body and a two-space body as completion inserts them, compile and run when an instance is created and released (Fired = 11). Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialize()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminate()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "class_handlers_misspelled_powerpoint_runtime",
+      "description": "PowerPoint: control for class_handlers_powerpoint_runtime: handlers misspelled Class_Initialise and Class_Terminat are ordinary procedures that never run, so Fired stays 0 and Main raises error 5. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialise()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminat()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "class_handlers_access_runtime",
+      "description": "Access: a class module's Private Sub Class_Initialize() and Private Sub Class_Terminate(), with a tab body and a two-space body as completion inserts them, compile and run when an instance is created and released (Fired = 11). Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialize()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminate()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
+    },
+    {
+      "id": "class_handlers_misspelled_access_runtime",
+      "description": "Access: control for class_handlers_access_runtime: handlers misspelled Class_Initialise and Class_Terminat are ordinary procedures that never run, so Fired stays 0 and Main raises error 5. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Fired As Long\r\nFunction Main() As Variant\r\n    Dim a As Account\r\n    Set a = New Account\r\n    Set a = Nothing\r\n    If Fired <> 11 Then Err.Raise 5\r\n    Main = Fired\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Account",
+          "type": "class",
+          "source": "Option Explicit\r\n\r\nPrivate Sub Class_Initialise()\r\n\tFired = Fired + 1\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminat()\r\n  Fired = Fired + 10\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "host": "access"
     }
   ]
 }

@@ -14,6 +14,11 @@ describe('event completion prefix gates',()=>{
   expect(resolveEventHandlerCompletions(source,source.length,ctx)).toEqual([]);
   expect(parse).not.toHaveBeenCalled();expect(events).not.toHaveBeenCalled();
  });
+ for(const eol of ['\n','\r\n','\r'])it('rejects nonmatching prefixes in a class module before parsing ('+JSON.stringify(eol)+')',()=>{
+  const source='Sub Existing()'+eol+'End Sub'+eol+'Const',parse=vi.spyOn(parser,'parseModule');
+  expect(resolveEventHandlerCompletions(source,source.length,{moduleKind:'class'})).toEqual([]);
+  expect(parse).not.toHaveBeenCalled();
+ });
  it.each(contexts.slice(1))('looks up only the matching control owner (%j)',ctx=>{
   const source='Button999_C',events=vi.spyOn(host,'getHostEvents');
   expect(resolveEventHandlerCompletions(source,source.length,ctx)).toEqual([{name:'Button999_Click',signature:'Button999_Click()',detail:'Button event handler',documentation:'Control clicks.',insertText:'Private Sub Button999_Click()\n\t$0\nEnd Sub'}]);

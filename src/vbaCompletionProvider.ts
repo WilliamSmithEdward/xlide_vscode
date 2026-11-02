@@ -423,8 +423,13 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		if (bracketedMember) { return list([]); }
 
 		const fastEvents = resolveEventHandlerCompletions(source, offset, toEventHandlerCompletionContext(fastProjectCtx));
-		if (fastEvents.length > 0) {
-			return list(fastEvents.map((event) => this._toEventHandlerItem(event, range)));
+		// A class module's two handlers start with `C` and are offered on an
+		// empty line too, so they join the keywords and identifiers rather
+		// than hide `Call`, `Dim`, `Private Sub` and the rest.
+		const eventItems = fastEvents.map((event) => this._toEventHandlerItem(event, range));
+		const classEvents = fastProjectCtx.moduleKind === 'class' ? eventItems : [];
+		if (eventItems.length > 0 && fastProjectCtx.moduleKind !== 'class') {
+			return list(eventItems);
 		}
 
 		// Menu updates never wait for project loading. Serve local facts now;
@@ -446,6 +451,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		if (keywords.exclusive) {
 			return list([
 				...directiveItems,
+				...classEvents,
 				...keywords.items.map((item) => this._toKeywordItem(item, range, document, indentUnit)),
 			]);
 		}
@@ -523,6 +529,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			|| id.detail === 'Boolean literal';
 		return list([
 			...directiveItems,
+			...classEvents,
 			...(argumentValues?.constants ?? []).flatMap(
 				(constant) => {
 					const item = this._toArgumentValueItem(constant, argumentValues!, range);

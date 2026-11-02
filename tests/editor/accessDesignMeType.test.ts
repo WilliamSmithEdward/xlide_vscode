@@ -460,6 +460,8 @@ describe('the editor, from the database on disk to the completion list', () => {
 		// A label has no AfterUpdate, and nothing here is a UserForm s.
 		expect(signatures).not.toContain('TotalLabel_AfterUpdate()');
 		expect(stubs.filter((stub) => /^UserForm_/.test(stub.name))).toEqual([]);
+		// Nor a class module's: the VBE lists the Class object only there.
+		expect(stubs.filter((stub) => /^Class_/.test(stub.name))).toEqual([]);
 
 		const load = stubs.find((stub) => stub.name === 'Form_Load');
 		expect(load?.insertText).toBe('Private Sub Form_Load()\n\t$0\nEnd Sub');

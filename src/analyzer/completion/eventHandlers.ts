@@ -360,18 +360,39 @@ const DOCUMENT_EVENTS: readonly EventHandlerDefinition[] = [
 ];
 
 /**
+ * The two events every class module raises, which the VBE lists under the
+ * Class object. Only a class module lists them: a document module, a UserForm
+ * and an Access form or report list their own object instead.
+ */
+const CLASS_EVENTS: readonly EventHandlerDefinition[] = [
+	{
+		name: 'Class_Initialize',
+		params: '',
+		owner: 'Class',
+		description: 'Occurs when an instance of the class is created.',
+	},
+	{
+		name: 'Class_Terminate',
+		params: '',
+		owner: 'Class',
+		description: 'Occurs when all references to an instance of the class are removed from memory.',
+	},
+];
+
+/**
  * Resolves event-procedure stub completions at module level.
  *
- * Results are intentionally scoped by the module being edited. Standard/class
- * modules can still define same-named procedures, but those are ordinary
- * procedures and are not offered here as wired event handlers.
+ * Results are intentionally scoped by the module being edited. A class module
+ * is offered only its own Class_Initialize and Class_Terminate, and a standard
+ * module nothing: a `Workbook_Open` there is an ordinary procedure, not a wired
+ * event handler.
  */
 export function resolveEventHandlerCompletions(
 	source: string,
 	offset: number,
 	ctx: EventHandlerCompletionContext = {},
 ): EventHandlerCompletion[] {
-	if (ctx.moduleKind !== 'document' && ctx.moduleKind !== 'userform') {
+	if (ctx.moduleKind !== 'document' && ctx.moduleKind !== 'userform' && ctx.moduleKind !== 'class') {
 		return [];
 	}
 
@@ -384,9 +405,11 @@ export function resolveEventHandlerCompletions(
 	const documentType = eventHandlerDocumentTypeForContext(ctx);
 	// An Access form raises Form_Load and AddLine_Click, not
 	// UserForm_Initialize, so it never reads the UserForm table.
-	const definitions = isAccessDesignerClass(ctx.meType)
-		? accessEventDefinitions(ctx, prefix)
-		: ctx.host === 'vb6' ? vb6EventDefinitions(ctx, prefix) : definitionsForDocumentType(documentType);
+	const definitions = ctx.moduleKind === 'class'
+		? CLASS_EVENTS
+		: isAccessDesignerClass(ctx.meType)
+			? accessEventDefinitions(ctx, prefix)
+			: ctx.host === 'vb6' ? vb6EventDefinitions(ctx, prefix) : definitionsForDocumentType(documentType);
 	// No handler can match this prefix, so source/scope facts cannot affect output.
 	const matching = prefix ? definitions.filter((def) => def.name.toLowerCase().startsWith(prefix)) : definitions;
 	if (matching.length === 0) {
