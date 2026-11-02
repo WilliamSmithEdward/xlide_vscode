@@ -317,6 +317,74 @@ describe('VBA language configuration', () => {
 		}
 	});
 
+	it('reads only code: a string or a comment does not supply the Then of an If or ElseIf', () => {
+		const config = loadConfig();
+		for (const line of [
+			"If ready Then value = 1 ' only if ready Then", 'If a = "Then"', 'ElseIf a = "Then"', "ElseIf ready ' Then",
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: false, enter: false });
+		}
+		for (const line of ['If a = "Then" Then', "If ready Then ' Then", 'ElseIf a = "Then" Then', 'If [Then] Then', 'If rs!Rem Then', 'If rs.Rem Then']) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: true, enter: true });
+		}
+	});
+
+	it('does not indent after a line that closes the block it opens', () => {
+		const config = loadConfig();
+		for (const line of [
+			'Else: End If', 'Else n = 1: End If', 'ElseIf ready Then n = 1: End If', 'Else: EndIf', 'Case 1: End Select', 'Case Else: n = 0: End Select',
+			'Select Case n: Case 1: End Select', 'With ws: n = .Index: End With', 'With rs!Rem: End With',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: false, enter: false });
+		}
+		// A closer inside a string or a comment closes nothing.
+		for (const line of [
+			'Case "a: End Select"', 'With ws: n = "End With"', "Else ' End If", 'Else Rem note', 'For i = 1 To 5: Rem : Next', 'With rs: Rem : End With',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: true, enter: true });
+		}
+	});
+
+	it('does not indent after a one-line loop, for each Office host', () => {
+		// Oracle: issue447_07_runtime to issue447_12_runtime (one-line `For Each … In …: Next` over worksheets,
+		// workbooks, a range and its rows) and issue342_30_runtime (`For i = 0 To UBound(a): Next`) compile
+		// and run in Excel; issue342_04_runtime,
+		// issue342_06_runtime and issue411b_02_runtime (`Do While ...: Loop`, `While ...: Wend`,
+		// `With ...: End With`) compile and stop at run time.
+		const config = loadConfig();
+		for (const line of [
+			'For Each ws In ThisWorkbook.Worksheets: Next',
+			'For Each p In ActiveDocument.Paragraphs: n = n + 1: Next p',
+			'For i = 1 To ActivePresentation.Slides.Count: n = n + i: Next',
+			'Do While CurrentDb.TableDefs.Count > n: n = n + 1: Loop',
+			'Do: n = n + 1: Loop Until n > 9',
+			'While n < ThisWorkbook.Sheets.Count: n = n + 1: Wend',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: false, enter: false });
+		}
+		for (const line of [
+			'For Each ws In ThisWorkbook.Worksheets', 'For Each p In ActiveDocument.Paragraphs: n = n + 1',
+			'For i = 1 To ActivePresentation.Slides.Count', 'Do While CurrentDb.TableDefs.Count > n: n = n + 1', 'Do', "Do ' until done",
+			'While n < ThisWorkbook.Sheets.Count', 'For i = 1 To 5: s = "Next"', "For i = 1 To 5 ' then Next",
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: true, enter: true });
+		}
+	});
+
+	it('reindents one-line loops and closed arms as Format Document lays them out, for each Office host', () => {
+		const modules = [
+			['For Each ws In ThisWorkbook.Worksheets: Next', 'n = 1', 'For i = 1 To ThisWorkbook.Sheets.Count: n = n + i: Next', 'n = 2'],
+			['If ActiveDocument.Paragraphs.Count > 1 Then', '    n = 1', 'Else: End If', 'n = 2', 'If n > 1 Then n = 0 \' only when n > 1 Then', 'n = 3'],
+			['While n < ActivePresentation.Slides.Count: n = n + 1: Wend', 'n = 1', "If n > 1 Then ' Then", '    n = 2', 'End If'],
+			['With CurrentDb: n = .TableDefs.Count: End With', 'n = 1', 'Do Until n > 9: n = n + 1: Loop', 'n = 2'],
+		].map((body) => ['Sub Main()', ...body.map((line) => `    ${line}`), 'End Sub'].join('\r\n'));
+		const config = loadConfig();
+		for (const source of modules) {
+			expect(formatted(source), source).toBe(source);
+			expect(reindent(config, source), source).toBe(source);
+		}
+	});
+
 	it('reindents headers with modifiers and directive arms as Format Document lays them out, for each Office host', () => {
 		const config = loadConfig();
 		const modules = [
@@ -379,7 +447,8 @@ describe('VBA language configuration', () => {
 		// is tried with the `i` flag too, which takes a different path through
 		// the regex engine. Each of these lines takes a few milliseconds when the
 		// time grows with the line's length, far under the bound even on a busy
-		// machine.
+		// machine; the 2,185 lines together take a few seconds, so the test gets
+		// its own time limit.
 		const config = loadConfig();
 		const sources = [
 			...Object.values(config.indentationRules ?? {}),
@@ -406,7 +475,7 @@ describe('VBA language configuration', () => {
 				}
 			}
 		}
-	});
+	}, 30_000);
 
 	it('contributes the shared Smart Enter/snippet block layout setting', () => {
 		const setting = loadPackage()

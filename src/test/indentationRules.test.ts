@@ -143,4 +143,66 @@ suite('VBA indentation rules', () => {
 		}
 		assert.deepEqual(after, cases);
 	});
+
+	test('Reindent Lines leaves the line after a one-line loop or a closed arm where Format Document does', async () => {
+		// Oracle, Excel: issue447_07_runtime to issue447_12_runtime (one-line `For Each … In …: Next`)
+		// and issue342_30_runtime (`For i = 0 To UBound(a): Next`) compile and run.
+		const layout = [
+			'Sub Main()',
+			'    Dim n As Long',
+			'    For Each ws In ThisWorkbook.Worksheets: Next',
+			'    n = 1',
+			'    For i = 1 To ActivePresentation.Slides.Count: n = n + i: Next',
+			'    If ActiveDocument.Paragraphs.Count > 1 Then',
+			'        n = 2',
+			'    Else: End If',
+			"    If n > CurrentDb.TableDefs.Count Then n = 0 ' only when it is greater Then",
+			'    n = 3',
+			'End Sub',
+			'',
+		];
+		const document = await open(await writeModule('IndentationOneLineProbe', layout.map((line) => line.trimStart()).join('\r\n')));
+		const editor = vscode.window.activeTextEditor!;
+		editor.options = { insertSpaces: true, tabSize: 4 };
+		const formatEdits = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+			'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 4, insertSpaces: true });
+		assert.ok(formatEdits && formatEdits.length > 0, 'Format Document should answer');
+		await vscode.commands.executeCommand('editor.action.reindentlines');
+		assert.deepEqual(indents(document.getText()), indents(layout.join('\r\n')));
+		const reindented = document.getText();
+		await vscode.commands.executeCommand('editor.action.formatDocument');
+		assert.deepEqual(indents(document.getText()), indents(reindented), 'Format Document keeps the reindented layout');
+	});
+
+	test('Enter does not indent after a one-line loop, a closed arm or a Then inside a comment', async () => {
+		// Lines Smart Enter leaves alone, so VS Code's rules decide; the open
+		// openers it completes itself are covered by the unit tests.
+		const cases: Array<[line: string, indentAfter: string]> = [
+			['    For Each ws In ThisWorkbook.Worksheets: Next', '    '],
+			['    While n < ActivePresentation.Slides.Count: n = n + 1: Wend', '    '],
+			['    Else: End If', '    '],
+			["    If n > CurrentDb.TableDefs.Count Then n = 0 ' only when it is greater Then", '    '],
+			['    Else n = 2', '        '],
+		];
+		const document = await open(await writeModule('IndentationOneLineEnterProbe', 'Sub Main()\r\nEnd Sub\r\n'));
+		const editor = vscode.window.activeTextEditor!;
+		editor.options = { insertSpaces: true, tabSize: 4 };
+		// As in the #Else test above: Enter follows the rules only on a line
+		// VS Code has tokenized, so wait for the module's first line.
+		const write = async (line: string): Promise<string> => {
+			const rest = new vscode.Range(1, 0, document.lineCount, 0);
+			assert.ok(await editor.edit((edit) => edit.replace(rest, `${line}\r\nEnd Sub\r\n`)));
+			const end = document.lineAt(1).range.end;
+			editor.selection = new vscode.Selection(end, end);
+			await vscode.commands.executeCommand('type', { text: '\n' });
+			return document.lineAt(2).text;
+		};
+		await until(async () => await write('    Case 1') === '        ' ? true : undefined,
+			'Enter after `Case 1` should indent once the module is tokenized');
+		const after: Array<[string, string]> = [];
+		for (const [line] of cases) {
+			after.push([line, await write(line)]);
+		}
+		assert.deepEqual(after, cases);
+	});
 });
