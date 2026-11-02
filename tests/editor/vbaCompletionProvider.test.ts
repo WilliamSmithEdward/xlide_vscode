@@ -26,11 +26,16 @@ vi.mock('../../src/analyzer/call/callContext', async () => {
 
 import * as vscode from 'vscode';
 import { projectOptions } from '../analyzer/diagnostics/helpers';
+import { hostObjectModelForToken } from '../../src/analyzer/host/hostRegistry';
+import { OFFICE_HOST_APPS, type OfficeHostApp } from '../../src/officeHostApps';
 import * as lexer from '../../src/analyzer/lexer/tokenize';
 import * as identifiers from '../../src/analyzer/completion/identifierCompletion';
 import { VbaMemberCompletionProvider } from '../../src/vbaCompletionProvider';
 import { callableCompletionShouldInsertParens } from '../../src/analyzer/call/callContext';
 import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
 import type { EditorProjectContext, VbaEditorProjectContextService } from '../../src/vbaEditorProjectContext';
 
 function prepareRequest(line: string, context: EditorProjectContext = {}, column = line.length, prelude = 'Sub Demo()\n') {
@@ -96,6 +101,31 @@ describe('completion provider surface', () => {
         const directive = await request("' @xlide-");
         expect(directive.items.map(item => item.label)).toContain('@xlide-test');
     });
+    const directiveLabels = (items: { label: unknown }[]) => items.map(item => item.label)
+        .filter(label => typeof label === 'string' && label.startsWith('@'));
+    const hosts: [string, EditorProjectContext][] = [
+        ['Excel', { host: 'excel', hostModel: getExcelObjectModel() }],
+        ['Word', { host: 'word', hostModel: getWordObjectModel() }],
+        ['PowerPoint', { host: 'powerpoint', hostModel: getPowerPointObjectModel() }],
+        ['Access', { host: 'access', hostModel: getAccessObjectModel() }],
+    ];
+    // U+0019 is whitespace to the lexer after a continuation, though not to \s.
+    const eom = String.fromCharCode(0x19);
+    it.each(hosts.flatMap(([name, context]) => ['Dim t _', 'x = 1 + _', 'Dim t As Long, _', 'Dim t As Long _', 'x = 1: Dim t _ \t', `Dim t As Long _${eom}`]
+        .map(above => [name, above, context] as const)))('%s: offers no test directives on the row continuing %j', async (_name, above, context) => {
+        const prepared = prepareRequest('    ', context, 4, `Sub Demo()\n${above}\n`);
+        expect(directiveLabels((await prepared.run(' ')).items)).toEqual([]);
+        expect(directiveLabels((await prepared.run()).items)).toEqual([]);
+    });
+    it.each([['    @xl', 'Dim t _'], ['    ', 'Dim t As Long _\u3000']])('offers no test directives at %j on the row continuing %j', async (line, above) => {
+        expect(directiveLabels((await prepareRequest(line, {}, line.length, `Sub Demo()\n${above}\n`).run()).items)).toEqual([]);
+    });
+    it.each(['', "' Checks the total _\n", "' Checks _\n' the total _\n", "x = 1 ' note _\n", 'Rem note _\n', 'x = "text _\n', 'abc_\n'])('still offers test directives on the row after %j', async above => {
+        const prepared = prepareRequest('    ', {}, 4, `Sub Demo()\n${above}`);
+        const directives = ['@xlide-test', '@xlide-test-skip', '@xlide-test-xfail'];
+        expect(directiveLabels((await prepared.run(' ')).items)).toEqual(directives);
+        expect(directiveLabels((await prepared.run()).items)).toEqual(directives);
+    });
 
     it('includes project classes alongside built-in types after As', async () => {
         const result = await request('Dim thing As ', { projectTypes: [{ name: 'Widget', kind: 'class', moduleName: 'Widget' }] });
@@ -104,6 +134,40 @@ describe('completion provider surface', () => {
     it('uses the document host rather than Excel for type completion', async () => {
         const result = await request('Dim thing As Range', { host: 'word', hostModel: getWordObjectModel() });
         expect(result.items.find(item => item.label === 'Range')?.detail).toBe('Word type');
+    });
+    const hostGlobals: Record<OfficeHostApp, string> = { excel: 'ActiveSheet', word: 'ActiveDocument', powerpoint: 'ActivePresentation', access: 'DoCmd' };
+    describe.each(Object.keys(OFFICE_HOST_APPS) as OfficeHostApp[])('after a word and a space in %s', host => {
+        const context = { host, hostModel: hostObjectModelForToken(host) };
+        const others = Object.values(hostGlobals).filter(name => name !== hostGlobals[host]);
+        const prelude = 'Sub Helper()\nEnd Sub\nSub Demo()\nDim total As Long\n';
+        const labels = async (line: string, trigger?: string, before = prelude) =>
+            (await prepareRequest(line, context, undefined, before).run(trigger)).items.map(item => String(item.label));
+        it.each(['Call ', 'If ', 'MsgBox ', 'Debug.Print ', 'For i = 1 To ', 'Call total$ '])('offers the general list on Ctrl+Space after %j', async line => {
+            const got = await labels(line);
+            expect(got).toEqual(expect.arrayContaining(['total', 'Helper', 'MsgBox', hostGlobals[host]]));
+            expect(got.filter(label => others.includes(label))).toEqual([]);
+        });
+        it('offers the general list on Ctrl+Space on a continued row', async () => {
+            expect(await labels('    ', undefined, `${prelude}Call _\n`)).toEqual(expect.arrayContaining(['total', 'Helper', 'MsgBox']));
+        });
+        it.each(['Call ', 'If ', 'For i = 1 To ', 'For Each v In ', 'Not ', 'Call total$ ', 'If total% '])('opens no general list on a typed space after %j', async line => {
+            expect(await labels(line, ' ')).toEqual([]);
+        });
+        it('opens no general list on a typed space on a continued row', async () => {
+            // The test directives offered on any continued row are a separate issue.
+            expect((await labels('    ', ' ', `${prelude}Call _\n`)).filter(label => !label.startsWith('@'))).toEqual([]);
+        });
+        it.each([
+            ['Call He', undefined, 'Helper'],
+            ['MsgBox to', undefined, 'total'],
+            ['Debug.Pr', undefined, 'Print'],
+            ['Exit ', ' ', 'Sub'],
+            ['x = ', undefined, 'total'],
+            // Assert's Boolean argument, as `Call Paint ` offers an enum's values.
+            ['Debug.Assert ', ' ', 'True'],
+        ])('still completes %j on trigger %j', async (line, trigger, expected) => {
+            expect(await labels(line, trigger)).toContain(expected);
+        });
     });
     it.each(['caf\u00e9', '\u0915\u093e'])('replaces the whole Unicode member prefix %s including its suffix', async prefix => {
         const result = await request(`obj.${prefix}tail`, {
@@ -290,4 +354,50 @@ it('reuses the unfiltered binding list across shadowed enum constants',async()=>
  expect(result.items.find(item=>item.label==='msoTrue')?.insertText).toBe('MsoTriState.msoTrue');
  expect(result.items.find(item=>item.label==='msoFalse')?.insertText).toBe('MsoTriState.msoFalse');
  expect(resolve).toHaveBeenCalledTimes(2);
+});
+
+describe('inserted blocks in the editor indentation', () => {
+    function requestAt(source: string, line: number, column: number, context: EditorProjectContext, options?: object) {
+        const lines = source.split('\n');
+        const document = {
+            uri: { scheme: 'xlide-vba', path: `/Book.xlsm/${context.moduleName}.bas`, toString: () => `xlide-vba:/Book.xlsm/${context.moduleName}.bas` },
+            version: 1, languageId: 'vba',
+            getText: () => source,
+            offsetAt: (position: vscode.Position) => lines.slice(0, position.line).reduce((total, text) => total + text.length + 1, 0) + position.character,
+            lineAt: (index: number) => ({ text: lines[index] }),
+        };
+        Object.assign(vscode.window, { visibleTextEditors: options ? [{ document, options }] : [] });
+        const projectContext = {
+            cachedEditorProjectContext: vi.fn(() => context),
+            readyEditorProjectContext: vi.fn(() => undefined),
+            localEditorProjectContext: vi.fn(() => context),
+            warmEditorProjectContext: vi.fn(),
+            buildEditorProjectContextWithin: vi.fn(async () => context),
+        };
+        const provider = new VbaMemberCompletionProvider(projectContext as unknown as VbaEditorProjectContextService);
+        return provider.provideCompletionItems(document as unknown as vscodeTypes.TextDocument, new vscode.Position(line, column));
+    }
+    afterEach(() => { Object.assign(vscode.window, { visibleTextEditors: [] }); });
+
+    it.each([
+        [{ insertSpaces: true, tabSize: 8, indentSize: 3 }, '   '],
+        [{ insertSpaces: false, tabSize: 4, indentSize: 4 }, '\t'],
+        [undefined, '    '],
+    ])('writes a block snippet body in the editor indentation %j', async (options, unit) => {
+        const result = await requestAt('Sub Demo()\n  Wh\nEnd Sub\n', 1, 4, { moduleName: 'Module1', moduleKind: 'standard' }, options);
+        const item = result.items.find(candidate => candidate.label === 'While')!;
+        expect((item.insertText as vscodeTypes.SnippetString).value).toBe(`While \${1:condition}\n\n  ${unit}$0\n\n  Wend`);
+        expect(item.keepWhitespace).toBe(true);
+    });
+
+    it.each([
+        ['an Excel workbook module', { moduleName: 'ThisWorkbook', moduleKind: 'document', documentType: 'workbook', host: 'excel' }, 'Workbook_O', 'Workbook_Open'],
+        ['a Word document module', { moduleName: 'ThisDocument', moduleKind: 'document', documentType: 'document', host: 'word' }, 'Document_O', 'Document_Open'],
+        ['a PowerPoint UserForm', { moduleName: 'UserForm1', moduleKind: 'userform', host: 'powerpoint' }, 'UserForm_I', 'UserForm_Initialize'],
+    ] as const)('leaves a handler stub tab in %s for VS Code to convert', async (_, context, typed, handler) => {
+        const result = await requestAt(`Option Explicit\n${typed}\n`, 1, typed.length, context as EditorProjectContext, { insertSpaces: true, tabSize: 2, indentSize: 2 });
+        const item = result.items.find(candidate => candidate.label === handler)!;
+        expect((item.insertText as vscodeTypes.SnippetString).value).toBe(`Private Sub ${handler}()\n\t$0\nEnd Sub`);
+        expect(item.keepWhitespace).toBeUndefined();
+    });
 });

@@ -35,7 +35,7 @@ import { getHostType, resolveHostAlias } from '../../host/hostModel';
 import { defTypeFor, isAccessDesignerClass } from '../../symbols/symbolModel';
 import type { ModuleSymbolKind } from '../../symbols/symbolModel';
 import type { AnalyzeModuleOptions, PushFn } from '../analysisContext';
-import { normalizeType } from '../typeInference';
+import { normalizeType, sameByRefType } from '../typeInference';
 import { activeModuleMembers } from '../walker';
 
 /** The events of each class, by lowercased qualified name, read once. */
@@ -329,8 +329,9 @@ function declaredType(param: ParameterNode, defTypes: ReadonlyMap<string, string
 
 /**
  * Whether a parameter's type is the event's. A library prefix names the same
- * type, and an enum - an Office or MSForms one (XlXmlExportResult, fmAction)
- * or the project's own - may be declared As Long, as measured.
+ * type, LongPtr is LongLong in 64-bit Office, and an enum - an Office or
+ * MSForms one (XlXmlExportResult, fmAction) or the project's own - may be
+ * declared As Long but not As LongPtr, as measured.
  */
 function sameType(param: ParameterNode, expected: string, isEnum: (type: string) => boolean, defTypes: ReadonlyMap<string, string> | undefined): boolean {
 	const suffixTypes: Readonly<Record<string, string>> = { '%': 'integer', '&': 'long', '!': 'single', '#': 'double', '@': 'currency', '$': 'string' };
@@ -342,7 +343,7 @@ function sameType(param: ParameterNode, expected: string, isEnum: (type: string)
 		? bareType(param.asType)
 		: param.typeSuffix ? suffixTypes[param.typeSuffix] ?? '' : bareType(defTypeFor(defTypes, param.name) ?? 'Variant');
 	const want = bareType(expected);
-	if (actual === want) {
+	if (sameByRefType(actual, want)) {
 		return true;
 	}
 	return actual === 'long' && isEnum(expected);

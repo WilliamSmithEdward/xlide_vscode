@@ -174,6 +174,20 @@ describe('VBA language configuration', () => {
 		expect(enterRuleMatches(config, '    total = a_')).toBe(false);
 	});
 
+	it('starts a fold at a Property with Static among its modifiers, as at a Sub or Function', () => {
+		// Oracle: issue1496_{,word_,powerpoint_,access_}static_public_property_compile
+		// (`Static Public Property Get` and `Let` compile in all four hosts).
+		const start = new RegExp(loadConfig().folding?.markers?.start ?? '');
+		for (const modifiers of ['', 'Public ', 'Private ', 'Friend ', 'Static ', 'Public Static ', 'Static Public ', 'Private Static ', 'Static Private ', 'Friend Static ', 'Static Friend ']) {
+			for (const header of ['Sub Main()', 'Function Count() As Long', 'Property Get Count() As Long', 'Property Let Count(ByVal v As Long)', 'Property Set Target(ByVal o As Object)']) {
+				expect(start.test(`${modifiers}${header}`), `${modifiers}${header}`).toBe(true);
+				expect(start.test(`    ${modifiers}${header}`), `indented ${modifiers}${header}`).toBe(true);
+			}
+		}
+		expect(start.test('Static n As Long')).toBe(false);
+		expect(start.test('Public Property')).toBe(false);
+	});
+
 	it('outdents the one-word EndIf like End If (issue #88)', () => {
 		const decrease = new RegExp(loadConfig().indentationRules?.decreaseIndentPattern ?? '');
 		for (const line of ['    EndIf', '    endif', '    End If']) {
@@ -265,6 +279,43 @@ describe('VBA language configuration', () => {
 		for (const source of modules) {
 			expect(formatted(source), source).toBe(source);
 			expect(reindent(config, source), source).toBe(source);
+		}
+	});
+
+	it('answers quickly on long lines of blanks, letters, digits, punctuation, strings or keywords after any keyword', () => {
+		// The line-continuation rule began with `.*`, so its search for ` _`
+		// started over at every character: about 0.3 s for a line of 16,000
+		// blanks. A run that two parts of any pattern can both read slows a
+		// line the same way. VS Code compiles these patterns without flags; each
+		// is tried with the `i` flag too, which takes a different path through
+		// the regex engine. Each of these lines takes a few milliseconds when the
+		// time grows with the line's length, far under the bound even on a busy
+		// machine.
+		const config = loadConfig();
+		const sources = [
+			...Object.values(config.indentationRules ?? {}),
+			...(config.onEnterRules ?? []).map((rule) => rule.beforeText ?? ''),
+		];
+		const patterns = ['', 'i'].flatMap((flags) => sources.map((source) => new RegExp(source, flags)));
+		const keywords = [
+			'', 'If', 'If a', 'ElseIf', 'Else', 'Case', 'For', 'For i =', 'For Each x In', 'Do', 'Do While', 'While', 'With',
+			'Select Case', 'Public Sub', 'Property Get', 'Public Type', 'Enum', '#If', '#ElseIf', '#Else', 'End', 'Next',
+		];
+		const fragments = [
+			' ', '\t', 'a', '_', ':', '"', "'", '1', '.', ' a', ': ', '" ', ' _', '1:', ':=', '"a"', 'Then ', 'To ', ': End If ',
+		];
+		const n = 20000;
+		for (const keyword of keywords) {
+			for (const fragment of fragments) {
+				for (const ending of ['', 'x', ' Then', '"', ': Next']) {
+					const line = `    ${keyword}${fragment.repeat(n)}${ending}`;
+					const start = performance.now();
+					for (const pattern of patterns) {
+						pattern.test(line);
+					}
+					expect(performance.now() - start, JSON.stringify(`${keyword}${fragment}...${ending}`)).toBeLessThan(250);
+				}
+			}
 		}
 	});
 

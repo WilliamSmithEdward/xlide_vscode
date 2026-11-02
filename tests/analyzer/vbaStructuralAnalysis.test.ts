@@ -19,6 +19,7 @@ import {
     smartBlockBodyIndent,
     smartBlockBodyText,
     smartBlockInsertion,
+    vbaIndentUnit,
     withMemberContinuationText,
 } from '../../src/vbaSmartEnter';
 
@@ -820,6 +821,29 @@ describe('smartBlockBodyIndent', () => {
     it('uses the configured indent unit', () => {
         expect(smartBlockBodyIndent('\tWith ActiveSheet', '\t', '\t')).toBe('\t\t');
         expect(smartBlockBodyIndent('    With ActiveSheet', '    ', '    ')).toBe('        ');
+    });
+});
+
+describe('vbaIndentUnit', () => {
+    it('is a tab when the editor indents with tabs', () => {
+        expect(vbaIndentUnit({ insertSpaces: false, tabSize: 2, indentSize: 2 })).toBe('\t');
+    });
+
+    it('is the indent size in spaces when the editor indents with spaces', () => {
+        expect(vbaIndentUnit({ insertSpaces: true, tabSize: 4, indentSize: 4 })).toBe('    ');
+        expect(vbaIndentUnit({ insertSpaces: true, tabSize: 8, indentSize: 2 })).toBe('  ');
+    });
+
+    it('reads settings that leave the indent size to tabSize, and defaults to four spaces', () => {
+        expect(vbaIndentUnit({ insertSpaces: true, tabSize: 3, indentSize: 'tabSize' })).toBe('   ');
+        expect(vbaIndentUnit({})).toBe('    ');
+    });
+
+    it('ignores a size above 32, so a raw setting cannot build a huge string', () => {
+        expect(vbaIndentUnit({ insertSpaces: true, indentSize: 32 })).toBe(' '.repeat(32));
+        expect(vbaIndentUnit({ insertSpaces: true, indentSize: 33, tabSize: 2 })).toBe('  ');
+        expect(vbaIndentUnit({ insertSpaces: true, indentSize: 200_000_000, tabSize: 1e9 })).toBe('    ');
+        expect(vbaIndentUnit({ insertSpaces: true, tabSize: '200000000' })).toBe('    ');
     });
 });
 

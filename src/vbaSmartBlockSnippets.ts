@@ -87,12 +87,12 @@ function smartBlockSnippets(
             smartEnterExample: 'Select Case value',
             smartEnterCloser: 'End Select',
         }),
-        smartBlockSnippet('Sub', block('Sub ${1:Name}()', [B + '$0'], 'End Sub'), 'Procedure block', {
+        smartBlockSnippet('Sub', block('Sub ${1:Name}($2)', [B + '$0'], 'End Sub'), 'Procedure block', {
             contexts: ['statement', 'modifier'],
             smartEnterExample: 'Sub Foo()',
             smartEnterCloser: 'End Sub',
         }),
-        smartBlockSnippet('Function', block('Function ${1:Name}() As ${2:Variant}', [B + '$0'], 'End Function'), 'Function block', {
+        smartBlockSnippet('Function', block('Function ${1:Name}($2) As ${3:Variant}', [B + '$0'], 'End Function'), 'Function block', {
             contexts: ['statement', 'modifier'],
             matchText: ['func'],
             smartEnterExample: 'Function Total() As Variant',
@@ -124,19 +124,19 @@ function smartBlockSnippets(
             smartEnterExample: 'Enum Color',
             smartEnterCloser: 'End Enum',
         }),
-        smartBlockSnippet('Private Sub', block('Private Sub ${1:Name}()', [B + '$0'], 'End Sub'), 'Private procedure block', {
+        smartBlockSnippet('Private Sub', block('Private Sub ${1:Name}($2)', [B + '$0'], 'End Sub'), 'Private procedure block', {
             smartEnterExample: 'Private Sub Foo()',
             smartEnterCloser: 'End Sub',
         }),
-        smartBlockSnippet('Public Sub', block('Public Sub ${1:Name}()', [B + '$0'], 'End Sub'), 'Public procedure block', {
+        smartBlockSnippet('Public Sub', block('Public Sub ${1:Name}($2)', [B + '$0'], 'End Sub'), 'Public procedure block', {
             smartEnterExample: 'Public Sub Foo()',
             smartEnterCloser: 'End Sub',
         }),
-        smartBlockSnippet('Private Function', block('Private Function ${1:Name}() As ${2:Variant}', [B + '$0'], 'End Function'), 'Private function block', {
+        smartBlockSnippet('Private Function', block('Private Function ${1:Name}($2) As ${3:Variant}', [B + '$0'], 'End Function'), 'Private function block', {
             smartEnterExample: 'Private Function Total() As Variant',
             smartEnterCloser: 'End Function',
         }),
-        smartBlockSnippet('Public Function', block('Public Function ${1:Name}() As ${2:Variant}', [B + '$0'], 'End Function'), 'Public function block', {
+        smartBlockSnippet('Public Function', block('Public Function ${1:Name}($2) As ${3:Variant}', [B + '$0'], 'End Function'), 'Public function block', {
             smartEnterExample: 'Public Function Total() As Variant',
             smartEnterCloser: 'End Function',
         }),

@@ -417,9 +417,22 @@ fails ends the case as a `worker_error`, never as evidence:
   opens the case's again. The provider is deleted after the case.
   `tests/helpers/oracleModuleInput.ts` reads it for the analyzer as the
   engine reads a referenced project.
-  Loading the provider can raise Office's macro Security Notice: in
-  PowerPoint, and in Word with the VBE shown (issue #1529). `AddFromFile`
-  does not return until it is answered. The worker never answers it. While
+  A provider's code must not be able to run when it loads, so the worker
+  refuses one with a document module, or with a module or any text naming an
+  automatic macro (`Auto_Open`, `Auto_Close`, `AutoExec`, `AutoOpen`,
+  `AutoNew`, `AutoClose`, `AutoExit`), as a `worker_error` at stage
+  `add_project_reference` (issue #1565).
+  Loading the provider can raise Office's macro Security Notice (issue
+  #1529), and `AddFromFile` does not return until it is answered. With the
+  Trust Center at its default, PowerPoint raises it for the add-in whether
+  the VBE is shown or not, and Word for the template while the VBE is shown.
+  So in Word the worker hides the VBE while it adds the reference, and in
+  PowerPoint it loads the add-in through `AddIns` first, which raises no
+  notice and enables the add-in's macros. That is why the provider is
+  checked first. PowerPoint drops the add-in when the case's presentation
+  closes, and an instance that still lists one is not kept. These are
+  @swsammy's measurements from #1550 (builds 20527 and 12527, 32-bit).
+  The worker never answers a notice. While
   the reference is added it watches the host process it started for a
   window titled `Microsoft <host> Security Notice` (English titles only),
   closes it, which declines, and ends the case as a `worker_error` at stage

@@ -7,6 +7,11 @@ import {
 	IdentifierCompletionContext,
 } from '../../src/analyzer';
 import { getWordObjectModel } from '../../src/analyzer/host/wordObjectModel';
+import { getExcelObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import { getPowerPointObjectModel } from '../../src/analyzer/host/powerpointObjectModel';
+import { getAccessObjectModel } from '../../src/analyzer/host/accessObjectModel';
+import type { HostObjectModel } from '../../src/analyzer/host/excelObjectModel';
+import type { OfficeHostApp } from '../../src/officeHostApps';
 
 /** Offset just after `marker` in `src`. */
 function at(src: string, marker: string): number {
@@ -65,6 +70,116 @@ describe('identifier completion - host globals', () => {
 		const src = 'Sub Test()\n    Set x = Th\nEnd Sub\n';
 		const got = names(src, '= Th');
 		expect(got).toContain('ThisWorkbook');
+	});
+});
+
+describe('identifier completion - after a finished word', () => {
+	const prelude = 'Sub Helper()\nEnd Sub\nSub Demo()\nDim total As Long\n';
+
+	it.each([
+		'Call ',
+		'If ',
+		'If ok And ',
+		'MsgBox ',
+		'Debug.Print ',
+		'x = total ',
+		'For i = 1 To ',
+		'x = 1: Call ',
+		'If ok Then Call ',
+		'Call _\n    ',
+		'Call _\r\n    ',
+		'Const enabled = Not ',
+		'Const enabled = (True And ',
+		'Dim values(1 To ',
+		'ReDim values(n ',
+		'Call total$ ',
+		'If x Is ',
+		'If y Is selected ',
+		'If TypeOf x Is Range And y Is selected ',
+		'Const limit = (True) And ',
+	])('offers the general list after %j', (line) => {
+		const got = names(`${prelude}${line}\nEnd Sub\n`, `\n${line}`);
+		expect(got).toEqual(expect.arrayContaining(['total', 'Helper', 'MsgBox', 'ActiveSheet']));
+	});
+
+	it.each([
+		['Call He', ['Helper']],
+		['MsgBox to', ['total']],
+		['Call _\n    He', ['Helper']],
+		['If To', ['total']],
+	])('still filters by the word touching the cursor in %j', (line, expected) => {
+		const got = names(`${prelude}${line}\nEnd Sub\n`, `\n${line}`);
+		expect(got).toEqual(expect.arrayContaining(expected));
+		expect(got).not.toContain('MsgBox');
+	});
+
+	it.each([
+		'Const enabled = True ',
+		'Sub Test(Optional enabled As Boolean = True ',
+		'Sub Test(Optional enabled As Boolean = (True And ',
+	])('offers the general list after the finished word of a value in %j', (line) => {
+		const src = `Sub Helper()\nEnd Sub\n${line}`;
+		expect(names(src, line)).toEqual(expect.arrayContaining(['Helper', 'MsgBox', 'ActiveSheet']));
+	});
+
+	it('reads the word ending at the cursor, not the rest of the line', () => {
+		const src = `${prelude}Call Helper\nEnd Sub\n`;
+		expect(names(src, '\nCall ')).toEqual(expect.arrayContaining(['total', 'Helper']));
+		expect(names(src, '\nCall He')).toContain('Helper');
+		expect(names(src, '\nCall He')).not.toContain('total');
+	});
+
+	it.each([
+		'Dim first ',
+		'Dim first, second ',
+		'If ok Then Dim first ',
+		'Const a = 1, b ',
+		'ReDim Preserve ',
+		'ReDim values ',
+		'ReDim Preserve values ',
+		'ReDim values(10), total ',
+		'Dim values(1 To n), others ',
+		'Sub Test(Optional a As Long = 1, b ',
+		'Const limit ',
+		'Static kept ',
+		'Dim WithEvents source ',
+		'Property Get Value ',
+		'Sub Test(ByVal value ',
+		'Dim t As Long ',
+		'Dim r As Excel.Range ',
+		'Set c = New Collection ',
+		'Set c = New VBA.Collection ',
+		'GoTo ',
+		'GoTo Done ',
+		'GoSub Done ',
+		'Resume ',
+		'Resume Next ',
+		'On Error GoTo Done ',
+		'If ok Then GoTo Done ',
+		'10 Dim first ',
+		'Dim first$ ',
+		'Dim first$, second& ',
+		'Event ',
+		'Event Changed ',
+		'Implements ',
+		'Implements Shape ',
+		'If TypeOf x Is Range ',
+		'If Not TypeOf x.Item(1) Is Excel.Range ',
+	])('keeps the list empty after the finished name in %j', (line) => {
+		expect(names(`${prelude}${line}\nEnd Sub\n`, `\n${line}`)).toEqual([]);
+	});
+
+	const hosts: Record<OfficeHostApp, [() => HostObjectModel, string]> = {
+		excel: [getExcelObjectModel, 'ActiveSheet'],
+		word: [getWordObjectModel, 'ActiveDocument'],
+		powerpoint: [getPowerPointObjectModel, 'ActivePresentation'],
+		access: [getAccessObjectModel, 'DoCmd'],
+	};
+	it.each(Object.entries(hosts))('offers the %s list after a word and a space', (_host, [model, global]) => {
+		for (const line of ['Call ', 'If ', 'MsgBox ']) {
+			const got = names(`${prelude}${line}\nEnd Sub\n`, `\n${line}`, { model: model() });
+			expect(got).toEqual(expect.arrayContaining(['total', 'Helper', global]));
+		}
 	});
 });
 

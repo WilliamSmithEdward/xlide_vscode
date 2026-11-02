@@ -5,6 +5,7 @@ import {
 	spaceTriggerMayComplete,
 	tokenize,
 } from '../../src/analyzer';
+import { rowEndsInContinuation } from '../../src/analyzer/completion/cursorContext';
 
 /** Context at the | marker in `src`. */
 function contextAtMarker(src: string) {
@@ -84,6 +85,38 @@ describe('completionCursorContext', () => {
 		const offset = src.indexOf('Ran') + 3;
 		expect(completionCursorContext(src, offset)).toBe(completionCursorContext(src, offset));
 		expect(completionCursorContext(src, offset)).not.toBe(completionCursorContext(src, offset - 1));
+	});
+});
+
+describe('rowEndsInContinuation', () => {
+	// Built from char codes: U+0019 (end of medium), U+3000 (DBCS space) and
+	// U+00A0 (no-break space, not whitespace to the VBE, issue #132).
+	const eom = String.fromCharCode(0x19);
+	const dbcs = String.fromCharCode(0x3000);
+	const nbsp = String.fromCharCode(0xa0);
+	const rows: [string, boolean][] = [
+		['Dim t _', true],
+		['Dim t _ \t', true],
+		[`Dim t _${eom}`, true],
+		[`Dim t _${dbcs}`, true],
+		[`Dim t${dbcs}_`, true],
+		[`Dim t\t_`, true],
+		['abc_', false],
+		['_', false],
+		['Dim t _ x', false],
+		['', false],
+		[`Dim t${nbsp}_`, false],
+		[`Dim t _${nbsp}`, false],
+	];
+
+	it.each(rows)('reads %j as continued: %s', (row, continued) => {
+		expect(rowEndsInContinuation(row)).toBe(continued);
+	});
+
+	it.each(rows)('agrees with the lexer on %j', (row) => {
+		// A continued row leaves no line break between it and the next one.
+		const breaks = tokenize(`${row}\nNext`).filter((token) => token.kind === 'newline');
+		expect(breaks.length === 0).toBe(rowEndsInContinuation(row));
 	});
 });
 

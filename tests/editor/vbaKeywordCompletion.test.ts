@@ -35,6 +35,20 @@ describe('keyword completion - statement snippets', () => {
 		);
 	});
 
+	it('writes each template tab as one level of the editor indentation', () => {
+		const snippet = 'Select Case ${1:expression}\n\n\tCase ${2:value}\n\n\t\t$0\n\nEnd Select';
+
+		expect(materializeKeywordSnippet(snippet, '', '  ')).toBe(
+			'Select Case ${1:expression}\n\n  Case ${2:value}\n\n    $0\n\nEnd Select',
+		);
+		expect(materializeKeywordSnippet(snippet, '    ', '    ')).toBe(
+			'Select Case ${1:expression}\n\n        Case ${2:value}\n\n            $0\n\n    End Select',
+		);
+		expect(materializeKeywordSnippet(snippet, '\t', '\t')).toBe(
+			'Select Case ${1:expression}\n\n\t\tCase ${2:value}\n\n\t\t\t$0\n\n\tEnd Select',
+		);
+	});
+
 	it('uses one literal tab body unit across block archetype snippets', () => {
 		const statementItems = resolveKeywordCompletions('Sub T()\n    wh\nEnd Sub\n', at('Sub T()\n    wh\nEnd Sub\n', '    wh')).items;
 		expect(statementItems.find((item) => item.label === 'While')?.insertText).toBe(
@@ -95,6 +109,17 @@ describe('keyword completion - statement snippets', () => {
 				);
 			}
 		}
+	});
+
+	it('gives Sub and Function snippets a parameter tab stop before the body', () => {
+		const all = resolveKeywordCompletions('\n', 0).items;
+		const text = (label: string) => all.find((item) => item.label === label)?.insertText;
+		expect(text('Sub')).toBe('Sub ${1:Name}($2)\n\n\t$0\n\nEnd Sub');
+		expect(text('Private Sub')).toBe('Private Sub ${1:Name}($2)\n\n\t$0\n\nEnd Sub');
+		expect(text('Public Sub')).toBe('Public Sub ${1:Name}($2)\n\n\t$0\n\nEnd Sub');
+		expect(text('Function')).toBe('Function ${1:Name}($2) As ${3:Variant}\n\n\t$0\n\nEnd Function');
+		expect(text('Private Function')).toBe('Private Function ${1:Name}($2) As ${3:Variant}\n\n\t$0\n\nEnd Function');
+		expect(text('Public Function')).toBe('Public Function ${1:Name}($2) As ${3:Variant}\n\n\t$0\n\nEnd Function');
 	});
 
 	it('filters statement snippets by typed prefix', () => {

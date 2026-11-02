@@ -6,11 +6,12 @@
 // by exact module/object prefix and signature.
 
 import { parseModule } from '../parser/parseModule';
-import type { ModuleMember, ProcedureNode } from '../parser/nodes';
+import type { EnumNode, ModuleMember, ProcedureNode, TypeNode } from '../parser/nodes';
 import { isAccessDesignerClass, type ModuleSymbolKind } from '../symbols/symbolModel';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { getHostEvents, getHostType } from '../host/hostModel';
 import { lineStartAtAnyBreak } from '../../vbaSourceScan';
+import { completionLineCursorContext } from './cursorContext';
 
 export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart' | 'document' | 'userform';
 
@@ -393,17 +394,19 @@ export function resolveEventHandlerCompletions(
 	}
 
 	const parsed = parseModule(source);
-	const procedures = parsed.members.filter((m): m is ProcedureNode => m.kind === 'Procedure');
+	const blocks = parsed.members.filter((m): m is ProcedureNode | TypeNode | EnumNode =>
+		m.kind === 'Procedure' || m.kind === 'Type' || m.kind === 'Enum');
 	// Event handlers can only be declared at module level, so bail whenever the
-	// cursor sits inside a procedure body — including an OPEN procedure whose
-	// span may only cover the header (its body runs to the next member / module
-	// end), which would otherwise let us offer an invalid nested procedure stub.
-	if (insideProcedureBody(parsed.members, procedures, offset, source.length)) {
+	// cursor sits inside a procedure, Type or Enum body — including an OPEN one
+	// whose span may only cover the header (its body runs to the next member /
+	// module end), which would otherwise let us offer an invalid nested stub.
+	if (insideBlockBody(parsed.members, blocks, offset, lineStartAtAnyBreak(source, offset), source.length)) {
 		return [];
 	}
 
 	const existing = new Set(
-		procedures
+		blocks
+			.filter((block) => block.kind === 'Procedure')
 			.map((proc) => proc.name.toLowerCase())
 			.filter((name) => name.length > 0),
 	);
@@ -612,30 +615,33 @@ function inferDocumentType(moduleName: string | undefined): EventHandlerDocument
 }
 
 /**
- * True when `offset` falls inside any procedure body. A closed procedure is
- * bounded by its own span; an open one (no End Sub yet) has its body run from
- * its header start to the start of the next module member, or the module end,
- * since its parsed span may only cover the header line.
+ * True when `offset` falls inside any procedure, Type or Enum body. A closed
+ * block is bounded by its own span; an open one (no End Sub yet) has its body
+ * run from its header start to the start of the next module member, or through
+ * the module end, since its parsed span may only cover the header line.
  */
-function insideProcedureBody(
+function insideBlockBody(
 	members: readonly ModuleMember[],
-	procedures: readonly ProcedureNode[],
+	blocks: readonly (ProcedureNode | TypeNode | EnumNode)[],
 	offset: number,
+	caretLineStart: number,
 	moduleEnd: number,
 ): boolean {
 	let memberStarts: number[] | undefined;
 	let searchedOpenBoundary = false;
-	return procedures.some((proc) => {
-		if (proc.closed) {
-			return offset >= proc.span.start && offset <= proc.span.end;
+	return blocks.some((block) => {
+		if (block.closed) {
+			return offset >= block.span.start && offset <= block.span.end;
 		}
-		const start = proc.span.start;
-		if (offset < start) {
+		const start = block.span.start;
+		// The header's own row is not its body: `Private Sub Workbook_O|` still
+		// completes its name, whatever follows it.
+		if (offset < start || caretLineStart <= start) {
 			return false;
 		}
 		let bodyEnd: number;
 		if (!searchedOpenBoundary) {
-			// One open procedure needs no index, including an early body hit.
+			// One open block needs no index, including an early body hit.
 			searchedOpenBoundary = true;
 			bodyEnd = moduleEnd;
 			for (const member of members) {
@@ -645,12 +651,13 @@ function insideProcedureBody(
 				}
 			}
 		} else {
-			// Recovery can leave many open procedures. Build later boundaries
-			// once, instead of rescanning all members for every procedure.
+			// Recovery can leave many open blocks. Build later boundaries
+			// once, instead of rescanning all members for every block.
 			memberStarts ??= members.map((member) => member.span.start).sort((a, b) => a - b);
 			bodyEnd = nextMemberStartAfter(memberStarts, start, moduleEnd);
 		}
-		return offset < bodyEnd;
+		// A body that runs to the module end includes a caret at the end.
+		return offset < bodyEnd || bodyEnd === moduleEnd;
 	});
 }
 
@@ -681,13 +688,14 @@ function lineCompletionContext(source: string, offset: number): LineCompletionCo
 	const currentWord = wordMatch?.[0] ?? '';
 	const beforeWord = wordMatch ? prefix.slice(0, wordMatch.index) : prefix;
 
-	if (/^\s*$/.test(beforeWord)) {
-		return { currentWord, insertMode: 'fullProcedure' };
+	const insertMode = /^\s*$/.test(beforeWord) ? 'fullProcedure'
+		: /^\s*Private\s+Sub\s+$/i.test(beforeWord) ? 'declarationTail' : undefined;
+	// A row continued from the one above (`Const Limit = _`) is not a
+	// statement start, so no procedure can be declared there.
+	if (!insertMode || (lineStart > 0 && completionLineCursorContext(source, safeOffset).statementStart < lineStart)) {
+		return undefined;
 	}
-	if (/^\s*Private\s+Sub\s+$/i.test(beforeWord)) {
-		return { currentWord, insertMode: 'declarationTail' };
-	}
-	return undefined;
+	return { currentWord, insertMode };
 }
 
 function toCompletion(
@@ -695,10 +703,11 @@ function toCompletion(
 	insertMode: LineCompletionContext['insertMode'],
 ): EventHandlerCompletion {
 	const signature = `${definition.name}(${definition.params})`;
+	// A snippet's tab is one indentation level in the editor's own settings.
 	const insertText =
 		insertMode === 'declarationTail'
-			? `${signature}\n    $0\nEnd Sub`
-			: `Private Sub ${signature}\n    $0\nEnd Sub`;
+			? `${signature}\n\t$0\nEnd Sub`
+			: `Private Sub ${signature}\n\t$0\nEnd Sub`;
 	return {
 		name: definition.name,
 		signature,

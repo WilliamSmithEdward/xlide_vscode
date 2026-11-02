@@ -6,6 +6,7 @@
 
 import './typeLookbackSurfaces.test';
 import './completionLogicalLine.test';
+import './completionContinuedRowDirectives.test';
 import './formatting.test';
 import './indentationRules.test';
 import './hoverSnapshotSurfaces.test';
@@ -36,6 +37,7 @@ import './shapes.test';
 import './shapeEditorLifetime.test';
 import './shapeEditorIdentity.test';
 import './smartEnterSurfaces.test';
+import './propertyFolding.test';
 import './grammar.test';
 
 import './completion.test';

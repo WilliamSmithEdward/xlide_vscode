@@ -13,9 +13,10 @@
 // Extracted verbatim from vbaMemberCompletion.ts (audit #27).
 
 import * as vscode from 'vscode';
-import { assignmentValueTriggerMayComplete, completionLineCursorContext } from './analyzer/completion/cursorContext';
+import { assignmentValueTriggerMayComplete, completionLineCursorContext, rowEndsInContinuation } from './analyzer/completion/cursorContext';
 import { assignmentTargetAt, resolveAssignmentValueCompletion } from './analyzer/completion/assignmentValueCompletion';
 import { macroNameStringMayResolveAt } from './analyzer/completion/macroNames';
+import { isIdentLike, isTypeSuffixOf } from './analyzer/lexer/tokenHelpers';
 import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
 import { isVbaDocument } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
@@ -57,9 +58,24 @@ import {
 } from './vbaTestDirectiveCompletion';
 import { startPerformanceTrace } from './performanceTrace';
 import { vbaColorNameShadowedAt } from './vbaColors';
+import { vbaIndentUnit } from './vbaSmartEnter';
 
 export const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
+
+/** One indentation level in the editor that shows `document`, else in its settings. */
+function editorIndentUnit(document: vscode.TextDocument): string {
+	const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);
+	if (editor) {
+		return vbaIndentUnit(editor.options);
+	}
+	const settings = vscode.workspace.getConfiguration('editor', document);
+	return vbaIndentUnit({
+		insertSpaces: settings.get('insertSpaces'),
+		tabSize: settings.get('tabSize'),
+		indentSize: settings.get('indentSize'),
+	});
+}
 
 /**
  * A member's name as code has to write it. A name that is not an identifier,
@@ -302,11 +318,20 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			return new vscode.CompletionList([], false);
 		}
 		const directiveCompletions = this._testDirectiveCompletions(document, position);
-		const directiveItems = directiveCompletions.map(
+		let directiveItems = directiveCompletions.map(
 			(completion) => this._toTestDirectiveItem(completion, position.line),
 		);
 		if (directiveCompletions.some((completion) => completion.exclusive)) {
 			return new vscode.CompletionList(directiveItems, false);
+		}
+		// A directive is a comment line of its own, so a row that carries on a
+		// statement from the row above cannot hold one. A row carrying on a
+		// comment is still comment text, and test discovery reads it.
+		if (directiveItems.length > 0 && position.line > 0 && rowEndsInContinuation(document.lineAt(position.line - 1).text)) {
+			const cursor = completionLineCursorContext(document.getText(), document.offsetAt(position));
+			if (!cursor.inComment && cursor.statementStart < document.offsetAt(new vscode.Position(position.line, 0))) {
+				directiveItems = [];
+			}
 		}
 
 		// A space is typed far more often than it opens a grammar position
@@ -322,7 +347,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		if (context?.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter && context.triggerCharacter === '='
 			&& !assignmentValueTriggerMayComplete(document.lineAt(position.line).text.slice(0, position.character),
-				position.line > 0 && /_\s*$/.test(document.lineAt(position.line - 1).text))) {
+				position.line > 0 && rowEndsInContinuation(document.lineAt(position.line - 1).text))) {
 			return new vscode.CompletionList([], false);
 		}
 		const source = document.getText();
@@ -412,13 +437,16 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			return list(labels.map((label) => this._toProcedureLabelItem(label, range)));
 		}
 
+		// One level of the editor's indentation, read once for all snippets.
+		let unit: string | undefined;
+		const indentUnit = (): string => unit ??= editorIndentUnit(document);
 		const keywords = resolveKeywordCompletions(source, offset, {
 			blockLayout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
 		});
 		if (keywords.exclusive) {
 			return list([
 				...directiveItems,
-				...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+				...keywords.items.map((item) => this._toKeywordItem(item, range, document, indentUnit)),
 			]);
 		}
 
@@ -440,7 +468,14 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		);
 		if (!argumentValues && (context?.triggerCharacter === '=' ||
 			(context?.triggerCharacter === ' ' && assignmentTargetAt(source, offset)))) { return list([]); }
-		const idents = resolveIdentifierCompletions(source, offset, identCtx);
+		// A typed space after a word (`Call `, `If `) opens no general list;
+		// Ctrl+Space still offers it there.
+		const cursor = completionLineCursorContext(source, offset);
+		const lastToken = cursor.significantTokens.at(-1);
+		const afterWord = lastToken && !cursor.partialToken
+			&& (isIdentLike(lastToken) || isTypeSuffixOf(lastToken, cursor.significantTokens.at(-2)));
+		const idents = context?.triggerCharacter === ' ' && afterWord
+			? [] : resolveIdentifierCompletions(source, offset, identCtx);
 		if (argumentValues?.enumName === 'ColorConstants') {
 		const identifiersByName = new Map((argumentValues ? idents : []).map(id => [id.name.toLowerCase(), id]));
 		const prioritizedNames = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
@@ -469,7 +504,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 				&& (!prioritizedNames.has(id.name.toLowerCase()) || shadowedColors.has(id.name.toLowerCase())
 					|| (id.kind !== 'constant' && id.kind !== 'enumMember')))
 				.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
-			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+			...keywords.items.map((item) => this._toKeywordItem(item, range, document, indentUnit)),
 		]);
 		}
 		const preferred = new Set((argumentValues?.constants ?? []).map(c => c.name.toLowerCase()));
@@ -504,7 +539,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			),
 			...idents.filter(id => !preferred.has(id.name.toLowerCase()) || !matchesEnum(id))
 				.map((id) => this._toIdentItem(id, range, shouldInsertParens)),
-			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+			...keywords.items.map((item) => this._toKeywordItem(item, range, document, indentUnit)),
 		]);
 	}
 
@@ -680,6 +715,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		keyword: KeywordCompletion,
 		range: vscode.Range,
 		document: vscode.TextDocument,
+		indentUnit: () => string,
 	): vscode.CompletionItem {
 		const kind = keyword.kind === 'snippet'
 			? vscode.CompletionItemKind.Snippet
@@ -696,6 +732,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			? new vscode.SnippetString(materializeKeywordSnippet(
 				keyword.insertText,
 				this._lineIndent(document, range.start.line),
+				indentUnit(),
 			))
 			: keyword.insertText;
 		if (keyword.kind === 'snippet') {
@@ -713,8 +750,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		position: vscode.Position,
 	): boolean {
 		const linePrefix = document.lineAt(position.line).text.slice(0, position.character);
-		const continued = position.line > 0 &&
-			/\s_[ \t]*$/.test(document.lineAt(position.line - 1).text);
+		const continued = position.line > 0 && rowEndsInContinuation(document.lineAt(position.line - 1).text);
 		return spaceTriggerMayComplete(linePrefix, continued);
 	}
 

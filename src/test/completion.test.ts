@@ -6,7 +6,7 @@ import { VbaEditorProjectContextService } from '../vbaEditorProjectContext';
 import { VbaTypeSemanticTokensProvider } from '../vbaSemanticTokensProvider';
 import type { VbaProjectIndexService } from '../vbaProjectIndexService';
 import { backspaceNeedsExtension } from '../vbaEditorCommands';
-import { activate, closeAllEditors, open, until, workspaceRoot, writeModule } from './support';
+import { activate, closeAllEditors, moduleUri, open, until, workspaceRoot, writeModule } from './support';
 
 async function probe(name: string, source: string, marker: string): Promise<{ document: vscode.TextDocument; editor: vscode.TextEditor; caret: vscode.Position }> {
     const file = path.join(workspaceRoot(), `${name}.bas`);
@@ -236,6 +236,62 @@ suite('Completion editor surface', () => {
         await editor.edit(edit => edit.replace(finding.range, 'MakeFlags()'));
         await until(() => !vscode.languages.getDiagnostics(document.uri).some(d=>d.severity === vscode.DiagnosticSeverity.Error) || undefined, 'typed array function must clear the shape finding', 5000);
     });
+    for (const [name, line, continued] of [
+        ['Call', 'Call', false],
+        ['If', 'If', false],
+        ['ForTo', 'For i = 1 To', false],
+        ['DebugPrint', 'Debug.Print', false],
+        ['Continued', '    ', true],
+    ] as const) {
+        const shown = continued ? 'a row continued from "Call _"' : JSON.stringify(line);
+        test(`a typed space after ${shown} opens no name list and Ctrl+Space lists names`, async () => {
+            const statement = continued ? `Call _\n${line}` : line;
+            const source = `Sub Helper()\nEnd Sub\nSub Demo()\nDim total As Long\n${statement}\nEnd Sub\n`;
+            const { document, editor } = await probe(`WordSpace${name}`, source, `\n${statement}`);
+            await vscode.commands.executeCommand('hideSuggestWidget');
+            await vscode.commands.executeCommand('type', { text: ' ' });
+            const row = editor.selection.active.line;
+            const typed = `${line} `;
+            assert.equal(document.lineAt(row).text, typed);
+            const caret = editor.selection.active;
+            // A list opened by the typed space would insert its first name here.
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                if (continued) {
+                    // The test directives offered on any continued row are a separate issue.
+                    assert.doesNotMatch(document.lineAt(row).text, /total|Helper|MsgBox|CallByName/);
+                    await vscode.commands.executeCommand('hideSuggestWidget');
+                    if (document.lineAt(row).text !== typed) {
+                        await vscode.commands.executeCommand('undo');
+                    }
+                } else {
+                    assert.equal(document.lineAt(row).text, typed);
+                }
+            }
+            assert.equal(document.lineAt(row).text, typed);
+            if (continued) { assert.equal(document.lineAt(row - 1).text, 'Call _'); }
+            const onSpace = labels((await vscode.commands.executeCommand<vscode.CompletionList>(
+                'vscode.executeCompletionItemProvider', document.uri, caret, ' '))!);
+            assert.deepEqual(onSpace.filter(label => !label.startsWith('@')), []);
+            const manual = labels((await vscode.commands.executeCommand<vscode.CompletionList>(
+                'vscode.executeCompletionItemProvider', document.uri, caret))!);
+            for (const label of ['total', 'Helper', 'MsgBox']) {
+                assert.ok(manual.includes(label), `Ctrl+Space must offer ${label}`);
+            }
+            // Ctrl+Space opens the list, and accepting its first row inserts it.
+            await vscode.commands.executeCommand('editor.action.triggerSuggest');
+            const accepted = await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                const text = document.lineAt(row).text;
+                return text !== typed ? text : undefined;
+            }, 'Ctrl+Space must open a list whose first row can be accepted', 4000);
+            // The continued row lists the test directives first.
+            if (!continued) {
+                assert.match(accepted, new RegExp(`^${typed.replace('.', '\\.')}\\w+`));
+            }
+        });
+    }
     test('setter shape bug hunt opens a DefBool setter menu automatically', async () => {
         const source = 'DefBool V\nProperty Let State(ByVal value)\nEnd Property\nSub Demo()\nState \nEnd Sub\n';
         const { document } = await probe('DefBoolSetterMenu', source, '\nState ');
@@ -383,6 +439,49 @@ suite('Completion editor surface', () => {
         assert.ok(after.projectTypes?.some(type => type.name === 'ProbeType'));
         service.dispose();
     });
+    for (const [insertSpaces, tabSize, indentSize, unit] of [[true, 2, 2, '  '], [true, 8, 3, '   '], [false, 4, 4, '\t']] as const) {
+        const indentation = insertSpaces ? `${indentSize} spaces (tab size ${tabSize})` : 'tabs';
+        test(`an accepted block snippet indents with ${indentation}`, async () => {
+            const source = `Sub Demo()\n${unit}While\nEnd Sub\n`;
+            const { document, editor } = await probe(`SnippetIndent${tabSize}${indentSize}`, source, `${unit}While`);
+            editor.options = { insertSpaces, tabSize, indentSize };
+            await vscode.commands.executeCommand('editor.action.triggerSuggest');
+            await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                return /Wend/.test(document.getText()) || undefined;
+            }, 'accepting the While snippet must insert the block', 4000);
+            await vscode.commands.executeCommand('leaveSnippet');
+            assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 6),
+                [`${unit}While condition`, '', `${unit}${unit}`, '', `${unit}Wend`]);
+        });
+        test(`Smart Enter indents a block body with ${indentation}`, async () => {
+            const source = `Sub Demo()\n${unit}If ready Then\nEnd Sub\n`;
+            const { document, editor } = await probe(`SmartEnterIndent${tabSize}${indentSize}`, source, 'If ready Then');
+            editor.options = { insertSpaces, tabSize, indentSize };
+            await vscode.commands.executeCommand('type', { text: '\n' });
+            await until(() => /End If/.test(document.getText()) || undefined, 'Smart Enter should insert End If', 4000);
+            assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 6),
+                [`${unit}If ready Then`, '', `${unit}${unit}`, '', `${unit}End If`]);
+        });
+        test(`an accepted Workbook_Open stub indents with ${indentation}`, async () => {
+            // ThisWorkbook is the fixture's own document module. The text is
+            // set in the editor, so the teardown's revert leaves the file as it was.
+            const document = await open(moduleUri('ThisWorkbook'));
+            const editor = vscode.window.activeTextEditor!;
+            await editor.edit(edit => edit.replace(new vscode.Range(0, 0, document.lineCount, 0), 'Option Explicit\nWorkbook_Ope\n'));
+            editor.options = { insertSpaces, tabSize, indentSize };
+            const caret = new vscode.Position(1, 'Workbook_Ope'.length);
+            editor.selection = new vscode.Selection(caret, caret);
+            await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+            await vscode.commands.executeCommand('editor.action.triggerSuggest');
+            await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                return /Workbook_Open\(\)/.test(document.getText()) || undefined;
+            }, 'accepting Workbook_Open must insert the handler', 4000);
+            assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 4),
+                ['Private Sub Workbook_Open()', unit, 'End Sub']);
+        });
+    }
     test('Smart Enter seeds a With member and undo restores the original source', async () => {
         const source = 'Sub Demo()\n\tWith ActiveSheet\n\tEnd With\nEnd Sub\n';
         const { document, editor } = await probe('SmartEnterUndo', source, 'With ActiveSheet');
@@ -427,6 +526,21 @@ suite('Completion editor surface', () => {
             times.push(performance.now() - start);
         }
         console.log(`Completion large module ms: first=${times[0].toFixed(1)}, repeated=[${times.slice(1).map(time => time.toFixed(1)).join(',')}]`);
+    });
+    test('a Sub snippet steps from its name to its parameters to its body', async () => {
+        const { document } = await probe('SubParameters', 'Option Explicit\nSub\n', '\nSub');
+        await vscode.commands.executeCommand('editor.action.triggerSuggest');
+        await until(async () => {
+            await vscode.commands.executeCommand('acceptSelectedSuggestion');
+            return /End Sub/.test(document.getText()) || undefined;
+        }, 'accepting the Sub snippet must insert the block', 4000);
+        await vscode.commands.executeCommand('type', { text: 'Work' });
+        await vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
+        await vscode.commands.executeCommand('type', { text: 'ByVal n As Long' });
+        await vscode.commands.executeCommand('jumpToNextSnippetPlaceholder');
+        await vscode.commands.executeCommand('type', { text: 'Debug.Print n' });
+        assert.equal(document.lineAt(1).text, 'Sub Work(ByVal n As Long)');
+        assert.match(document.getText(), /\n[ \t]+Debug\.Print n\n/);
     });
     test('returns Cells for a corrected worksheet prefix', async () => {
         const { document, editor, caret } = await probe('CompletionPrefix', 'Sub Demo()\nThisWorkbook.Sheets(1).cez\nEnd Sub\n', '.cez');

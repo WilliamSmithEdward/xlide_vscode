@@ -2,7 +2,7 @@ import {describe,expect,it} from 'vitest';
 import {parseModule} from '../../src/analyzer/parser/parseModule';
 import {resolveEventHandlerCompletions} from '../../src/analyzer/completion/eventHandlers';
 const ctx={moduleKind:'document' as const,documentType:'workbook' as const};
-const expected=[{name:'Workbook_Open',signature:'Workbook_Open()',detail:'Workbook event handler',documentation:'Occurs when the workbook is opened.',insertText:'Private Sub Workbook_Open()\n    $0\nEnd Sub'}];
+const expected=[{name:'Workbook_Open',signature:'Workbook_Open()',detail:'Workbook event handler',documentation:'Occurs when the workbook is opened.',insertText:'Private Sub Workbook_Open()\n\t$0\nEnd Sub'}];
 describe('open procedure event completion work',()=>{
  for(const eol of ['\n','\r\n','\r'])it.each([10,100,1000])('bounds repeated open-procedure boundary reads (%i, '+JSON.stringify(eol)+')',count=>{
   const source=Array.from({length:count},(_,i)=>'Sub Broken'+i+'()'+eol).join('')+'Sub Closed()'+eol+'End Sub'+eol+'Workbook_Open';

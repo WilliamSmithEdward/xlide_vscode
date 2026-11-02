@@ -15,6 +15,7 @@ import {
     resolveLoopIteratorSyncEdit,
     loopIteratorSyncMayApply,
     smartBlockInsertion,
+    vbaIndentUnit,
     withMemberContinuationText,
 } from './vbaSmartEnter';
 import {
@@ -83,6 +84,7 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const smartBlock = smartBlockInsertion(normalizedOpenerLine, bodyLine, opener, {
             eol,
             insertCloser: !closedAhead,
+            indentUnit: vbaIndentUnit(editor.options),
             layout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
         });
         const bodyRange = new vscode.Range(

@@ -36,7 +36,12 @@ describe('VBE oracle worker', () => {
             const arm = new RegExp(`"${host}" \\{([\\s\\S]*?)\\n        \\}`).exec(settings)?.[1] ?? '';
             expect(arm, host).toMatch(/\$App\.Visible = (\$true|-1)/);
         }
-        expect(worker).not.toMatch(/\.Visible = (\$false|0)\b/);
+        // The one window hidden is Word's VBE while a project reference is
+        // added (issue #1565); the compile shows it again.
+        const wordHide = 'if ($script:hostName -eq "word") {\n                $app.VBE.MainWindow.Visible = $false';
+        const unix = worker.replaceAll('\r\n', '\n');
+        expect(unix.split(wordHide)).toHaveLength(2);
+        expect(unix.replace(wordHide, '')).not.toMatch(/\.Visible = (\$false|0)\b/);
         expect(worker).toContain('$app.VBE.MainWindow.Visible = $true');
     });
 
@@ -296,6 +301,76 @@ describe('the macro Security Notice (issue #1529)', () => {
         // No Trust Center setting, Trusted Location or AutomationSecurity is written for it.
         expect(watcher).not.toMatch(/Registry|AutomationSecurity|Trusted/);
     });
+
+    it('adds the reference in the ways that raise no notice, after checking the provider (issue #1565)', () => {
+        const stage = worker.indexOf('Set-Stage "add_project_reference"');
+        const adding = worker.slice(stage, worker.indexOf('Set-Stage', stage + 1));
+        // Word's VBE is hidden before the watcher starts.
+        expect(adding.indexOf('$app.VBE.MainWindow.Visible = $false')).toBeGreaterThan(-1);
+        expect(adding.indexOf('$app.VBE.MainWindow.Visible = $false')).toBeLessThan(adding.indexOf('[XlideSecurityNoticeWatcher]::Start('));
+        // The provider container is kept before a declined notice ends the case.
+        expect(adding.indexOf('$provider = $madeProvider.Container')).toBeLessThan(adding.indexOf('throw "Security notice declined."'));
+
+        const making = worker.slice(worker.indexOf('function New-ProjectReference('), worker.indexOf('function New-AccessProjectReference('));
+        // The provider is checked before anything is made, in every host.
+        expect(making.indexOf('Assert-InertProvider $Case.projectReference')).toBeLessThan(making.indexOf('New-AccessProjectReference'));
+        // The path is kept as soon as it is chosen, for the clean-up.
+        expect(making.indexOf('$script:providerPath = $path')).toBeLessThan(making.indexOf('New-OracleContainer'));
+        // Only PowerPoint loads the add-in, and before the reference names it.
+        expect(making.split('AddIns.Add(')).toHaveLength(2);
+        expect(making.indexOf('if ($script:hostName -eq "powerpoint") {\n            $addIn = $App.AddIns.Add($path)')).toBeGreaterThan(-1);
+        expect(making.indexOf('AddIns.Add(')).toBeLessThan(making.indexOf('References.AddFromFile($path)'));
+        expect(making).not.toMatch(/Registry|AutomationSecurity\s*=|Trusted|\.Registered|AutoLoad/);
+        const access = worker.slice(worker.indexOf('function New-AccessProjectReference('), worker.indexOf('function Invoke-OracleCase'));
+        expect(access).toContain('$script:providerPath = $path');
+
+        // A PowerPoint instance that still lists an add-in is not kept, and
+        // the provider's file is deleted after the host may have quit.
+        expect(worker).toContain('try { $closed = $script:app.AddIns.Count -eq 0 } catch { $closed = $false }');
+        const cleanup = worker.slice(worker.indexOf('$evidence = $result.outcome -eq'));
+        expect(cleanup.indexOf('Stop-OracleHost')).toBeLessThan(cleanup.indexOf('Remove-Item -LiteralPath $candidate'));
+        expect(cleanup).toContain('foreach ($candidate in @($script:providerPath,');
+    });
+
+    it.skipIf(process.platform !== 'win32')('refuses a provider whose code could run when it loads (issue #1565)', () => {
+        const start = worker.indexOf('function Assert-InertProvider(');
+        const check = worker.slice(start, worker.indexOf('\nfunction ', start + 1));
+        const cases: Array<[string, unknown, boolean]> = [
+            ['plain standard and class modules', [{ name: 'Service', type: 'standard', source: 'Public Function Value()\r\n    Value = 1\r\nEnd Function\r\n' }, { name: 'Thing', type: 'class', source: '' }], true],
+            ['a name that only contains one', [{ name: 'Service', type: 'standard', source: 'Public Sub MyAuto_Open()\r\nEnd Sub\r\nPublic Sub AutoOpener()\r\nEnd Sub\r\n' }], true],
+            ['Auto_Open', [{ name: 'Service', type: 'standard', source: 'Sub Auto_Open()\r\nEnd Sub\r\n' }], false],
+            ['AUTO_CLOSE in any case', [{ name: 'Service', type: 'standard', source: 'Private Sub AUTO_CLOSE()\r\nEnd Sub\r\n' }], false],
+            ['Word AutoExec', [{ name: 'Service', type: 'standard', source: 'Public Sub AutoExec()\r\nEnd Sub\r\n' }], false],
+            ['a module named AutoExec', [{ name: 'AutoExec', type: 'standard', source: 'Sub Main()\r\nEnd Sub\r\n' }], false],
+            ['AutoNew in a class', [{ name: 'Thing', type: 'class', source: 'Public Sub AutoNew()\r\nEnd Sub\r\n' }], false],
+            ['AutoOpen named in a comment', [{ name: 'Service', type: 'standard', source: "' AutoOpen is not here\r\n" }], false],
+            ['a document module', [{ name: 'ThisWorkbook', type: 'document', source: '' }], false],
+        ];
+        const script = String.raw`
+$ErrorActionPreference = 'Stop'
+. ([scriptblock]::Create($env:XLIDE_INERT_CHECK))
+$cases = $env:XLIDE_INERT_CASES | ConvertFrom-Json
+$seen = foreach ($modules in $cases) {
+    try { Assert-InertProvider ([pscustomobject]@{ modules = @($modules) }); 'ok' } catch { 'refused: ' + $_.Exception.Message }
+}
+@($seen) | ConvertTo-Json -Compress
+`;
+        const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
+            encoding: 'utf8',
+            timeout: 30_000,
+            env: { ...process.env, XLIDE_INERT_CHECK: check, XLIDE_INERT_CASES: JSON.stringify(cases.map(([, modules]) => modules)) },
+        });
+        expect(run.error).toBeUndefined();
+        expect(run.status, run.stderr).toBe(0);
+        const seen: string[] = JSON.parse(run.stdout.trim());
+        cases.forEach(([label, , inert], i) => {
+            if (inert) {
+                expect(seen[i], label).toBe('ok');
+            } else {
+                expect(seen[i], label).toMatch(/^refused: The referenced project's module /);
+            }
+        });
+    }, 40_000);
 
     it.skipIf(process.platform !== 'win32')('closes only a notice of the watched process, and only one so titled', () => {
         const start = worker.indexOf('public static class XlideSecurityNoticeWatcher');

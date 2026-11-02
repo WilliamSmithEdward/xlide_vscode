@@ -218594,6 +218594,1252 @@
       "host": "access"
     },
     {
+      "id": "issue1493_longptr_deftype_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongLong) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_longlong_deftype_longptr_compile",
+      "description": "Issue #1493: Source: DefLngLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_longptr_explicit_longlong_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongPtr); Listener: src_Pulse(ByRef x As LongLong) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongPtr)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_longlong_handler_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongLong); Listener: DefLngPtr X and src_Pulse(ByRef x) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongLong)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_longptr_matching_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_longptr_long_mismatch_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As Long) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_longptr_array_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x()); Listener: DefStr X and src_Pulse(ByRef x() As LongLong) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x() As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_longptr_byval_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As LongLong) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_enum_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: src_Pulse(ByVal k As LongPtr) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_enum_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: DefLngPtr K and src_Pulse(ByVal k) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr K\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_library_enum_long_compile",
+      "description": "Issue #1493: Workbook.AfterXmlExport passes Result As XlXmlExportResult; Listener: wb_AfterXmlExport(ByVal Map As XmlMap, ByVal Url As String, ByVal Result As Long) compiles. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents wb As Workbook\r\nPrivate Sub wb_AfterXmlExport(ByVal Map As XmlMap, ByVal Url As String, ByVal Result As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1493_library_enum_longptr_compile",
+      "description": "Issue #1493: Workbook.AfterXmlExport passes Result As XlXmlExportResult; Listener: wb_AfterXmlExport(ByVal Map As XmlMap, ByVal Url As String, ByVal Result As LongPtr) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Excel 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents wb As Workbook\r\nPrivate Sub wb_AfterXmlExport(ByVal Map As XmlMap, ByVal Url As String, ByVal Result As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1493_word_longptr_deftype_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongLong) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_longlong_deftype_longptr_compile",
+      "description": "Issue #1493: Source: DefLngLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_longptr_explicit_longlong_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongPtr); Listener: src_Pulse(ByRef x As LongLong) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongPtr)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_longlong_handler_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongLong); Listener: DefLngPtr X and src_Pulse(ByRef x) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongLong)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_longptr_matching_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_longptr_long_mismatch_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As Long) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_longptr_array_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x()); Listener: DefStr X and src_Pulse(ByRef x() As LongLong) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x() As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_longptr_byval_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As LongLong) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_enum_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: src_Pulse(ByVal k As LongPtr) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_enum_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: DefLngPtr K and src_Pulse(ByVal k) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr K\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_library_enum_long_compile",
+      "description": "Issue #1493: Application.DocumentSync passes SyncEventType As MsoSyncEventType; Listener: app_DocumentSync(ByVal Doc As Document, ByVal SyncEventType As Long) compiles. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentSync(ByVal Doc As Document, ByVal SyncEventType As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_word_library_enum_longptr_compile",
+      "description": "Issue #1493: Application.DocumentSync passes SyncEventType As MsoSyncEventType; Listener: app_DocumentSync(ByVal Doc As Document, ByVal SyncEventType As LongPtr) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Word 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_DocumentSync(ByVal Doc As Document, ByVal SyncEventType As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "issue1493_powerpoint_longptr_deftype_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongLong) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_longlong_deftype_longptr_compile",
+      "description": "Issue #1493: Source: DefLngLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_longptr_explicit_longlong_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongPtr); Listener: src_Pulse(ByRef x As LongLong) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongPtr)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_longlong_handler_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongLong); Listener: DefLngPtr X and src_Pulse(ByRef x) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongLong)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_longptr_matching_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_longptr_long_mismatch_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As Long) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_longptr_array_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x()); Listener: DefStr X and src_Pulse(ByRef x() As LongLong) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x() As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_longptr_byval_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As LongLong) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_enum_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: src_Pulse(ByVal k As LongPtr) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_enum_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: DefLngPtr K and src_Pulse(ByVal k) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr K\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_library_enum_long_compile",
+      "description": "Issue #1493: Application.PresentationSync passes SyncEventType As MsoSyncEventType; Listener: app_PresentationSync(ByVal Pres As Presentation, ByVal SyncEventType As Long) compiles. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationSync(ByVal Pres As Presentation, ByVal SyncEventType As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_powerpoint_library_enum_longptr_compile",
+      "description": "Issue #1493: Application.PresentationSync passes SyncEventType As MsoSyncEventType; Listener: app_PresentationSync(ByVal Pres As Presentation, ByVal SyncEventType As LongPtr) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in PowerPoint 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents app As Application\r\nPrivate Sub app_PresentationSync(ByVal Pres As Presentation, ByVal SyncEventType As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "issue1493_access_longptr_deftype_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongLong) compiles. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_longlong_deftype_longptr_compile",
+      "description": "Issue #1493: Source: DefLngLng X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngLng X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_longptr_explicit_longlong_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongPtr); Listener: src_Pulse(ByRef x As LongLong) compiles. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongPtr)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_longlong_handler_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Event Pulse(ByRef x As LongLong); Listener: DefLngPtr X and src_Pulse(ByRef x) compiles. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Pulse(ByRef x As LongLong)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_longptr_matching_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As LongPtr) compiles. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_longptr_long_mismatch_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x); Listener: DefStr X and src_Pulse(ByRef x As Long) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_longptr_array_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByRef x()); Listener: DefStr X and src_Pulse(ByRef x() As LongLong) compiles. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByRef x())\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByRef x() As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_longptr_byval_longlong_compile",
+      "description": "Issue #1493: Source: DefLngPtr X and Event Pulse(ByVal x); Listener: DefStr X and src_Pulse(ByVal x As LongLong) compiles. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr X\r\nPublic Event Pulse(ByVal x)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefStr X\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal x As LongLong)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_enum_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: src_Pulse(ByVal k As LongPtr) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k As LongPtr)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "issue1493_access_enum_deftype_longptr_compile",
+      "description": "Issue #1493: Source: Enum Kind and Event Pulse(ByVal k As Kind); Listener: DefLngPtr K and src_Pulse(ByVal k) is rejected: Compile error: Procedure declaration does not match description of event or procedure having the same name. Measured in Access 16.0 (build 20527, 64-bit) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Source",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    KindA = 1\r\nEnd Enum\r\nPublic Event Pulse(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Listener",
+          "type": "class",
+          "source": "Option Explicit\r\nDefLngPtr K\r\nPrivate WithEvents src As Source\r\nPrivate Sub src_Pulse(ByVal k)\r\n    Debug.Print 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
       "id": "issue1481_word_inline_me_compile",
       "description": "Issue #1481: with CommandButton1 on it, the document's or sheet's or slide's module: Debug.Print Me.CommandButton1.Caption compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
