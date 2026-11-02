@@ -2,6 +2,54 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.4] - 2026-11-01
+
+Completion, indentation, folding and colouring that follow what the VBE
+reads, and five analyzer fixes. Most of this release was contributed by Sam
+(@swsammy), and each analyzer change was measured through the VBE oracle in
+Excel, Word, PowerPoint and Access.
+
+- Complete names after a finished word. Ctrl+Space after `Call `, `If `,
+  `MsgBox ` or `x = total ` lists the names, where it offered only those
+  starting with that word. A typed space after a word no longer opens a
+  menu of names (#1547, contributed by Sam).
+- Offer no test directive on a row that continues a statement, and read a
+  continued row exactly as the lexer does (#1552, contributed by Sam;
+  #1567).
+- Stop the Sub and Function snippets between their parentheses, so Tab
+  reaches the parameters before the body (#1556, contributed by Sam).
+- Offer event-handler stubs only where a procedure can start, never inside
+  a procedure, Type or Enum, or on a continued row (#1557, contributed by
+  Sam).
+- Indent inserted blocks, Smart Enter and event-handler stubs with the
+  editor's own indentation settings (#1558, contributed by Sam; #1568).
+- Indent after a Type, Enum or Property header with modifiers, and after
+  `#Else` and `#ElseIf ... Then` (#1569, contributed by Sam in #1563).
+- Fold a Property declared Static from its header to its End Property
+  (#1561, contributed by Sam).
+- Keep Enter responsive after a very long line, which stalled the editor
+  for a third of a second at 16,000 characters (#1562, contributed by Sam).
+- Colour dates, strings and numbers where the VBE ends them: the `#` of a
+  file number is no longer a date, an unclosed string ends at its line, and
+  type suffixes and exponents are part of the number (#1559, contributed by
+  Sam).
+- Keep the 64-bit rules on under a project argument `Win64 = 0`, as 64-bit
+  Office does (#1551, contributed by Sam).
+- Accept an event handler that takes LongLong for an event's LongPtr, and
+  the reverse (#1554, contributed by Sam).
+- Report a Const As a standard module once, as the VBE does. Inside a
+  procedure, a Const As a type VBA does not own is now "Syntax error", the
+  VBE's message there (#1553, reported by Sam; #1570).
+- Keep the runtime value checks running after an empty argument such as
+  `Mid(s, ) = "z"`, which stopped them for the rest of the module (#1564;
+  #1571).
+- VBE oracle: add a project reference without raising Office's Security
+  Notice, and refuse a referenced project whose code could run when it
+  loads (#1566, with measurements from Sam). The live preview check holds
+  its own window in front (#1549, contributed by Sam).
+- Take the fixed glob and minimatch for the development tools, and move
+  the ClamAV and Semgrep image pins with their own updater (#1548, #1546).
+
 ## [11.2.3] - 2026-10-30
 
 Completion across line breaks, legacy PowerPoint files, two declarations
