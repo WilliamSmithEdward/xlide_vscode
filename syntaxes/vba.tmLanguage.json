@@ -73,7 +73,7 @@
         },
         {
           "comment": "Option Explicit / Base / Compare / Private Module",
-          "match": "(?i)^\\s*(Option)\\s+(Explicit|Base|Compare|Private\\s+Module)\\b",
+          "match": "(?i)^\\s*(Option)\\s+(Explicit|Base|Compare(?:\\s+(?:Binary|Text|Database)\\b)?|Private\\s+Module)\\b",
           "captures": {
             "1": { "name": "keyword.control.option.vba" },
             "2": { "name": "keyword.other.option.vba" }
@@ -229,6 +229,31 @@
     "keywords": {
       "patterns": [
         {
+          "comment": "Step in a For header on one line: a variable named Step may stand before it. The header holds no other For header, and its lookahead is bounded, so a long line stays cheap",
+          "begin": "(?i)\\b(For)\\b(?=[^:'\\n]{0,1000}\\bTo\\b[^:'\\n]{0,1000}\\bStep\\b)",
+          "beginCaptures": { "1": { "name": "keyword.control.vba" } },
+          "end": "(?i)\\b(Step)\\b(?!\\s*(?:[=,:)]|Step\\b|$))|(?=[:'\\n])",
+          "endCaptures": { "1": { "name": "keyword.control.vba" } },
+          "patterns": [
+            { "include": "#line-continuation" },
+            { "include": "#strings" },
+            { "include": "#numbers" },
+            { "include": "#members" },
+            { "include": "#types" },
+            { "include": "#constants" },
+            { "include": "#keyword-words" },
+            { "include": "#operators" },
+            { "include": "#reserved-names" },
+            { "include": "#builtin-functions" },
+            { "include": "#identifiers" }
+          ]
+        },
+        { "include": "#keyword-words" }
+      ]
+    },
+    "keyword-words": {
+      "patterns": [
+        {
           "comment": "Exit Sub / Exit Function / Exit Property: the procedure word is part of the Exit statement (MS-VBAL 5.4.2.17 to 5.4.2.19)",
           "match": "(?i)\\b(Exit)\\s+(Sub|Function|Property)\\b",
           "captures": {
@@ -236,10 +261,11 @@
             "2": { "name": "keyword.control.vba" }
           }
         },
+        { "include": "#statement-words" },
         {
           "comment": "Control flow - statement-keywords and marker-keywords (section 3.3.5.2 MS-VBAL)",
           "name": "keyword.control.vba",
-          "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Step|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Error|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Seek|Print|Input|LSet|RSet|Erase|Write)\\b"
+          "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Seek|Print|Input|LSet|RSet|Erase|Write)\\b"
         },
         {
           "comment": "Logical operators: operator-identifier (section 3.3.5.2 MS-VBAL)",
@@ -254,7 +280,54 @@
         {
           "comment": "Statement / marker keywords not elsewhere classified",
           "name": "keyword.other.vba",
-          "match": "(?i)\\b(As|ByVal|ByRef|Optional|ParamArray|Preserve|WithEvents|RaiseEvent|Lib|Alias|Set|Let|Call|Spc|Tab|Any)\\b"
+          "match": "(?i)\\b(As|ByVal|ByRef|Optional|ParamArray|Preserve|WithEvents|RaiseEvent|Set|Let|Call|Spc|Tab|Any)\\b"
+        }
+      ]
+    },
+    "statement-words": {
+      "comment": "Words that are keywords only in their statement and names elsewhere (src/analyzer/lexer/contextualKeywords.ts), read from the words beside them",
+      "patterns": [
+        {
+          "comment": "An Open statement's mode, before the rest of the statement",
+          "match": "(?i)\\b(For)\\s+(Input|Output|Append|Binary|Random)\\b(?=\\s+(?:(?:Access|Lock|Shared|As)\\b|_[ \\t]*$))",
+          "captures": {
+            "1": { "name": "keyword.control.vba" },
+            "2": { "name": "keyword.control.vba" }
+          }
+        },
+        {
+          "comment": "An Open statement's access and lock words",
+          "match": "(?i)\\b(Access|Lock)\\s+(Read(?:\\s+Write)?|Write)\\b(?=\\s+(?:(?:Lock|Shared|As)\\b|_[ \\t]*$))",
+          "captures": {
+            "1": { "name": "keyword.control.vba" },
+            "2": { "name": "keyword.control.vba" }
+          }
+        },
+        {
+          "comment": "CDecl, Lib and Alias in a Declare, which may be continued between them",
+          "name": "keyword.other.vba",
+          "match": "(?i)\\b(?:CDecl(?=\\s+(?:Lib\\b|_[ \\t]*$))|(?:Lib|Alias)(?=\\s+\"))"
+        },
+        {
+          "comment": "The Error statement, after On or where a statement can start, and not a label, an assignment or a Type field",
+          "match": "(?i)\\b(On)\\s+(?:(Local)\\s+)?(Error)\\b|(?:^\\s*|(?<=[0-9][ \\t])|:\\s*|\\b(Then|Else)\\s+)(Error)\\b(?!\\s*(?:[=:.!,)]|As\\b|$))",
+          "captures": {
+            "1": { "name": "keyword.control.vba" },
+            "2": { "name": "keyword.control.vba" },
+            "3": { "name": "keyword.control.vba" },
+            "4": { "name": "keyword.control.vba" },
+            "5": { "name": "keyword.control.vba" }
+          }
+        },
+        {
+          "comment": "The Error, Circle and InputB functions",
+          "name": "support.function.builtin.vba",
+          "match": "(?i)\\b(?:Error|Circle|InputB)\\b(?=\\s*\\()"
+        },
+        {
+          "comment": "Step at the start of a line a For header is continued on",
+          "match": "(?i)^\\s*(Step)\\b(?!\\s*(?:[=:.!,(]|As\\b|$))",
+          "captures": { "1": { "name": "keyword.control.vba" } }
         }
       ]
     },

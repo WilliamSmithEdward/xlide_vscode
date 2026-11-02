@@ -208,6 +208,45 @@ suite('VBA grammar', () => {
 		});
 	});
 
+	test('colors a word that is a keyword only in its statement by where it stands (issue #1575)', async () => {
+		const OTHER = 'keyword.other.vba';
+		const FUNCTION = 'support.function.builtin.vba';
+		const lines = await lineTokens([
+			'Open p For Binary Access Read Write Lock Read As #2',
+			'Open p For Random Shared As #3',
+			'Option Compare Text',
+			'Declare PtrSafe Function F CDecl Lib "k" Alias "G" () As Long',
+			'On Error GoTo Error',
+			'Error:',
+			'If x Then Error 5: Error 6',
+			'10 Error 7',
+			'Main = Error(-1) + InputB(1) + Circle(1)',
+			'Error = Error + 1',
+			'Dim Step As Long, Lib As Long, Alias As Long',
+			'For i = 1 To Step Step 2: Step = 1: Lib = Alias: Next',
+			'For Output = 1 To 2',
+			'    Step 3',
+			'Output = Binary + Random + Read + Text',
+		]);
+		const words = (i: number, scope: string): string[] => lines[i].filter((word) => word.endsWith(` ${scope}`)).map((word) => word.slice(0, -scope.length - 1));
+		assert.deepEqual(words(0, KEYWORD), ['Open', 'For', 'Binary', 'Access', 'Read Write', 'Lock', 'Read']);
+		assert.deepEqual(words(1, KEYWORD), ['Open', 'For', 'Random']);
+		assert.deepEqual(lines[2], ['Option keyword.control.option.vba', 'Compare Text keyword.other.option.vba']);
+		assert.deepEqual(words(3, OTHER), ['CDecl', 'Lib', 'Alias', 'As']);
+		assert.deepEqual(lines[4], [`On ${KEYWORD}`, `Error ${KEYWORD}`, `GoTo ${KEYWORD}`, `Error ${NAME}`]);
+		assert.deepEqual(lines[5], [`Error ${NAME}`]);
+		assert.deepEqual(words(6, KEYWORD), ['If', 'Then', 'Error', 'Error']);
+		assert.deepEqual(words(7, KEYWORD), ['Error']);
+		assert.deepEqual(words(8, FUNCTION), ['Error', 'InputB', 'Circle']);
+		assert.deepEqual(lines[9], [`Error ${NAME}`, `Error ${NAME}`]);
+		assert.deepEqual(words(10, NAME), ['Step', 'Lib', 'Alias']);
+		assert.deepEqual(words(11, KEYWORD), ['For', 'To', 'Step', 'Next']);
+		assert.deepEqual(words(11, NAME), ['i', 'Step', 'Step', 'Lib', 'Alias']);
+		assert.deepEqual(words(12, NAME), ['Output']);
+		assert.deepEqual(words(13, KEYWORD), ['Step']);
+		assert.deepEqual(words(14, NAME), ['Output', 'Binary', 'Random', 'Read', 'Text']);
+	});
+
 	// Excel accepts these: oracle legacy_gosub_return_valid_probe, issue240_19_runtime and
 	// issue1411_e_exit_between_runtime (Exit Sub), exit_function_in_property_get (Exit
 	// Function); Word, PowerPoint and Access accept issue1411_<host>_e_exit_between_runtime
