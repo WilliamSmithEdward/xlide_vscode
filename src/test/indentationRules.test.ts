@@ -85,4 +85,62 @@ suite('VBA indentation rules', () => {
 		}
 		assert.deepEqual(after, cases);
 	});
+
+	test('Reindent Lines places Else and ElseIf arms with a statement on their line where Format Document does', async () => {
+		// Oracle, in all four Office hosts: block_if_else_same_line_statement_*_runtime
+		// and block_if_elseif_same_line_statement_*_runtime.
+		const layout = [
+			'Sub Main()',
+			'    Dim n As Long',
+			'    If ThisWorkbook.Sheets.Count > 1 Then',
+			'        n = 1',
+			'    ElseIf ActiveDocument.Paragraphs.Count > 1 Then n = 2',
+			'        n = n + 10',
+			'    Else n = ActivePresentation.Slides.Count',
+			'        n = n + CurrentDb.TableDefs.Count',
+			'    End If',
+			'End Sub',
+			'',
+		];
+		const document = await open(await writeModule('IndentationArmsProbe', layout.map((line) => line.trimStart()).join('\r\n')));
+		const editor = vscode.window.activeTextEditor!;
+		editor.options = { insertSpaces: true, tabSize: 4 };
+		const formatEdits = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+			'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 4, insertSpaces: true });
+		assert.ok(formatEdits && formatEdits.length > 0, 'Format Document should answer');
+		await vscode.commands.executeCommand('editor.action.reindentlines');
+		assert.deepEqual(indents(document.getText()), indents(layout.join('\r\n')));
+		const reindented = document.getText();
+		await vscode.commands.executeCommand('editor.action.formatDocument');
+		assert.deepEqual(indents(document.getText()), indents(reindented), 'Format Document keeps the reindented layout');
+	});
+
+	test('Enter indents the next line after an Else or ElseIf arm with a statement, not after an ElseIf without Then', async () => {
+		const cases: Array<[line: string, indentAfter: string]> = [
+			['    Else n = 2', '        '],
+			['    ElseIf n > 1 Then n = 2', '        '],
+			['    Else: n = 2', '        '],
+			['    ElseIf n > 1', '    '],
+		];
+		const document = await open(await writeModule('IndentationArmsEnterProbe', 'Sub Main()\r\nEnd Sub\r\n'));
+		const editor = vscode.window.activeTextEditor!;
+		editor.options = { insertSpaces: true, tabSize: 4 };
+		// As in the #Else test above: Enter follows the rules only on a line
+		// VS Code has tokenized, so wait for the module's first line.
+		const write = async (line: string): Promise<string> => {
+			const rest = new vscode.Range(1, 0, document.lineCount, 0);
+			assert.ok(await editor.edit((edit) => edit.replace(rest, `${line}\r\nEnd Sub\r\n`)));
+			const end = document.lineAt(1).range.end;
+			editor.selection = new vscode.Selection(end, end);
+			await vscode.commands.executeCommand('type', { text: '\n' });
+			return document.lineAt(2).text;
+		};
+		await until(async () => await write('    Case 1') === '        ' ? true : undefined,
+			'Enter after `Case 1` should indent once the module is tokenized');
+		const after: Array<[string, string]> = [];
+		for (const [line] of cases) {
+			after.push([line, await write(line)]);
+		}
+		assert.deepEqual(after, cases);
+	});
 });

@@ -228,6 +228,74 @@ describe('VBA language configuration', () => {
 		expect(lineRules(config, '#End If')).toEqual({ increase: false, decrease: true, enter: false });
 	});
 
+	it('indents after Else, ElseIf ... Then and Case on Reindent Lines too, not only on Enter', () => {
+		const config = loadConfig();
+		for (const line of [
+			'Else', "Else ' otherwise", 'ElseIf ready Then', 'ElseIf(ready) Then', 'Case 1', 'Case Else', 'Case Is > 10, 20 To 30', 'Case(1)',
+			'Case (1), 2',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+		// Not yet a branch: ElseIf without its condition or its Then, Case
+		// without its list. A Type field named Else or Case is no branch either.
+		for (const line of [
+			'ElseIf ready', 'ElseIf Then', 'Case', "Case ' later", 'Else As Long', 'Case As Long',
+			'Else(0) As Long', 'Case(1 To 2) As Long', 'Elsewhere = 1', 'Cases = 2',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: false, enter: false });
+		}
+	});
+
+	it('indents after Else and ElseIf with a statement on their line, in a block If, for each Office host', () => {
+		// Oracle, in Excel, Word, PowerPoint and Access:
+		// block_if_else_same_line_statement_<host>_runtime (`Else x = 2`) and
+		// block_if_elseif_same_line_statement_<host>_runtime (`ElseIf b Then x = 2`):
+		// the arm goes on to the lines below, up to End If.
+		const config = loadConfig();
+		for (const line of [
+			'Else Set ws = ThisWorkbook.Sheets(1)',
+			'ElseIf ActiveDocument.Paragraphs.Count > 1 Then n = 2',
+			'Else: n = ActivePresentation.Slides.Count',
+			'ElseIf CurrentDb.TableDefs.Count = 0 Then: n = 0',
+		]) {
+			expect(lineRules(config, `    ${line}`), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+	});
+
+	it('reindents the arms of a Select Case one level in from each Case', () => {
+		// Format Document nests each Case one level inside Select Case, and its
+		// arm one more. Line rules move a line out at most one level, so
+		// Reindent Lines keeps Case at the level of Select Case and End Select;
+		// each arm still goes one level in from its Case.
+		const source = [
+			'Sub Main()',
+			'    Select Case ThisWorkbook.Sheets.Count',
+			'    Case 1',
+			'        n = 1',
+			'    Case 2, 3: n = 2',
+			'        n = n + 1',
+			'    Case Else',
+			'        n = 0',
+			'    End Select',
+			'End Sub',
+		].join('\r\n');
+		expect(reindent(loadConfig(), source)).toBe(source);
+	});
+
+	it('reindents a block If with Else and ElseIf arms as Format Document lays it out, for each Office host', () => {
+		const modules = [
+			['If ThisWorkbook.Sheets.Count > 1 Then', '    n = 1', 'ElseIf ThisWorkbook.Sheets.Count = 1 Then n = 2', '    n = n + 10', 'Else', '    n = 0', 'End If'],
+			['If ActiveDocument.Paragraphs.Count > 1 Then', '    n = 1', "Else ' empty", '    n = 0', 'End If'],
+			['If ActivePresentation.Slides.Count = 0 Then', '    n = 0', 'Else n = ActivePresentation.Slides.Count', '    n = n + 1', 'End If'],
+			['If CurrentDb.TableDefs.Count = 0 Then', '    n = 0', 'ElseIf CurrentDb.TableDefs.Count = 1 Then: n = 1', '    n = n + 1', 'Else: n = 2', 'End If'],
+		].map((body) => ['Sub Main()', ...body.map((line) => `    ${line}`), 'End Sub'].join('\r\n'));
+		const config = loadConfig();
+		for (const source of modules) {
+			expect(formatted(source), source).toBe(source);
+			expect(reindent(config, source), source).toBe(source);
+		}
+	});
+
 	it('reindents headers with modifiers and directive arms as Format Document lays them out, for each Office host', () => {
 		const config = loadConfig();
 		const modules = [
