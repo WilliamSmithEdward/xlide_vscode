@@ -65,7 +65,7 @@
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": ".*[ \t]_[ \t]*$",
+      "beforeText": "[ \t]_[ \t]*$",
       "action": { "indent": "indent" }
     }
   ]
