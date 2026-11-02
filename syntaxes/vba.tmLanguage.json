@@ -325,6 +325,23 @@
           "match": "(?i)\\b(?:Error|Circle|InputB)\\b(?=\\s*\\()"
         },
         {
+          "comment": "Line Input #, Width #, Name ... As and Reset where a statement can start (the line's first word, after a line number, a colon, Then or Else), read from the words beside them; the words are names elsewhere. A Reset at the start of a line followed by a colon is a label. MS-VBAL 5.4.5.6, 5.4.5.7 and 5.4.5.2 (Reset is a close-statement); the Name statement is in the Office VBA reference",
+          "match": "(?i)^\\s*(?:(Line)\\s+(Input)(?=\\s*#)|(Width)(?=#[0-9]|\\s+#)|(Name)(?=\\s+(?!As\\b)(?:\"[^\"\\n]*\"|[^\\s=:\"'!,])(?:\"[^\"\\n]*\"|[^:\"'\\n]){0,1023}?\\sAs\\s)|(Reset)\\b(?!\\s*(?:[=.!(,%&#@$^]|As\\b))(?!\\s*:))|(?:(?<=^[ \\t]{0,1023}[0-9]{1,10})[ \\t]+|(?<=:)\\s*|\\b(Then|Else)\\s+)(?:(Line)\\s+(Input)(?=\\s*#)|(Width)(?=#[0-9]|\\s+#)|(Name)(?=\\s+(?!As\\b)(?:\"[^\"\\n]*\"|[^\\s=:\"'!,])(?:\"[^\"\\n]*\"|[^:\"'\\n]){0,1023}?\\sAs\\s)|(Reset)\\b(?!\\s*(?:[=.!(,%&#@$^]|As\\b)))",
+          "captures": {
+            "1": { "name": "keyword.control.vba" },
+            "2": { "name": "keyword.control.vba" },
+            "3": { "name": "keyword.control.vba" },
+            "4": { "name": "keyword.control.vba" },
+            "5": { "name": "keyword.control.vba" },
+            "6": { "name": "keyword.control.vba" },
+            "7": { "name": "keyword.control.vba" },
+            "8": { "name": "keyword.control.vba" },
+            "9": { "name": "keyword.control.vba" },
+            "10": { "name": "keyword.control.vba" },
+            "11": { "name": "keyword.control.vba" }
+          }
+        },
+        {
           "comment": "Step at the start of a line a For header is continued on",
           "match": "(?i)^\\s*(Step)\\b(?!\\s*(?:[=:.!,(]|As\\b|$))",
           "captures": { "1": { "name": "keyword.control.vba" } }

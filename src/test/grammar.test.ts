@@ -302,4 +302,53 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[6], [`x ${NAME}`, `y ${NAME}`, 'Len support.function.builtin.vba', `s ${NAME}`]);
 		assert.deepEqual(lines[7], [`If ${KEYWORD}`, 'True constant.language.vba', `Then ${KEYWORD}`, `Exit ${KEYWORD}`, `Sub ${KEYWORD}`, `Else ${KEYWORD}`, `End ${KEYWORD}`]);
 	});
+
+	// Excel accepts these: oracle issue262_70_runtime (`Reset` then `Line Input #7, s`),
+	// issue682_23_runtime (`Name p As p & ".new"`) and issue146_a_runtime (`Reset`). The
+	// oracle has no accepted case with Width #, and in Word, PowerPoint and Access only
+	// rejected ones (issue1415_<host>_g5_line_input_number_array_compile, a type mismatch),
+	// where these are the same statements: MS-VBAL 5.4.5.6 (Line Input),
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/dab5496c-a151-4d69-adc4-bb5effc066e9
+	// 5.4.5.7 (Width),
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e427933b-d398-424b-9dbc-8cb91dece4cc
+	// 5.4.5.2 (Reset, a close-statement),
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/73ef1ac2-4da7-4cda-b2a3-5984a8649ded
+	// and the Name statement of the Office VBA reference.
+	// https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/name-statement
+	test('colors Line Input, Width #, Name ... As and Reset as statements where a statement can start', async () => {
+		const lines = await lineTokens([
+			'Sub Test()',
+			'    Reset',
+			'    Line Input #7, s: Width #1, 80: Width #f, 80: Width #(f), 80',
+			'    Name p As p & ".new"',
+			'    Name "C:\\old.txt" As "C:\\new.txt"',
+			'    If EOF(7) Then Reset: Name a As b Else Reset',
+			'10  Reset',
+			'    Name = ws.Name: w = ws.Width: GoTo Width: GoTo Reset',
+			'    Dim Name As String, Reset As Long: Reset = 1: Reset% = 2: Reset^ = 3: Width# = 4',
+			'    Line (0, 0)-(1, 1): Width = 3: Consume1 Reset: Name a \' As b',
+			'Reset:',
+			'End Sub',
+			'Private Type Rec',
+			'    Name As String * 3',
+			'    Reset As Long',
+			'End Type',
+		]);
+		const keywords = lines.map((line) => line.filter((word) => word.endsWith(KEYWORD)).map((word) => word.split(' ')[0]));
+		assert.deepEqual(keywords.slice(1, 7), [
+			['Reset'],
+			['Line', 'Input', 'Width', 'Width', 'Width'],
+			['Name'],
+			['Name'],
+			['If', 'Then', 'Reset', 'Name', 'Else', 'Reset'],
+			['Reset'],
+		]);
+		assert.deepEqual(lines[7], [
+			`Name ${NAME}`, `ws ${NAME}`, `Name ${MEMBER}`, `w ${NAME}`, `ws ${NAME}`, `Width ${MEMBER}`,
+			`GoTo ${KEYWORD}`, `Width ${NAME}`, `GoTo ${KEYWORD}`, `Reset ${NAME}`,
+		]);
+		assert.deepEqual(keywords.slice(8, 11), [[], [], []]);
+		assert.deepEqual(lines[13], [`Name ${NAME}`, 'As keyword.other.vba', 'String support.type.vba']);
+		assert.deepEqual(lines[14], [`Reset ${NAME}`, 'As keyword.other.vba', 'Long support.type.vba']);
+	});
 });
