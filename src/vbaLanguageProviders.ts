@@ -13,6 +13,7 @@ import {
     VbaDefinitionProvider,
     VbaDocumentHighlightProvider,
     VbaDocumentSymbolProvider,
+    VbaFoldingRangeProvider,
     VbaReferenceProvider,
     VbaRenameProvider,
     VbaWorkspaceSymbolProvider,
@@ -84,6 +85,7 @@ export function registerVbaLanguageProviders(
             new VbaDocumentSymbolProvider(),
             { label: 'XLIDE VBA' },
         ),
+        vscode.languages.registerFoldingRangeProvider(VBA_SELECTOR, new VbaFoldingRangeProvider()),
         vscode.languages.registerWorkspaceSymbolProvider(
             new VbaWorkspaceSymbolProvider(projectIndexService),
         ),

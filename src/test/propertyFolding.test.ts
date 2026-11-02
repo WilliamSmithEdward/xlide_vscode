@@ -1,7 +1,6 @@
-// A Property with Static among its modifiers folds in a real VS Code. XLIDE
-// registers no folding provider, so VS Code folds a module by indentation and
-// by the language configuration's start and end markers; a Property header the
-// start marker misses folds only by indentation, without its End Property.
+// Folding in a real VS Code, through XLIDE's folding provider, for a module
+// written for each Office host, indented and flat. A Property with Static among
+// its modifiers folds to its End Property.
 
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
@@ -24,7 +23,7 @@ const foldRanges = async (uri: vscode.Uri): Promise<Array<[number, number]>> => 
 	return (ranges ?? []).map((range): [number, number] => [range.start + 1, range.end + 1]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 };
 
-suite('VBA folding of a Static Property', () => {
+suite('VBA folding', () => {
 	suiteSetup(activate);
 	teardown(async () => {
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
@@ -44,6 +43,48 @@ suite('VBA folding of a Static Property', () => {
 				const document = await open(await writeModule(`StaticPropFold${host}${layout === 'flat' ? 'Flat' : ''}`, propertyModule(collection, indent)));
 				assert.deepEqual(await foldRanges(document.uri), [[3, 5], [6, 8]], `${host}, ${layout}`);
 			}
+		}
+	});
+
+	test('If, loop, With, Select Case and #If blocks fold whole, and their arms up to the next, for each Office host (issue #1576)', async () => {
+		const hosts = {
+			Excel: 'ThisWorkbook.Worksheets',
+			Word: 'ActiveDocument.Paragraphs',
+			PowerPoint: 'ActivePresentation.Slides',
+			Access: 'CurrentDb.TableDefs',
+		};
+		const blocks = (collection: string): string[] => [
+			'Sub Main()',
+			`If ${collection}.Count > 1 Then`,
+			'n = 1',
+			'Else',
+			'n = 2',
+			'End If',
+			`For Each item In ${collection}`,
+			'n = n + 1',
+			'Next',
+			'Select Case n',
+			'Case 1',
+			'n = 2',
+			'Case Else',
+			'n = 3',
+			'End Select',
+			`With ${collection}`,
+			'n = .Count',
+			'End With',
+			'#If VBA7 Then',
+			'n = 4',
+			'#Else',
+			'n = 5',
+			'#End If',
+			'End Sub',
+			'',
+		];
+		for (const [host, collection] of Object.entries(hosts)) {
+			const document = await open(await writeModule(`BlockFold${host}`, blocks(collection).join('\r\n')));
+			assert.deepEqual(await foldRanges(document.uri), [
+				[1, 24], [2, 6], [4, 5], [7, 9], [10, 15], [11, 12], [13, 14], [16, 18], [19, 23], [21, 22],
+			], host);
 		}
 	});
 });

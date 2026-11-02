@@ -9,6 +9,8 @@ import {
     isVbaDocument,
     moduleIdentityKey,
 } from './xlideFileSystem';
+import { vbaFoldingRanges } from './analyzer/folding/foldingRanges';
+import { yieldToExtensionHost } from './util/async';
 import { VbaModuleSymbols } from './vbaSymbolIndex';
 import { VBA_IDENTIFIER_RE } from './vbaSourceScan';
 import { moduleNamePositionKind } from './vbaModuleNamePosition';
@@ -219,6 +221,23 @@ function includeTypeDeclaration(
 // ---------------------------------------------------------------------------
 // Provider implementations
 // ---------------------------------------------------------------------------
+
+/**
+ * VS Code asks for folds a moment after an edit. Anything already waiting, a
+ * completion or a hover, runs first, and an edit since then cancels the request.
+ */
+export class VbaFoldingRangeProvider implements vscode.FoldingRangeProvider {
+    async provideFoldingRanges(
+        document: vscode.TextDocument,
+        _context: vscode.FoldingContext,
+        token: vscode.CancellationToken,
+    ): Promise<vscode.FoldingRange[]> {
+        await yieldToExtensionHost();
+        if (token.isCancellationRequested || document.isClosed || !isVbaDocument(document)) { return []; }
+        return vbaFoldingRanges(analysisSourceForDocument(document), document.getText())
+            .map((range) => new vscode.FoldingRange(range.start, range.end));
+    }
+}
 
 export class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
     provideDocumentSymbols(
