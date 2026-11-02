@@ -6,6 +6,7 @@
 
 import './typeLookbackSurfaces.test';
 import './completionLogicalLine.test';
+import './completionContinuedRowDirectives.test';
 import './formatting.test';
 import './hoverSnapshotSurfaces.test';
 import './prefixWindowSurfaces.test';
