@@ -211,7 +211,8 @@ suite('VBA grammar', () => {
 	// issue1411_e_exit_between_runtime (Exit Sub), exit_function_in_property_get (Exit
 	// Function); Word, PowerPoint and Access accept issue1411_<host>_e_exit_between_runtime
 	// (Exit Sub). The oracle has no case for Exit Property, the Exit Property statement of
-	// MS-VBAL 5.4.2.19.
+	// MS-VBAL 5.4.2.19:
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2c254f33-48b5-40b7-9dc7-4943313a1742
 	test('colors the procedure word of Exit Sub, Exit Function and Exit Property as a keyword', async () => {
 		const lines = await lineTokens([
 			'Sub Test()',
