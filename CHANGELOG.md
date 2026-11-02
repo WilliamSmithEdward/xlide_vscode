@@ -2,6 +2,36 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.5] - 2026-11-02
+
+Folding that follows VBA's blocks, colouring by where a word stands, and
+indentation that holds on Reindent Lines. Sam (@swsammy) contributed or
+measured all of it.
+
+- Fold If, loop, With, Select Case and #If blocks from their header to their
+  closer, however the code is indented, and read `Next j, i` and a block
+  opened after other statements. ElseIf, Else, Case, #ElseIf and #Else arms
+  fold up to the next arm. Indented lines that are no block still fold. Under
+  `editor.foldingStrategy` `indentation`, VS Code ignores this (#1583, issue
+  #1576 from Sam).
+- Colour every name after a dot or `!` as a member, whatever it is spelled
+  like: `rng.End`, `wb.Close`, `Debug.Print`, `rs!Date` and `re.Replace`.
+  `VBA.Len` and `Excel.xlUp` are members too (#1581, issue #1574 from Sam).
+- Colour a word that is a keyword only in its statement by where it stands:
+  `Output` in `Open p For Output As #1` and `Text` in `Option Compare Text`
+  are keywords, and a variable named `Step` or a label named `Error` is a
+  name (#1584, issue #1575 from Sam).
+- Colour `Sub`, `Function` and `Property` in an Exit statement as keywords
+  (#1578, contributed by Sam).
+- Indent after Else, ElseIf and Case on Reindent Lines and when pasting, as
+  Enter does, and after an arm with a statement on its line, such as
+  `Else x = 1` (#1579, contributed by Sam).
+- Find no word inside a number, so typing `1.5e3` or `&HFF` opens no
+  suggestions, and word-based suggestions no longer offer `e3` or `HFF`
+  (#1582, issue #1577 from Sam).
+- VBE oracle tests: give two PowerShell checks more time on a slow runner
+  (#1580). Update the YARA pins (#1573).
+
 ## [11.2.4] - 2026-11-01
 
 Completion, indentation, folding and colouring that follow what the VBE
