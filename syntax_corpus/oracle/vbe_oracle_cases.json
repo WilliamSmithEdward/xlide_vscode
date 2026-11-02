@@ -227810,6 +227810,100 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "block_if_else_same_line_statement_excel_runtime",
+      "description": "Excel: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_else_same_line_statement_word_runtime",
+      "description": "Word: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_else_same_line_statement_powerpoint_runtime",
+      "description": "PowerPoint: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_else_same_line_statement_access_runtime",
+      "description": "Access: A block If's Else with a statement on the Else line (`Else x = 2`) compiles, and the statement and the lines after it run only when the Else arm is taken (MS-VBAL 5.4.2.8). Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    Else x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    Else x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_excel_runtime",
+      "description": "Excel: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_word_runtime",
+      "description": "Word: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_powerpoint_runtime",
+      "description": "PowerPoint: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "block_if_elseif_same_line_statement_access_runtime",
+      "description": "Access: A block If's ElseIf with a statement after Then (`ElseIf b Then x = 2`) compiles, and the statement and the lines after it run only when that arm is taken. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Option Explicit\r\nPublic Sub XlideOracleEntry()\r\n    Dim x As Long\r\n    If False Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        If x <> 2 Then Err.Raise 5\r\n        x = x + 10\r\n    End If\r\n    If x <> 12 Then Err.Raise 6\r\n    If True Then\r\n        x = 1\r\n    ElseIf True Then x = 2\r\n        x = x + 10\r\n    End If\r\n    If x <> 1 Then Err.Raise 7\r\nEnd Sub\r\n"
     }
   ]
 }
