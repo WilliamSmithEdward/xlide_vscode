@@ -39,6 +39,39 @@ describe('incremental procedure parsing', () => {
         expect(fast).toEqual(parseModuleFreshForTests(changed));
     });
 
+    it('copies a node the tree shares once, as a fresh parse shares it', () => {
+        // An If block lists each statement in its branch and again in its flat
+        // body, so a rebase that copied every reference doubled the copies with
+        // each level of nested If blocks.
+        let block = 'value = 1';
+        for (let depth = 0; depth < 12; depth++) { block = `If value > ${depth} Then\n${block}\nEnd If`; }
+        const nested = `Public Sub Nested()\nDim value As Long\n${block}\nEnd Sub\n`;
+        const source = prefix + body + nested + tail;
+        const fast = compare(source, source.replace('value = 1', 'value = 123'));
+        const distinct = (root: unknown) => {
+            const seen = new Set<object>();
+            const walk = (node: unknown): void => {
+                if (node === null || typeof node !== 'object' || seen.has(node)) { return; }
+                seen.add(node);
+                for (const child of Object.values(node)) { walk(child); }
+            };
+            walk(root);
+            return seen.size;
+        };
+        expect(distinct(fast.members)).toBe(distinct(parseModuleFreshForTests(source.replace('value = 1', 'value = 123')).members));
+        // The arm and the flat body still hold the same statement, below the edit
+        // and inside an edited procedure alike.
+        const outerIf = (module: typeof fast, name: string) => {
+            const procedure = module.members.find(member => member.kind === 'Procedure' && member.name === name);
+            return (procedure as { body: { kind: string }[] }).body.find(node => node.kind === 'IfBlock') as
+                { body: unknown[]; branches: { body: unknown[] }[] };
+        };
+        expect(outerIf(fast, 'Nested').branches[0].body[0]).toBe(outerIf(fast, 'Nested').body[0]);
+        const edited = compare(source, source.replace('value = 1\nEnd If', 'value = 12\nEnd If'));
+        expect(outerIf(edited, 'Nested').branches[0].body[0]).toBe(outerIf(edited, 'Nested').body[0]);
+        expect(distinct(edited.members)).toBe(distinct(parseModuleFreshForTests(source.replace('value = 1\nEnd If', 'value = 12\nEnd If')).members));
+    });
+
     it.each([
         ['header', 'First(ByVal', 'Renamed(ByVal'],
         ['newline', 'value = 1', 'value = 1\nvalue = 2'],
