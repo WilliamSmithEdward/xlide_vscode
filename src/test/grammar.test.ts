@@ -47,6 +47,38 @@ async function withProbe(lines: string[], check: (file: string) => Promise<void>
 	}
 }
 
+/**
+ * Writes `lines` to a loose module and returns, for each line, the tokens that
+ * start with a letter, as `text innermost-scope`, so a test reads exactly the
+ * tokens of the line it names.
+ */
+async function lineTokens(lines: string[]): Promise<string[][]> {
+	const file = path.join(workspaceRoot(), 'GrammarProbe.bas');
+	fs.writeFileSync(file, [...lines, ''].join('\r\n'));
+	try {
+		const tokens = await tokensOf(file);
+		let next = 0;
+		return lines.map((line) => {
+			const words: string[] = [];
+			let text = '';
+			while (text.length < line.length && next < tokens.length) {
+				const token = tokens[next++];
+				text += token.c;
+				if (/^[A-Za-z]/.test(token.c.trim())) {
+					words.push(`${token.c.trim()} ${token.t.split(' ').at(-1)}`);
+				}
+			}
+			assert.equal(text, line, 'the tokens follow the lines');
+			return words;
+		});
+	} finally {
+		fs.rmSync(file, { force: true });
+	}
+}
+
+const KEYWORD = 'keyword.control.vba';
+const NAME = 'variable.other.vba';
+
 suite('VBA grammar', () => {
 	suiteSetup(async () => {
 		await activate();
@@ -173,5 +205,33 @@ suite('VBA grammar', () => {
 			assert.match(await scopesOfToken(file, '#1/2/2000#'), /\bmeta\.preprocessor\.vba constant\.other\.date\.vba\b/);
 			assert.match(await scopesOf(file, 'x'), /\bmeta\.preprocessor\.vba string\.quoted\.double\.vba\b/);
 		});
+	});
+
+	// Excel accepts these: oracle legacy_gosub_return_valid_probe, issue240_19_runtime and
+	// issue1411_e_exit_between_runtime (Exit Sub), exit_function_in_property_get (Exit
+	// Function); Word, PowerPoint and Access accept issue1411_<host>_e_exit_between_runtime
+	// (Exit Sub). The oracle has no case for Exit Property, the Exit Property statement of
+	// MS-VBAL 5.4.2.19.
+	test('colors the procedure word of Exit Sub, Exit Function and Exit Property as a keyword', async () => {
+		const lines = await lineTokens([
+			'Sub Test()',
+			'    If n > 3 Then Exit Sub',
+			'    Exit Sub',
+			'End Sub',
+			'Function F() As Long',
+			'    Exit Function',
+			'End Function',
+			'Property Get P() As Long',
+			'    Exit Property',
+			'End Property',
+			'    Exit For: Exit Do',
+			'    ExitSub = Exit_Sub',
+		]);
+		assert.deepEqual(lines[1], [`If ${KEYWORD}`, `n ${NAME}`, `Then ${KEYWORD}`, `Exit ${KEYWORD}`, `Sub ${KEYWORD}`]);
+		assert.deepEqual(lines[2], [`Exit ${KEYWORD}`, `Sub ${KEYWORD}`]);
+		assert.deepEqual(lines[5], [`Exit ${KEYWORD}`, `Function ${KEYWORD}`]);
+		assert.deepEqual(lines[8], [`Exit ${KEYWORD}`, `Property ${KEYWORD}`]);
+		assert.deepEqual(lines[10], [`Exit ${KEYWORD}`, `For ${KEYWORD}`, `Exit ${KEYWORD}`, `Do ${KEYWORD}`]);
+		assert.deepEqual(lines[11], [`ExitSub ${NAME}`, `Exit_Sub ${NAME}`]);
 	});
 });
