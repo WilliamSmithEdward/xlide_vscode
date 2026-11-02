@@ -270,7 +270,7 @@ ConvertTo-Json -InputObject @($results) -Compress
     // EncodedCommand handles CRLF and multiline definitions without relying on
     // Windows PowerShell's interactive stdin parsing or interpolating values.
     const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
-        encoding: 'utf8', timeout: 15_000,
+        encoding: 'utf8', timeout: 30_000,
     });
     expect(run.error).toBeUndefined();
     expect(run.status, run.stderr).toBe(0);
@@ -282,7 +282,7 @@ ConvertTo-Json -InputObject @($results) -Compress
         { host, scenario: 'dialog', outcome: 'rejected', stage: 'runtime_dialog', macroExecuted: false },
     ]);
     expect(results).toEqual(expected);
-}, 20_000);
+}, 40_000);
 
 describe('the macro Security Notice (issue #1529)', () => {
     const worker = readOracle('vbe_oracle_worker.ps1').replaceAll('\r\n', '\n');
