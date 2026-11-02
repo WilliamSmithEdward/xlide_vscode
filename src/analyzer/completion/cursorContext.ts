@@ -276,6 +276,20 @@ function statementStartOffset(tokens: readonly VbaToken[]): number {
 }
 
 /**
+ * Whether a physical row ends in a line continuation as the lexer reads one:
+ * a `_` after whitespace, then only whitespace to the end of the row. VBA's
+ * whitespace (MS-VBAL 3.2.2) includes U+0019 and U+3000; `\s` misses the
+ * first, and `[ \t]` misses both.
+ */
+export function rowEndsInContinuation(row: string): boolean {
+	let end = row.length;
+	while (end > 0 && isWsc(row[end - 1])) {
+		end -= 1;
+	}
+	return end >= 2 && row[end - 1] === '_' && isWsc(row[end - 2]);
+}
+
+/**
  * Cheap line-local gate for space-triggered completion requests. Every typed
  * space fires the completion provider; only a few grammar positions can
  * actually produce results there (a statement led by a keyword or directive,

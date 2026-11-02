@@ -13,7 +13,7 @@
 // Extracted verbatim from vbaMemberCompletion.ts (audit #27).
 
 import * as vscode from 'vscode';
-import { assignmentValueTriggerMayComplete, completionLineCursorContext } from './analyzer/completion/cursorContext';
+import { assignmentValueTriggerMayComplete, completionLineCursorContext, rowEndsInContinuation } from './analyzer/completion/cursorContext';
 import { assignmentTargetAt, resolveAssignmentValueCompletion } from './analyzer/completion/assignmentValueCompletion';
 import { macroNameStringMayResolveAt } from './analyzer/completion/macroNames';
 import { isIdentLike, isTypeSuffixOf } from './analyzer/lexer/tokenHelpers';
@@ -312,7 +312,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		// A directive is a comment line of its own, so a row that carries on a
 		// statement from the row above cannot hold one. A row carrying on a
 		// comment is still comment text, and test discovery reads it.
-		if (directiveItems.length > 0 && position.line > 0 && /_\s*$/.test(document.lineAt(position.line - 1).text)) {
+		if (directiveItems.length > 0 && position.line > 0 && rowEndsInContinuation(document.lineAt(position.line - 1).text)) {
 			const cursor = completionLineCursorContext(document.getText(), document.offsetAt(position));
 			if (!cursor.inComment && cursor.statementStart < document.offsetAt(new vscode.Position(position.line, 0))) {
 				directiveItems = [];
@@ -332,7 +332,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		if (context?.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter && context.triggerCharacter === '='
 			&& !assignmentValueTriggerMayComplete(document.lineAt(position.line).text.slice(0, position.character),
-				position.line > 0 && /_\s*$/.test(document.lineAt(position.line - 1).text))) {
+				position.line > 0 && rowEndsInContinuation(document.lineAt(position.line - 1).text))) {
 			return new vscode.CompletionList([], false);
 		}
 		const source = document.getText();
@@ -730,8 +730,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		position: vscode.Position,
 	): boolean {
 		const linePrefix = document.lineAt(position.line).text.slice(0, position.character);
-		const continued = position.line > 0 &&
-			/\s_[ \t]*$/.test(document.lineAt(position.line - 1).text);
+		const continued = position.line > 0 && rowEndsInContinuation(document.lineAt(position.line - 1).text);
 		return spaceTriggerMayComplete(linePrefix, continued);
 	}
 
