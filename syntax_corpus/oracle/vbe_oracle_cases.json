@@ -226663,6 +226663,49 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_excel_compile",
+      "description": "Excel: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_word_compile",
+      "description": "Word: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_powerpoint_compile",
+      "description": "PowerPoint: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "modifier_type_enum_static_property_headers_access_compile",
+      "description": "Access: Public Type, Private Enum, Public Static Property Get and Private Static Property Let headers compile. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "source": "Option Explicit\r\nPublic Type Rec\r\n    n As Long\r\nEnd Type\r\nPrivate Enum Colour\r\n    Red\r\nEnd Enum\r\nPublic Static Property Get Total() As Long\r\n    Total = 1\r\nEnd Property\r\nPrivate Static Property Let Total(ByVal v As Long)\r\nEnd Property\r\nSub Main()\r\n    Dim r As Rec\r\n    r.n = Total + Red\r\nEnd Sub\r\n"
     }
   ]
 }
