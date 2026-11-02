@@ -1607,7 +1607,7 @@ export function checkInvalidAsTypeNames(
 	push: PushFn,
 ): void {
 	const withEventsNewDeclarationSpans = collectWithEventsDeclarationSpans(mod, activity, true);
-	let withEventsDeclarationSpans: Span[] | undefined;
+	let selfReportingDeclarationSpans: Span[] | undefined;
 	let variables: Set<string> | undefined;
 	let ownTypes: Set<string> | undefined;
 	let standardModules: Set<string> | undefined;
@@ -1620,8 +1620,9 @@ export function checkInvalidAsTypeNames(
 		// A standard module's name is no type, and it wins over another
 		// module's Public Type, VBA's Collection and a host type of that name.
 		// Only a Type or Enum of that name in this module itself, or a
-		// qualified name, is the type. WithEvents says so itself (issue #1530,
-		// measured in Excel, Word, PowerPoint and Access 16.0).
+		// qualified name, is the type. WithEvents says so itself (issue #1530),
+		// and so does a Const, refused for any type VBA does not own (issue
+		// #1553); both measured in Excel, Word, PowerPoint and Access 16.0.
 		if (!ref.qualifier && (ref.kind === 'declaration' || ref.kind === 'newDeclaration')) {
 			const lower = ref.name.toLowerCase();
 			standardModules ??= new Set([
@@ -1630,7 +1631,7 @@ export function checkInvalidAsTypeNames(
 			]);
 			ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
 			if (standardModules.has(lower) && !ownTypes.has(lower)
-				&& !(withEventsDeclarationSpans ??= collectWithEventsDeclarationSpans(mod, activity, false)).some((span) => containsSpan(span, ref.span))) {
+				&& !(selfReportingDeclarationSpans ??= collectSelfReportingDeclarationSpans(mod, activity)).some((span) => containsSpan(span, ref.span))) {
 				push('invalidAsTypeName', `'${ref.name}' is a standard module of this project, and a module is not a type. This is a VBE compile error: A module is not a valid type.`, ref.span);
 				continue;
 			}
@@ -1778,13 +1779,32 @@ function collectWithEventsDeclarationSpans(
 	activity: ConditionalActivityTracker | undefined,
 	newOnly: boolean,
 ): Span[] {
+	return collectDeclarationSpans(mod, activity, (group, decl) => group.withEvents && (decl.isNew || !newOnly));
+}
+
+/**
+ * The WithEvents and Const declarations, whose own rules report a standard
+ * module's name as their type (issues #1530 and #1553).
+ */
+function collectSelfReportingDeclarationSpans(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): Span[] {
+	return collectDeclarationSpans(mod, activity, (group) => group.withEvents || group.isConst);
+}
+
+function collectDeclarationSpans(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	include: (group: VariableGroupNode, decl: VariableDeclNode) => boolean,
+): Span[] {
 	const spans: Span[] = [];
 	const inspect = (group: VariableGroupNode): void => {
-		if (!group.withEvents || isInactiveNode(activity, group)) {
+		if (isInactiveNode(activity, group)) {
 			return;
 		}
 		for (const decl of group.declarations) {
-			if (decl.isNew || !newOnly) {
+			if (include(group, decl)) {
 				spans.push(decl.span);
 			}
 		}
