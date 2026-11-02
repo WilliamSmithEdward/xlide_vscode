@@ -109,7 +109,9 @@ describe('completion provider surface', () => {
         ['PowerPoint', { host: 'powerpoint', hostModel: getPowerPointObjectModel() }],
         ['Access', { host: 'access', hostModel: getAccessObjectModel() }],
     ];
-    it.each(hosts.flatMap(([name, context]) => ['Dim t _', 'x = 1 + _', 'Dim t As Long, _', 'Dim t As Long _', 'x = 1: Dim t _ \t']
+    // U+0019 is whitespace to the lexer after a continuation, though not to \s.
+    const eom = String.fromCharCode(0x19);
+    it.each(hosts.flatMap(([name, context]) => ['Dim t _', 'x = 1 + _', 'Dim t As Long, _', 'Dim t As Long _', 'x = 1: Dim t _ \t', `Dim t As Long _${eom}`]
         .map(above => [name, above, context] as const)))('%s: offers no test directives on the row continuing %j', async (_name, above, context) => {
         const prepared = prepareRequest('    ', context, 4, `Sub Demo()\n${above}\n`);
         expect(directiveLabels((await prepared.run(' ')).items)).toEqual([]);
