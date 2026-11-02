@@ -223,6 +223,14 @@
     "keywords": {
       "patterns": [
         {
+          "comment": "Exit Sub / Exit Function / Exit Property: the procedure word is part of the Exit statement (MS-VBAL 5.4.2.17 to 5.4.2.19)",
+          "match": "(?i)\\b(Exit)\\s+(Sub|Function|Property)\\b",
+          "captures": {
+            "1": { "name": "keyword.control.vba" },
+            "2": { "name": "keyword.control.vba" }
+          }
+        },
+        {
           "comment": "Control flow - statement-keywords and marker-keywords (section 3.3.5.2 MS-VBAL)",
           "name": "keyword.control.vba",
           "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Step|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Error|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Seek|Print|Input|LSet|RSet|Erase|Write)\\b"
