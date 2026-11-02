@@ -49,10 +49,15 @@ export interface VbaIndentOptions {
     indentSize?: number | string;
 }
 
+/** The widest indent size taken from settings, far above any real one. */
+const MAX_VBA_INDENT_SIZE = 32;
+
 /**
  * One indentation level as the editor writes it: a tab, or with
  * `insertSpaces` as many spaces as its indent size, which VS Code takes from
- * `tabSize` unless `editor.indentSize` is set.
+ * `tabSize` unless `editor.indentSize` is set. A size read from raw settings
+ * is not validated by VS Code, so one above MAX_VBA_INDENT_SIZE is ignored
+ * rather than repeated into a huge string on every completion.
  */
 export function vbaIndentUnit(options: VbaIndentOptions): string {
     if (options.insertSpaces === false) {
@@ -60,7 +65,7 @@ export function vbaIndentUnit(options: VbaIndentOptions): string {
     }
     const size = [options.indentSize, options.tabSize]
         .map(Number)
-        .find((value) => Number.isInteger(value) && value > 0);
+        .find((value) => Number.isInteger(value) && value > 0 && value <= MAX_VBA_INDENT_SIZE);
     return ' '.repeat(size ?? 4);
 }
 

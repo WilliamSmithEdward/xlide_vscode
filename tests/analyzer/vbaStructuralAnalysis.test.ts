@@ -838,6 +838,13 @@ describe('vbaIndentUnit', () => {
         expect(vbaIndentUnit({ insertSpaces: true, tabSize: 3, indentSize: 'tabSize' })).toBe('   ');
         expect(vbaIndentUnit({})).toBe('    ');
     });
+
+    it('ignores a size above 32, so a raw setting cannot build a huge string', () => {
+        expect(vbaIndentUnit({ insertSpaces: true, indentSize: 32 })).toBe(' '.repeat(32));
+        expect(vbaIndentUnit({ insertSpaces: true, indentSize: 33, tabSize: 2 })).toBe('  ');
+        expect(vbaIndentUnit({ insertSpaces: true, indentSize: 200_000_000, tabSize: 1e9 })).toBe('    ');
+        expect(vbaIndentUnit({ insertSpaces: true, tabSize: '200000000' })).toBe('    ');
+    });
 });
 
 describe('smartBlockBodyText', () => {
