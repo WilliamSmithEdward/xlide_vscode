@@ -6,6 +6,7 @@ import { VBA_SMART_BLOCK_SNIPPETS } from '../../src/vbaSmartBlockSnippets';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from '../../src/xlideVbaEditorOverrides';
 
 interface VbaLanguageConfiguration {
+	wordPattern?: string;
 	indentationRules?: Record<string, string>;
 	folding?: { markers?: Record<string, string> };
 	onEnterRules?: Array<{ beforeText?: string; afterText?: string }>;
@@ -226,6 +227,26 @@ describe('VBA language configuration', () => {
 		expect(lineRules(config, '#ElseIf  Then')).toEqual({ increase: false, decrease: true, enter: false });
 		expect(lineRules(config, '#If  Then')).toEqual({ increase: false, decrease: false, enter: false });
 		expect(lineRules(config, '#End If')).toEqual({ increase: false, decrease: true, enter: false });
+	});
+
+	it('finds no word inside a number, so typing one opens no suggestions (issue #1577)', () => {
+		const pattern = new RegExp(loadConfig().wordPattern ?? '', 'g');
+		const wordsOf = (line: string): string[] => [...line.matchAll(pattern)].map((match) => match[0]);
+		for (const number of ['123', '1.5e3', '1.5E+3', '1.e3', '.5e3', '1.5e', '2D-1', '1d', '&HFF', '&H1F&', '&hff', '&H', '&O17', '&o', '&17']) {
+			expect(wordsOf(number), number).toEqual([]);
+			expect(wordsOf(`x = ${number} + y`), number).toEqual(['x', 'y']);
+		}
+		expect(wordsOf('b&17')).toEqual(['b']);
+		// Names stay words, whatever they are spelled like and wherever they follow a digit.
+		for (const [line, words] of [
+			['e3 = D + H + hex1 + _x', ['e3', 'D', 'H', 'hex1', '_x']],
+			['x1.e3 = a(1).e3 + x.D', ['x1', 'e3', 'a', 'e3', 'x', 'D']],
+			['1.foo', ['foo']],
+			['s & HFF', ['s', 'HFF']],
+			['s &Hello &Hex(1) &Option', ['s', 'Hello', 'Hex', 'Option']],
+		] as const) {
+			expect(wordsOf(line), line).toEqual(words);
+		}
 	});
 
 	it('indents after Else, ElseIf ... Then and Case on Reindent Lines too, not only on Enter', () => {
