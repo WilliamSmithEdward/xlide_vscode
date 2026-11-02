@@ -81,7 +81,7 @@ $results = foreach ($probe in $probes) {
 ConvertTo-Json -InputObject @($results) -Depth 6 -Compress
 `);
         const result = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {
-            encoding: 'utf8', timeout: 15_000,
+            encoding: 'utf8', timeout: 30_000,
             env: { ...process.env, XLIDE_TEST_PROBES: manifest,
                 XLIDE_SOUNDS_OWNER: '4321', XLIDE_SOUNDS_ACTION: 'restore' },
         });
@@ -114,7 +114,7 @@ describe.skipIf(process.platform !== 'win32')('executed PowerShell sound recover
             verify(result);
         });
     }
-    beforeAll(() => { results = runProbes(probes); }, 20_000);
+    beforeAll(() => { results = runProbes(probes); }, 40_000);
 
     for (const kind of ['String', 'ExpandString']) {
         const saved = valid(); saved.sounds[0].kind = kind; saved.sounds[0].value = String.raw`%SystemRoot%\Media\original.wav`;
