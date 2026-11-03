@@ -78,3 +78,56 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 		}),
 	};
 }
+
+/** Existing name lookups shared by all rules analyzing the same surface. */
+export interface ReferencedProjectNames {
+	/** First module of each name; callers still check its visibility. */
+	modules: ReadonlyMap<string, ReferencedProjectModule>;
+	/** Types offered by the surface, by lowercased name. */
+	types: ReadonlyMap<string, ReferencedProjectModule>;
+	/** Members of visible standard modules, available after the project name. */
+	values: ReadonlySet<string>;
+	/** Visible module names and their members, available unqualified. */
+	bareNames: ReadonlySet<string>;
+}
+
+const PROJECT_NAMES = new WeakMap<ReferencedProjectSurface, ReferencedProjectNames>();
+
+/**
+ * Built once per surface object. Surfaces are snapshots: replace the object
+ * when a referenced project changes. Worker requests receive fresh copies,
+ * so this shares work within an analysis, not across worker requests.
+ */
+export function referencedProjectNames(surface: ReferencedProjectSurface): ReferencedProjectNames {
+	let names = PROJECT_NAMES.get(surface);
+	if (!names) {
+		const modules = new Map<string, ReferencedProjectModule>();
+		const types = new Map<string, ReferencedProjectModule>();
+		const values = new Set<string>();
+		const bareNames = new Set<string>();
+		for (const module of surface.modules) {
+			const key = module.name.toLowerCase();
+			if (!modules.has(key)) {
+				modules.set(key, module);
+			}
+			for (const type of module.types) {
+				if (!types.has(type.toLowerCase())) {
+					types.set(type.toLowerCase(), module);
+				}
+			}
+			if (!module.visible) {
+				continue;
+			}
+			bareNames.add(key);
+			for (const member of module.members) {
+				bareNames.add(member.toLowerCase());
+				if (module.kind === 'standard') {
+					values.add(member.toLowerCase());
+				}
+			}
+		}
+		names = { modules, types, values, bareNames };
+		PROJECT_NAMES.set(surface, names);
+	}
+	return names;
+}

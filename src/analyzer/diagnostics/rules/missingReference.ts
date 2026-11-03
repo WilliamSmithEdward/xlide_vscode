@@ -21,7 +21,7 @@
 // does not exist yet, and guessing between the two would put a reference
 // suggestion on ordinary broken code.
 
-import type { ReferencedProjectSurface } from '../../symbols/referencedProjects';
+import { referencedProjectNames, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { isProcedureKind, type ModuleSymbols, type VbaSymbol } from '../../symbols/symbolModel';
 import { resolveBareIdentifierBinding } from '../../symbols/nameResolution';
@@ -212,9 +212,9 @@ export interface ProjectNames {
  * modules. A class it does not expose is no type of the referring project:
  * `Dim t As ProbeLibrary.Thing` is "User-defined type not defined".
  */
-function referencedProjectTypes(qualifier: string, project: ProjectNames | undefined): ReadonlySet<string> | undefined {
+function referencedProjectTypes(qualifier: string, project: ProjectNames | undefined): ReadonlyMap<string, unknown> | undefined {
 	const surface = project?.referencedProjectSurfaces?.find((candidate) => candidate.name.toLowerCase() === qualifier);
-	return surface && new Set(surface.modules.flatMap((module) => module.types.map((type) => type.toLowerCase())));
+	return surface && referencedProjectNames(surface).types;
 }
 
 /**
