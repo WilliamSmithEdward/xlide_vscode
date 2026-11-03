@@ -12,15 +12,32 @@ export function incrementalModuleParseFromCache(
 	return module && previous ? { module, snapshot: previous } : undefined;
 }
 
-/** Immutable AST rebasing. Parser trees contain plain objects, arrays and spans. */
-function rebase<T>(value: T, delta: number): T {
+/**
+ * Immutable AST rebasing. Parser trees contain plain objects, arrays and spans,
+ * and share nodes: an If block lists each statement in its branch and again in
+ * its flat body. So each node is copied once and stays shared; copying it again
+ * at every reference doubled the work with each level of nested If blocks.
+ */
+function rebase<T>(value: T, delta: number, copies: Map<object, unknown>): T {
 	if (delta === 0 || value === null || typeof value !== 'object') { return value; }
-	if (Array.isArray(value)) { return value.map(item => rebase(item, delta)) as T; }
+	const done = copies.get(value);
+	if (done !== undefined) { return done as T; }
+	if (Array.isArray(value)) {
+		const copy = new Array<unknown>(value.length);
+		copies.set(value, copy);
+		for (let i = 0; i < value.length; i++) { copy[i] = rebase(value[i], delta, copies); }
+		return copy as T;
+	}
 	const record = value as Record<string, unknown>;
 	if (typeof record.start === 'number' && typeof record.end === 'number') {
-		return { ...record, start: record.start + delta, end: record.end + delta } as T;
+		const span = { ...record, start: record.start + delta, end: record.end + delta };
+		copies.set(value, span);
+		return span as T;
 	}
-	return Object.fromEntries(Object.entries(record).map(([key, item]) => [key, rebase(item, delta)])) as T;
+	const copy: Record<string, unknown> = {};
+	copies.set(value, copy);
+	for (const key of Object.keys(record)) { copy[key] = rebase(record[key], delta, copies); }
+	return copy as T;
 }
 
 /** Reparse a small physical-line edit inside an otherwise unchanged closed procedure. */
@@ -64,15 +81,18 @@ export function incrementalModuleParse(
 	const replacement = parsed.members[0];
 	if (parsed.members.length !== 1 || replacement?.kind !== 'Procedure' || !replacement.closed ||
 		replacement.span.start !== 0 || replacement.span.end !== replacementText.length) { return undefined; }
+	// One copy map per shift: the replacement moves to the procedure's start, the tail by the edit's length.
+	const replacementCopies = new Map<object, unknown>();
+	const tailCopies = new Map<object, unknown>();
 	return {
 		...previous,
 		span: { start: 0, end: source.length },
 		members: previous.members.map((member, i) => i < index ? member :
-			i === index ? rebase(replacement, original.span.start) : rebase(member, delta)),
+			i === index ? rebase(replacement, original.span.start, replacementCopies) : rebase(member, delta, tailCopies)),
 		diagnostics: [
 			...previous.diagnostics.filter(item => item.span.end < original.span.start),
-			...parsed.diagnostics.map(item => rebase(item, original.span.start)),
-			...previous.diagnostics.filter(item => item.span.start >= original.span.end).map(item => rebase(item, delta)),
+			...parsed.diagnostics.map(item => rebase(item, original.span.start, replacementCopies)),
+			...previous.diagnostics.filter(item => item.span.start >= original.span.end).map(item => rebase(item, delta, tailCopies)),
 		],
 	};
 }
