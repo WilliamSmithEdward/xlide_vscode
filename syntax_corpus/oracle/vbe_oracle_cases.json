@@ -239231,6 +239231,770 @@
       "host": "access"
     },
     {
+      "id": "referenced_class_continued_member_type_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "referenced_class_continued_member_type_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type missing is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "referenced_class_default_member_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: default member chain compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws(1).Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "referenced_class_collection_member_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: collection member chain missing is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws.Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "referenced_class_word_continued_member_type_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "referenced_class_word_continued_member_type_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type missing is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "referenced_class_word_default_member_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: default member chain compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws(1).Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "referenced_class_word_collection_member_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: collection member chain missing is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws.Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "referenced_class_powerpoint_continued_member_type_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "referenced_class_powerpoint_continued_member_type_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type missing is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "referenced_class_powerpoint_default_member_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: default member chain compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws(1).Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "referenced_class_powerpoint_collection_member_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: collection member chain missing is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws.Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "referenced_class_access_continued_member_type_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "referenced_class_access_continued_member_type_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: continued member type missing is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "referenced_class_access_default_member_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: default member chain compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws(1).Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "referenced_class_access_collection_member_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: collection member chain missing is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim ws As ProbeLibrary.Widgets\r\n    x = ws.Child.Twice()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
       "id": "referenced_class_loop_typeof_compile",
       "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: loop typeof compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
@@ -239613,6 +240377,217 @@
       "host": "access"
     },
     {
+      "id": "referenced_class_own_type_shadows_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: own type shadows compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As Widget\r\n    x = w.Fld\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Shapes",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Widget\r\n    Fld As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "referenced_class_word_own_type_shadows_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: own type shadows compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As Widget\r\n    x = w.Fld\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Shapes",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Widget\r\n    Fld As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "referenced_class_powerpoint_own_type_shadows_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: own type shadows compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As Widget\r\n    x = w.Fld\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Shapes",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Widget\r\n    Fld As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "referenced_class_access_own_type_shadows_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: own type shadows compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As Widget\r\n    x = w.Fld\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Shapes",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type Widget\r\n    Fld As Long\r\nEnd Type\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
       "id": "referenced_class_typeof_bang_compile",
       "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: typeof bang compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
@@ -239801,6 +240776,388 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "referenced_class_method_argument_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "referenced_class_method_argument_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain missing is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "referenced_class_word_method_argument_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "word"
+    },
+    {
+      "id": "referenced_class_word_method_argument_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain missing is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "referenced_class_powerpoint_method_argument_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "referenced_class_powerpoint_method_argument_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain missing is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "referenced_class_access_method_argument_chain_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Value\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "host": "access"
+    },
+    {
+      "id": "referenced_class_access_method_argument_chain_missing_compile",
+      "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Widgets exposed with a default member, Solo exposed with a default instance and Thing private: method argument chain missing is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "projectReference": {
+        "name": "ProbeLibrary",
+        "modules": [
+          {
+            "name": "Service",
+            "type": "standard",
+            "source": "Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\nPublic Function NewWidget() As Widget\r\n    Set NewWidget = New Widget\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Widget",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As Widget\r\nPrivate mSecret As Long\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\nPublic Event Changed()\r\nPublic Property Get Size() As Long\r\n    Size = mSecret\r\nEnd Property\r\nPublic Property Let Size(ByVal v As Long)\r\n    mSecret = v\r\nEnd Property\r\nPublic Function Twice(Optional ByVal n As Long = 1) As Long\r\n    Twice = Value * 2 * n\r\nEnd Function\r\nFriend Function Inner() As Long\r\n    Inner = 3\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\nPublic Sub Poke(ByVal n As Long)\r\nEnd Sub\r\n"
+          },
+          {
+            "name": "Solo",
+            "type": "class",
+            "source": "Attribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n"
+          },
+          {
+            "name": "Widgets",
+            "type": "class",
+            "source": "Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Solo\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n"
+          },
+          {
+            "name": "Thing",
+            "type": "class",
+            "source": "Option Explicit\r\nPublic Enum ThingKind\r\n    tkOne = 1\r\nEnd Enum\r\nPublic Sub Hello()\r\nEnd Sub\r\n"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    Dim w As ProbeLibrary.Widget\r\n    Set w = ProbeLibrary.NewWidget()\r\n    x = w.Make(1).Child.Nope\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
       "host": "access"
     }
   ]

@@ -15,7 +15,9 @@
 // - The referring project's own names come first: its own Value() wins.
 
 import { libraryTypeNames } from '../host/libraryTypeNames';
-import { ProjectIndex } from './projectIndex';
+import { tokenize } from '../lexer/tokenize';
+import { tokenName } from '../lexer/tokenHelpers';
+import { isDefaultProjectObjectMember, projectObjectMemberSignature, ProjectIndex } from './projectIndex';
 import type { ModuleSymbolKind, VbaSymbol } from './symbolModel';
 
 /** One module of a referenced project, as the referring project sees it. */
@@ -44,6 +46,8 @@ export interface ReferencedObjectMember {
 	kind: 'method' | 'property';
 	/** The exposed class of the same project the member gives, `Public Child As Widget`: its name. */
 	type?: string;
+	/** A procedure's or Property Get's label, `Make(n As Long) As Widgets`: whether arguments are its own. */
+	signature?: string;
 }
 
 /** A Public Enum of a referenced project's module. */
@@ -66,8 +70,6 @@ export interface ReferencedProjectModuleSource {
 }
 
 const OPTION_PRIVATE_MODULE = /^[ \t]*Option[ \t]+Private[ \t]+Module\b/im;
-/** A procedure's `VB_UserMemId = 0` or a variable's `VB_VarUserMemId = 0` makes it the default member. */
-const DEFAULT_MEMBER = /^[ \t]*Attribute[ \t]+[^ \t.]+\.VB_(?:Var)?UserMemId[ \t]*=[ \t]*0[ \t]*$/im;
 const PREDECLARED = /^[ \t]*Attribute[ \t]+VB_PredeclaredId[ \t]*=[ \t]*True\b/im;
 const EXPOSED = /^[ \t]*Attribute[ \t]+VB_Exposed[ \t]*=[ \t]*True\b/im;
 /** No module of the referenced project: < is no identifier character. */
@@ -113,7 +115,8 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 			const classFacts = mod.kind === 'class' ? {
 				predeclared: PREDECLARED.test(mod.source),
 				objectMembers: objectMembers(symbols, name, exposedClasses),
-				defaultMember: DEFAULT_MEMBER.test(mod.source),
+				// A procedure's `VB_UserMemId = 0` or a variable's `VB_VarUserMemId = 0`, `&H0` too.
+				defaultMember: symbols.some(isDefaultProjectObjectMember),
 			} : {};
 			return { name: mod.name, kind: mod.kind, visible: true, members: [], ...classFacts,
 				types: [mod.name, ...enums.map((decl) => decl.name)], enums };
@@ -250,17 +253,46 @@ function objectMembers(symbols: readonly VbaSymbol[], projectName: string, expos
 		if (type) {
 			member.type = type;
 		}
+		const signature = symbol.kind === 'propertyLet' || symbol.kind === 'propertySet' ? undefined : projectObjectMemberSignature(symbol);
+		if (signature) {
+			// The return type as the lexer reads it, `As [Widgets]` or continued: `As Widgets`.
+			const returns = declaredTypeNameParts(symbol.asType);
+			member.signature = symbol.asType && returns && signature.endsWith(symbol.asType)
+				? `${signature.slice(0, -symbol.asType.length)}${returns.join('.')}`
+				: signature;
+		}
 	}
 	return [...out.values()];
 }
 
 /** The exposed class of the project a declared type names, bare or after the project's name. */
 function exposedClassNamed(asType: string | undefined, projectName: string, exposedClasses: ReadonlyMap<string, string>): string | undefined {
-	const parts = (asType ?? '').split('.').map((part) => part.trim().replace(/^\[(.*)\]$/, '$1').toLowerCase());
-	if (parts.length > 2 || (parts.length === 2 && parts[0] !== projectName.toLowerCase())) {
+	const parts = declaredTypeNameParts(asType)?.map((part) => part.toLowerCase());
+	if (!parts || parts.length > 2 || (parts.length === 2 && parts[0] !== projectName.toLowerCase())) {
 		return undefined;
 	}
 	return exposedClasses.get(parts[parts.length - 1]);
+}
+
+/**
+ * The names of a declared type, `ProbeLibrary.Widget`, as the lexer reads
+ * them: across any line continuation it accepts (a CR-only line, whitespace
+ * after the underscore) and with brackets taken off. Undefined unless the
+ * text is names joined by dots.
+ */
+export function declaredTypeNameParts(text: string | undefined): string[] | undefined {
+	const toks = tokenize(text ?? '').filter((token) => token.kind !== 'newline');
+	const parts: string[] = [];
+	for (let i = 0; i < toks.length; i++) {
+		const name = i % 2 === 0 ? tokenName(toks[i]) : undefined;
+		if (i % 2 === 0 ? name === undefined : toks[i].rawText !== '.') {
+			return undefined;
+		}
+		if (name !== undefined) {
+			parts.push(name);
+		}
+	}
+	return parts.length > 0 && toks.length % 2 === 1 ? parts : undefined;
 }
 
 function objectMemberKind(symbol: VbaSymbol): ReferencedObjectMember['kind'] | undefined {

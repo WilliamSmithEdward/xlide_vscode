@@ -428,7 +428,7 @@ function isDefaultMemberAttribute(attr: VbaSymbolAttribute): boolean {
 	);
 }
 
-function isDefaultProjectObjectMember(symbol: VbaSymbol): boolean {
+export function isDefaultProjectObjectMember(symbol: VbaSymbol): boolean {
 	return (symbol.attributes ?? []).some(isDefaultMemberAttribute);
 }
 
@@ -489,7 +489,7 @@ function memberProcedureKind(symbol: VbaSymbol): 'sub' | 'function' | 'propertyG
 		: undefined;
 }
 
-function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
+export function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 	const procedure = procedureSignatureFromSymbol(symbol);
 	if (procedure) {
 		return procedureSignatureLabel(procedure);

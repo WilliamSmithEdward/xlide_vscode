@@ -57,9 +57,9 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
-		expect(measured).toHaveLength(232);
+		expect(measured).toHaveLength(260);
 		for (const host of [undefined, 'word', 'powerpoint', 'access']) {
-			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(58);
+			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(65);
 		}
 	});
 
@@ -119,7 +119,7 @@ describe('what an exposed class of a referenced project offers', () => {
 
 describe('which referenced project a bare name reaches', () => {
 	/** A case's own code, its references as the oracle's Excel file has them. */
-	const withCode = (code: string, extra: OracleFixtureModule[] = []): OracleCase => ({
+	const withBody = (code: string, extra: OracleFixtureModule[] = []): OracleCase => ({
 		...byId('referenced_class_qualified_type_compile'),
 		modules: [{ name: 'Module1', type: 'standard', source: `Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    ${code.replace(/\n/g, '\r\n')}\r\nEnd Sub\r\n` }, ...extra],
 	});
@@ -135,25 +135,55 @@ describe('which referenced project a bare name reaches', () => {
 	it('is the first project that has it, a module before a later class', () => {
 		// First's standard module Solo wins over ProbeLibrary's predeclared class Solo.
 		const first = project('First', [{ name: 'Solo', type: 'standard', source: 'Option Explicit\r\nPublic Function Good() As Long\r\nEnd Function\r\n' }]);
-		expect(errors(withCode('x = Solo.Good()'), before(first))).toEqual([]);
-		expect(errors(withCode('x = Solo.Good()'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Solo.Good'."]);
+		expect(errors(withBody('x = Solo.Good()'), before(first))).toEqual([]);
+		expect(errors(withBody('x = Solo.Good()'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Solo.Good'."]);
+	});
+
+	it("is an earlier project's Enum before a later default instance", () => {
+		// First's Enum Solo wins over ProbeLibrary's predeclared class Solo.
+		const first = project('First', [{ name: 'Kinds', type: 'standard', source: 'Option Explicit\r\nPublic Enum Solo\r\n    sOne = 1\r\nEnd Enum\r\n' }]);
+		expect(errors(withBody('x = Solo.sOne'), before(first))).toEqual([]);
+		expect(errors(withBody('x = Solo.Nope'), before(first))).toEqual(["member-not-found: Method or data member not found: 'Solo.Nope'."]);
 	});
 
 	it("is the first project's type, an earlier project's class winning", () => {
 		const first = project('First', [{ name: 'Widget', type: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Mine As Long\r\n' }]);
-		expect(errors(withCode('Dim w As Widget\n    x = w.Mine'), before(first))).toEqual([]);
-		expect(errors(withCode('Dim w As Widget\n    x = w.Value'), before(first))).toEqual(["member-not-found: Method or data member not found: 'First.Widget.Value'."]);
+		expect(errors(withBody('Dim w As Widget\n    x = w.Mine'), before(first))).toEqual([]);
+		expect(errors(withBody('Dim w As Widget\n    x = w.Value'), before(first))).toEqual(["member-not-found: Method or data member not found: 'First.Widget.Value'."]);
 		// Qualified, it is the project named.
-		expect(errors(withCode('Dim w As ProbeLibrary.Widget\n    x = w.Mine'), before(first))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Mine'."]);
+		expect(errors(withBody('Dim w As ProbeLibrary.Widget\n    x = w.Mine'), before(first))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Mine'."]);
+	});
+
+	it("is the project's own Type or Enum before a referenced class", () => {
+		const own = (declaration: string): OracleFixtureModule => ({ name: 'Shapes', type: 'standard', source: `Option Explicit\r\n${declaration}\r\n` });
+		expect(errors(withBody('Dim w As Widget\n    x = w.Fld', [own('Public Type Widget\r\n    Fld As Long\r\nEnd Type')]))).toEqual([]);
+		expect(errors(withBody('Dim w As Widget\n    w = 1\n    x = w', [own('Public Enum Widget\r\n    wOne = 1\r\nEnd Enum')]))).toEqual([]);
+		// In the same module, a Private Type too.
+		const local: OracleCase = { ...byId('referenced_class_qualified_type_compile'), modules: [{ name: 'Module1', type: 'standard', source: 'Option Explicit\r\nPrivate Type Widget\r\n    Fld As Long\r\nEnd Type\r\nPublic Sub Main()\r\n    Dim x As Long, w As Widget\r\n    x = w.Fld\r\nEnd Sub\r\n' }] };
+		expect(errors(local)).toEqual([]);
+		// Qualified, it is the project's class.
+		expect(errors(withBody('Dim w As ProbeLibrary.Widget\n    Set w = ProbeLibrary.NewWidget()\n    x = w.Fld', [own('Public Type Widget\r\n    Fld As Long\r\nEnd Type')]))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Fld'."]);
+		// A module analyzed without the project's index still sees its own Type,
+		// and its own Enum before a referenced default instance.
+		const ownEnum: OracleCase = { ...local, modules: [{ name: 'Module1', type: 'standard', source: 'Option Explicit\r\nPublic Enum Solo\r\n    sOne = 1\r\nEnd Enum\r\nPublic Sub Main()\r\n    Dim x As Long\r\n    x = Solo.sOne\r\nEnd Sub\r\n' }] };
+		expect(analyzeVbaModuleSource({
+			source: ownEnum.modules[0].source, moduleName: 'Module1', moduleKind: 'standard', host: 'excel',
+			...oracleProjectReferences(ownEnum),
+		}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([]);
+		const alone = analyzeVbaModuleSource({
+			source: local.modules[0].source, moduleName: 'Module1', moduleKind: 'standard', host: 'excel',
+			...oracleProjectReferences(local),
+		}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
+		expect(alone).toEqual([]);
 	});
 
 	it('is none where a library before the project might have it', () => {
 		const unread = (references: References): References => ({ ...references, referencedLibraries: ['stdole', 'Unread', 'Office', 'ProbeLibrary'] });
-		expect(errors(withCode('Dim w As Widget\n    Set w = New Widget'), unread)).toEqual([]);
-		expect(errors(withCode('x = Solo.Nope'), unread)).toEqual([]);
-		expect(errors(withCode('Dim w As Widget\n    x = w.Nope'), unread)).toEqual([]);
+		expect(errors(withBody('Dim w As Widget\n    Set w = New Widget'), unread)).toEqual([]);
+		expect(errors(withBody('x = Solo.Nope'), unread)).toEqual([]);
+		expect(errors(withBody('Dim w As Widget\n    x = w.Nope'), unread)).toEqual([]);
 		// Qualified, the name is the project's whatever comes before it.
-		expect(errors(withCode('Dim w As ProbeLibrary.Widget\n    Set w = New ProbeLibrary.Widget\n    x = w.Nope'), unread)).toHaveLength(2);
+		expect(errors(withBody('Dim w As ProbeLibrary.Widget\n    Set w = New ProbeLibrary.Widget\n    x = w.Nope'), unread)).toHaveLength(2);
 	});
 
 	it("is ProbeLibrary's in Word once Normal is read and lacks it", () => {
@@ -167,15 +197,93 @@ describe('which referenced project a bare name reaches', () => {
 });
 
 describe('how a referenced class is named', () => {
-	const withCode = (code: string): OracleCase => ({
+	const withBody = (code: string): OracleCase => ({
 		...byId('referenced_class_qualified_type_compile'),
 		modules: [{ name: 'Module1', type: 'standard', source: `Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long\r\n    ${code.replace(/\n/g, '\r\n')}\r\nEnd Sub\r\n` }],
 	});
 
 	it('across a line continuation', () => {
-		expect(errors(withCode('Dim w As ProbeLibrary. _\n        Widget\n    x = w.Value'))).toEqual([]);
-		expect(errors(withCode('Dim w As ProbeLibrary. _\n        Widget\n    x = w.Nope'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Nope'."]);
-		expect(errors(withCode('Dim t As ProbeLibrary. _\n        Thing'))[0]).toMatch(/offers no type 'Thing'/);
+		expect(errors(withBody('Dim w As ProbeLibrary. _\n        Widget\n    x = w.Value'))).toEqual([]);
+		expect(errors(withBody('Dim w As ProbeLibrary. _\n        Widget\n    x = w.Nope'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Nope'."]);
+		expect(errors(withBody('Dim t As ProbeLibrary. _\n        Thing'))[0]).toMatch(/offers no type 'Thing'/);
+	});
+
+	it('across any continuation the lexer reads, a CR-only line and whitespace after the underscore', () => {
+		for (const continued of ['ProbeLibrary. _\r        Widget', 'ProbeLibrary. _\u3000\n        Widget', 'ProbeLibrary. _ \n        Widget']) {
+			expect(errors(withBody(`Dim w As ${continued}\n    x = w.Value`)), JSON.stringify(continued)).toEqual([]);
+			expect(errors(withBody(`Dim w As ${continued}\n    x = w.Nope`)), JSON.stringify(continued)).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Nope'."]);
+		}
+	});
+
+	it('by a member whose type is continued onto the next line', () => {
+		const surface = referencedProjectSurface('ProbeLibrary', [
+			{ name: 'Widget', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\nPublic Child As ProbeLibrary. _\r\n    Widget\r\nPublic Function Up() As _\r    Widget\r\nEnd Function\r\n' },
+		]);
+		expect(surface.modules[0].objectMembers?.map(({ name, kind, type }) => (type ? { name, kind, type } : { name, kind }))).toEqual([
+			{ name: 'Value', kind: 'property' },
+			{ name: 'Child', kind: 'property', type: 'Widget' },
+			{ name: 'Up', kind: 'method', type: 'Widget' },
+		]);
+		const found = (code: string) => errors(withBody(code), (references) => ({ ...references, referencedProjectSurfaces: [surface] }));
+		expect(found('Dim w As ProbeLibrary.Widget\n    x = w.Child.Value')).toEqual([]);
+		expect(found('Dim w As ProbeLibrary.Widget\n    x = w.Child.Nope')).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Nope'."]);
+	});
+
+	it('with its default member marked in hexadecimal', () => {
+		for (const attribute of ['Attribute Item.VB_UserMemId = &H0', 'Attribute Item.VB_UserMemId = &H00000000']) {
+			const surface = referencedProjectSurface('ProbeLibrary', [
+				{ name: 'Widgets', kind: 'class', source: `Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Item(ByVal i As Long) As Object\r\n${attribute}\r\nEnd Function\r\n` },
+			]);
+			expect(surface.modules[0], attribute).toMatchObject({ defaultMember: true });
+		}
+		const other = referencedProjectSurface('ProbeLibrary', [
+			{ name: 'Widgets', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function NewEnum() As IUnknown\r\nAttribute NewEnum.VB_UserMemId = -4\r\nEnd Function\r\n' },
+		]);
+		expect(other.modules[0]).toMatchObject({ defaultMember: false });
+	});
+
+	it('indexed through its default member, leaving the element unjudged', () => {
+		// Widgets' own Child is an Other; the Widget its Item gives has a Leaf.
+		const surfaceSources: ReferencedProjectModuleSource[] = [
+			{ name: 'Leaf', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic LeafOnly As Long\r\n' },
+			{ name: 'Other', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic OtherOnly As Long\r\n' },
+			{ name: 'Widget', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Leaf\r\nPublic Function Make(ByVal n As Long) As Widget\r\nEnd Function\r\n' },
+			{ name: 'Widgets', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Other\r\nPublic Function Item(ByVal i As Long) As Widget\r\nAttribute Item.VB_UserMemId = 0\r\nEnd Function\r\n' },
+		];
+		const surface = referencedProjectSurface('ProbeLibrary', surfaceSources);
+		const found = (code: string) => errors(withBody(code), (references) => ({ ...references, referencedProjectSurfaces: [surface] }));
+		expect(found('Dim ws As ProbeLibrary.Widgets\n    x = ws(1).Child.LeafOnly')).toEqual([]);
+		expect(found('Dim ws As ProbeLibrary.Widgets\n    x = ws.Child.OtherOnly')).toEqual([]);
+		expect(found('Dim ws As ProbeLibrary.Widgets\n    x = ws.Child.LeafOnly')).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Other.LeafOnly'."]);
+		// Widget has no default member: the arguments are Make's own.
+		expect(found('Dim w As ProbeLibrary.Widget\n    x = w.Make(1).Child.LeafOnly')).toEqual([]);
+		expect(found('Dim w As ProbeLibrary.Widget\n    x = w.Make(1).Nope')).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Nope'."]);
+		// Make declares its parameter: the arguments are its own though it gives Widgets, which has a default member.
+		const maker = referencedProjectSurface('ProbeLibrary', [
+			...surfaceSources.filter((source) => source.name !== 'Widget'),
+			{ name: 'Widget', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Leaf\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\n' },
+		]);
+		const made = (code: string) => errors(withBody(code), (references) => ({ ...references, referencedProjectSurfaces: [maker] }));
+		expect(made('Dim w As ProbeLibrary.Widget\n    x = w.Make(1).Child.OtherOnly')).toEqual([]);
+		expect(made('Dim w As ProbeLibrary.Widget\n    x = w.Make(1).Child.Nope')).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Other.Nope'."]);
+		// A member with no parameter passes the call's arguments to what it
+		// gives, and no argument count is judged from the surface.
+		const items = referencedProjectSurface('ProbeLibrary', [
+			...surfaceSources.filter((source) => source.name !== 'Widget'),
+			{ name: 'Widget', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Function Items() As Widgets\r\nEnd Function\r\nPublic Function Any() As Object\r\nEnd Function\r\n' },
+		]);
+		for (const code of ['x = w.Items(1).Nope', 'x = w.Items(1).Child.LeafOnly', 'w.Items 1', 'x = w.Any(1).Foo']) {
+			expect(errors(withBody(`Dim w As ProbeLibrary.Widget\n    ${code}`), (references) => ({ ...references, referencedProjectSurfaces: [items] })), code).toEqual([]);
+		}
+		// Its return type bracketed or continued, the same.
+		for (const returns of ['[Widgets]', 'ProbeLibrary. _\r\n        Widgets']) {
+			const spelled = referencedProjectSurface('ProbeLibrary', [
+				...surfaceSources.filter((source) => source.name !== 'Widget'),
+				{ name: 'Widget', kind: 'class', source: `Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Child As Leaf\r\nPublic Function Make(ByVal n As Long) As ${returns}\r\nEnd Function\r\n` },
+			]);
+			expect(errors(withBody('Dim w As ProbeLibrary.Widget\n    x = w.Make(1).Child.Nope'), (references) => ({ ...references, referencedProjectSurfaces: [spelled] })), returns)
+				.toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Other.Nope'."]);
+		}
 	});
 
 	it('with a variable as its default member', () => {
@@ -189,7 +297,7 @@ describe('how a referenced class is named', () => {
 		const surface = referencedProjectSurface('ProbeLibrary', [
 			{ name: 'Node', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Parent As ProbeLibrary.Node\r\nPublic Other As OtherLib.Node\r\nPublic Function Up() As Node\r\nEnd Function\r\n' },
 		]);
-		expect(surface.modules[0].objectMembers).toEqual([
+		expect(surface.modules[0].objectMembers?.map(({ name, kind, type }) => (type ? { name, kind, type } : { name, kind }))).toEqual([
 			{ name: 'Parent', kind: 'property', type: 'Node' },
 			{ name: 'Other', kind: 'property' },
 			{ name: 'Up', kind: 'method', type: 'Node' },

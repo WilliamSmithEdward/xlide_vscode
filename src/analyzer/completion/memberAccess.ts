@@ -63,7 +63,7 @@ import {
 } from '../symbols/symbolModel';
 import { projectSymbolsNamed } from '../symbols/nameResolution';
 import type { FormControlInfo } from '../symbols/projectIndex';
-import { referencedProjectForBareName, referencedProjectNames, type ReferencedProjectModule, type ReferencedProjectSurface } from '../symbols/referencedProjects';
+import { declaredTypeNameParts, referencedProjectForBareName, referencedProjectNames, type ReferencedProjectModule, type ReferencedProjectSurface } from '../symbols/referencedProjects';
 
 /** Project/module facts the resolver needs that come from outside the source. */
 export interface MemberCompletionContext {
@@ -1033,7 +1033,7 @@ function receiverTypeFromImplicitWithChain(
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
 			segment.hasArguments && !isExplicitElementAccessor(segment.name)
-				&& !memberTakesOwnArguments(signatureForMember(currentType, segment.name, ctx)),
+				&& !takesOwnArguments(currentType, segment.name, ctx),
 			ctx,
 		);
 	}
@@ -1151,7 +1151,7 @@ function receiverTypeFromChain(
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
 			segment.hasArguments && !isExplicitElementAccessor(segment.name)
-				&& !memberTakesOwnArguments(signatureForMember(currentType, segment.name, ctx)),
+				&& !takesOwnArguments(currentType, segment.name, ctx),
 			ctx,
 		);
 		cache?.set(keyFor(s + 1), currentType);
@@ -2053,6 +2053,12 @@ function applyDefaultMemberReturnType(
 	if (!typeName || !hasArguments) {
 		return typeName;
 	}
+	// `ws(1)` on a referenced class with a default member reaches that
+	// member, whose type XLIDE does not follow: the class's own members are
+	// not what it gives. Without one, the arguments are the member's own.
+	if (typeName.startsWith(REFERENCED_CLASS_PREFIX)) {
+		return referencedClassForKey(typeName, ctx)?.module.defaultMember ? undefined : typeName;
+	}
 	const union = parseUnionTypeKey(typeName);
 	if (union) {
 		return typeKeyFor(
@@ -2124,12 +2130,13 @@ function referencedClassTypeKey(declaredType: string, ctx: MemberCompletionConte
 		return undefined;
 	}
 	// `As ProbeLibrary. _` with `Widget` on the next line is one name.
-	const parts = declaredType.replace(/[ \t]*_[ \t]*\r?\n[ \t]*/g, '').split('.').map((part) => part.trim().replace(/^\[(.*)\]$/, '$1'));
-	if (parts.length > 2 || parts.some((part) => !IDENT_RE.test(part))) {
+	const parts = declaredTypeNameParts(declaredType);
+	if (!parts || parts.length > 2 || parts.some((part) => !IDENT_RE.test(part))) {
 		return undefined;
 	}
 	const lower = parts[parts.length - 1].toLowerCase();
-	if (parts.length === 1 && projectClassMembersByName(ctx).has(lower)) {
+	// The project's own class, Type or Enum of the name comes first.
+	if (parts.length === 1 && (projectClassMembersByName(ctx).has(lower) || ownTypeNamed(lower, ctx))) {
 		return undefined;
 	}
 	const project = parts.length === 2
@@ -2140,11 +2147,43 @@ function referencedClassTypeKey(declaredType: string, ctx: MemberCompletionConte
 	return project && module?.kind === 'class' && module.name.toLowerCase() === lower ? referencedClassKey(project, module.name) : undefined;
 }
 
+const MODULE_TYPE_NAMES = new WeakMap<ModuleNode, ReadonlySet<string>>();
+
+/** Whether this module or another of the project declares a Type or Enum of the name. */
+function ownTypeNamed(lower: string, ctx: MemberCompletionContext): boolean {
+	const mod = ctx.parsedModule;
+	let names = mod && MODULE_TYPE_NAMES.get(mod);
+	if (mod && !names) {
+		names = new Set(mod.members.flatMap((member) => (member.kind === 'Type' || member.kind === 'Enum') && member.name ? [member.name.toLowerCase()] : []));
+		MODULE_TYPE_NAMES.set(mod, names);
+	}
+	return !!names?.has(lower) || projectSymbolsNamed(ctx.projectSymbols, lower).some((symbol) => symbol.kind === 'type' || symbol.kind === 'enum');
+}
+
+/**
+ * Whether a member called with arguments takes them itself (see
+ * memberTakesOwnArguments). A referenced class's member answers from the
+ * signature its surface keeps, which serves only this: the argument-count
+ * rules do not read it, so `w.Items(1)` on a parameterless Items passes its
+ * argument to what Items gives, as the VBE does.
+ */
+function takesOwnArguments(ownerType: string, memberName: string, ctx: MemberCompletionContext): boolean {
+	const signature = ownerType.startsWith(REFERENCED_CLASS_PREFIX)
+		? referencedClassForKey(ownerType, ctx)?.module.objectMembers?.find((member) => member.name.toLowerCase() === memberName.toLowerCase())?.signature
+		: signatureForMember(ownerType, memberName, ctx);
+	return memberTakesOwnArguments(signature);
+}
+
 /** A referenced project's exposed class with a default instance a bare name reaches, `Solo`, as its key. */
 function referencedInstanceKey(root: string, ctx: MemberCompletionContext): string | undefined {
 	const lower = root.toLowerCase();
+	// The project's own Type or Enum of the name comes first: its `Solo.sOne`.
+	if (ownTypeNamed(lower, ctx)) {
+		return undefined;
+	}
+	// Any name an earlier project offers comes first, its Enum Solo say.
 	const project = referencedProjectForBareName(lower, ctx.referencedProjectSurfaces, ctx.referencedLibraries, ctx.model?.hostName ?? 'Excel',
-		(names) => names.modules.has(lower) || names.values.has(lower));
+		(names) => names.modules.has(lower) || names.bareNames.has(lower) || names.types.has(lower));
 	const module = project && referencedProjectNames(project).modules.get(lower);
 	return project && module?.kind === 'class' && module.predeclared ? referencedClassKey(project, module.name) : undefined;
 }
