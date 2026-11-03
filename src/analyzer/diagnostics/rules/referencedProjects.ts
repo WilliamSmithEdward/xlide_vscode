@@ -12,6 +12,7 @@
 // sees comes first: a local, module or project name Service is not the
 // referenced module.
 
+import { collectTypeNameReferences } from '../../semantic/typeSemanticTokens';
 import { referencedProjectNames, type ReferencedProjectModule, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { PushFn } from '../analysisContext';
@@ -62,6 +63,10 @@ export function checkReferencedProjectNames(
 	const report = (text: string, span: { start: number; end: number }): void => {
 		push('memberNotFound', `Method or data member not found: '${text}'.`, span);
 	};
+	// Where a type is named, `Dim w As ProbeLibrary.Widget`: a qualifier's offset.
+	let typeQualifiers: ReadonlySet<number> | undefined;
+	const inTypePosition = (offset: number): boolean => (typeQualifiers ??= new Set(collectTypeNameReferences(source)
+		.flatMap((ref) => ref.qualifierSpan ? [ref.qualifierSpan.start] : []))).has(offset);
 	return (procedure) => {
 		const own = new Set(procedure.params.map((param) => param.name.toLowerCase()));
 		forEachVariableGroup(procedure.body, (group) => {
@@ -87,11 +92,18 @@ export function checkReferencedProjectNames(
 				}
 				const project = names.projects.get(lower);
 				if (project) {
+					// `ReDim a(1) As ProbeLibrary.Widget` names a type too.
+					if (/^(as|new)$/i.test(toks[i - 1]?.rawText ?? '') || inTypePosition(stmt.span.start + toks[i].start)) {
+						continue;
+					}
 					const module = referencedProjectNames(project).modules.get(second.toLowerCase());
 					if (module?.visible) {
 						// ProbeLibrary.Service.Nope(): the module's own members.
 						const third = toks[i + 3]?.rawText === '.' ? tokenName(toks[i + 4]) : undefined;
-						if (third && module.kind === 'standard' && !hasMember(module, third)) {
+						if (module.kind === 'class' && !module.predeclared) {
+							// ProbeLibrary.Widget, a class with no default instance, is no value.
+							report(`${head}.${second}`, absoluteSpan(stmt.span, toks[i + 2]));
+						} else if (third && (module.kind === 'standard' ? !hasMember(module, third) : false)) {
 							report(`${head}.${second}.${third}`, absoluteSpan(stmt.span, toks[i + 4]));
 						}
 						continue;

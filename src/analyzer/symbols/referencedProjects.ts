@@ -14,6 +14,7 @@
 //   `Dim t As ProbeLibrary.Thing` is "User-defined type not defined".
 // - The referring project's own names come first: its own Value() wins.
 
+import { libraryTypeNames } from '../host/libraryTypeNames';
 import { ProjectIndex } from './projectIndex';
 import type { ModuleSymbolKind, VbaSymbol } from './symbolModel';
 
@@ -29,6 +30,8 @@ export interface ReferencedProjectModule {
 	types: string[];
 	/** Its Public Enums with their members: `WidgetColor.wcRed`, and in a class `ProbeLibrary.wcRed`. */
 	enums?: ReferencedEnum[];
+	/** Whether the class name denotes a default instance. */
+	predeclared?: boolean;
 }
 
 /** A Public Enum of a referenced project's module. */
@@ -51,6 +54,7 @@ export interface ReferencedProjectModuleSource {
 }
 
 const OPTION_PRIVATE_MODULE = /^[ \t]*Option[ \t]+Private[ \t]+Module\b/im;
+const PREDECLARED = /^[ \t]*Attribute[ \t]+VB_PredeclaredId[ \t]*=[ \t]*True\b/im;
 const EXPOSED = /^[ \t]*Attribute[ \t]+VB_Exposed[ \t]*=[ \t]*True\b/im;
 /** No module of the referenced project: < is no identifier character. */
 const OUTSIDE = '<outside>';
@@ -89,7 +93,8 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 			// A document module or form is a class module too: its name is a
 			// type and its Public Enums are offered as an exposed class's are.
 			const enums = publicEnums(index.getModule(mod.name)?.root.children ?? []);
-			return { name: mod.name, kind: mod.kind, visible: true, members: [], types: [mod.name, ...enums.map((decl) => decl.name)], enums };
+			return { name: mod.name, kind: mod.kind, visible: true, members: [], predeclared: PREDECLARED.test(mod.source),
+				types: [mod.name, ...enums.map((decl) => decl.name)], enums };
 		}),
 	};
 }
@@ -136,7 +141,10 @@ export function referencedProjectNames(surface: ReferencedProjectSurface): Refer
 			if (!module.visible) {
 				continue;
 			}
-			bareNames.add(key);
+			// A class's name is a value only as its default instance.
+			if (module.kind !== 'class' || module.predeclared) {
+				bareNames.add(key);
+			}
 			for (const member of module.members) {
 				bareNames.add(member.toLowerCase());
 				if (module.kind === 'standard') {
@@ -167,4 +175,39 @@ function publicEnums(symbols: readonly VbaSymbol[]): ReferencedEnum[] {
 		name: symbol.name,
 		members: (symbol.children ?? []).filter((member) => member.kind === 'enumMember').map((member) => member.name),
 	}));
+}
+
+/**
+ * The read referenced project a bare name reaches. The VBE takes VBA, the
+ * host's library and then the references in the order the project lists
+ * them, and the first that has the name wins: a later project's class named
+ * like an earlier one's module is not what the name means. Undefined where
+ * a library before it might have the name: one whose type names XLIDE has
+ * and which holds it, or one XLIDE knows nothing of, such as a referenced
+ * project it could not read. `has` says whether a read project has it.
+ */
+export function referencedProjectForBareName(
+	lowerName: string,
+	surfaces: readonly ReferencedProjectSurface[] | undefined,
+	libraries: readonly string[] | undefined,
+	hostName: string,
+	has: (names: ReferencedProjectNames) => boolean,
+): ReferencedProjectSurface | undefined {
+	if (!surfaces?.length || !libraries) {
+		return undefined;
+	}
+	for (const library of ['VBA', hostName, ...libraries]) {
+		const surface = surfaces.find((candidate) => candidate.name.toLowerCase() === library.toLowerCase());
+		if (surface) {
+			if (has(referencedProjectNames(surface))) {
+				return surface;
+			}
+			continue;
+		}
+		const known = libraryTypeNames(library);
+		if (!known || known.has(lowerName)) {
+			return undefined;
+		}
+	}
+	return undefined;
 }

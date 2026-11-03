@@ -57,9 +57,9 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
-		expect(measured).toHaveLength(36);
+		expect(measured).toHaveLength(116);
 		for (const host of [undefined, 'word', 'powerpoint', 'access']) {
-			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(9);
+			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(29);
 		}
 	});
 
@@ -121,4 +121,22 @@ describe.each(['excel', 'word', 'powerpoint', 'access'])('a referenced project i
 		const hidden: ReferencedProjectModuleSource[] = [{ name: 'Sheet1', kind: 'document', source: sheet[0].source.replace('Attribute VB_Exposed = True\r\n', '') }];
 		expect(referencedProjectSurface('ProbeLibrary', hidden).modules[0]).toEqual({ name: 'Sheet1', kind: 'document', visible: false, members: [], types: [] });
 	});
+});
+
+// Synthetic safety checks supplement the historical four-host fixtures.
+describe.each(['excel', 'word', 'powerpoint', 'access'])('referenced type ordering in %s', host => {
+    const run = (libraries: string[], surfaces: ReferencedProjectSurface[], code = 'Dim w As Widget: Set w = New Widget') => errors({
+        ...byId('referenced_class_qualified_type_compile'), host,
+        modules: [{ name: 'Module1', type: 'standard', source: `Option Explicit\r\nSub Main()\r\n${code}\r\nEnd Sub` }],
+    }, refs => ({ ...refs, referencedLibraries: libraries, referencedProjectSurfaces: surfaces }));
+    const provider = referencedProjectSurface('ProbeLibrary', [{ name: 'Widget', kind: 'class', source: 'Attribute VB_Exposed = True\r\nPublic Value As Long' }]);
+    it('does not infer a bare class through an unread earlier reference', () => {
+        expect(run(['Unread', 'ProbeLibrary'], [provider])).toEqual([]);
+        expect(run(['Unread', 'ProbeLibrary'], [provider], 'Dim w As ProbeLibrary.Widget: Set w = New ProbeLibrary.Widget')).toHaveLength(1);
+    });
+    it('uses the earlier read project type', () => {
+        const first = referencedProjectSurface('First', [{ name: 'Types', kind: 'standard', source: 'Public Enum Widget\r\nOne = 1\r\nEnd Enum' }]);
+        expect(run(['First', 'ProbeLibrary'], [first, provider], 'Dim w As Widget')).toEqual([]);
+        expect(run(['ProbeLibrary'], [provider])).toHaveLength(1);
+    });
 });
