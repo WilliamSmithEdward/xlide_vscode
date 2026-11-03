@@ -228096,6 +228096,268 @@
       "host": "access"
     },
     {
+      "id": "bracketed_long_excel",
+      "host": "excel",
+      "description": "Dim t As [Long]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim t As [Long]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_range_excel",
+      "host": "excel",
+      "description": "Dim r As [Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As [Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_qualified_excel",
+      "host": "excel",
+      "description": "Dim r As Excel.[Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As Excel.[Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_collection_excel",
+      "host": "excel",
+      "description": "Dim c As Object\nSet c = New [Collection]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim c As Object\nSet c = New [Collection]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_name_excel",
+      "host": "excel",
+      "description": "Dim [my value] As Long",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim [my value] As Long\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bracketed_long_word",
+      "host": "word",
+      "description": "Dim t As [Long]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim t As [Long]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_range_word",
+      "host": "word",
+      "description": "Dim r As [Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As [Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ]
+    },
+    {
+      "id": "bracketed_qualified_word",
+      "host": "word",
+      "description": "Dim r As Excel.[Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As Excel.[Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ]
+    },
+    {
+      "id": "bracketed_collection_word",
+      "host": "word",
+      "description": "Dim c As Object\nSet c = New [Collection]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim c As Object\nSet c = New [Collection]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_name_word",
+      "host": "word",
+      "description": "Dim [my value] As Long",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim [my value] As Long\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bracketed_long_powerpoint",
+      "host": "powerpoint",
+      "description": "Dim t As [Long]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim t As [Long]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_range_powerpoint",
+      "host": "powerpoint",
+      "description": "Dim r As [Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As [Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ]
+    },
+    {
+      "id": "bracketed_qualified_powerpoint",
+      "host": "powerpoint",
+      "description": "Dim r As Excel.[Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As Excel.[Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ]
+    },
+    {
+      "id": "bracketed_collection_powerpoint",
+      "host": "powerpoint",
+      "description": "Dim c As Object\nSet c = New [Collection]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim c As Object\nSet c = New [Collection]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_name_powerpoint",
+      "host": "powerpoint",
+      "description": "Dim [my value] As Long",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim [my value] As Long\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "bracketed_long_access",
+      "host": "access",
+      "description": "Dim t As [Long]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim t As [Long]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_range_access",
+      "host": "access",
+      "description": "Dim r As [Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As [Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ]
+    },
+    {
+      "id": "bracketed_qualified_access",
+      "host": "access",
+      "description": "Dim r As Excel.[Range]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim r As Excel.[Range]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "references": [
+        {
+          "guid": "{00020813-0000-0000-C000-000000000046}",
+          "major": 1,
+          "minor": 9
+        }
+      ]
+    },
+    {
+      "id": "bracketed_collection_access",
+      "host": "access",
+      "description": "Dim c As Object\nSet c = New [Collection]",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim c As Object\nSet c = New [Collection]\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "bracketed_name_access",
+      "host": "access",
+      "description": "Dim [my value] As Long",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Sub Probe()\nDim [my value] As Long\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "nonascii_names_distinct_excel_compile",
       "description": "\u00C9tat declared, Etat assigned under Option Explicit: Compile error: Variable not defined, so the two are different names. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",

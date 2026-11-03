@@ -64,6 +64,29 @@ describe('identifier completion prefix work', () => {
         expect(work.lexedChars + work.cachedChars).toBeGreaterThanOrEqual(source.length);
     });
 
+    it('lexes no more for a finished bracketed type name than for the plain one', () => {
+        const pairs = [
+            ['Dim a As Collection ', 'Dim b As [Collection] '],
+            ['Dim c As Excel.Range ', 'Dim d As Excel.[Range] '],
+            ['Set e = New Collection ', 'Set f = New [Collection] '],
+        ];
+        const source = padded.replace('Sub Probe()', 'Sub BracketProbe()') +
+            '\nSub Types()\n' + pairs.flat().join('\n') + '\nEnd Sub';
+        resolveIdentifierCompletions(source, source.lastIndexOf('canonicalvalue') + 14);
+        const lexCallsAt = (line: string): number => {
+            // Each line is a fresh offset, so no cursor-context cache answers.
+            resetWork();
+            expect(resolveIdentifierCompletions(source, source.lastIndexOf(line) + line.length), line).toEqual([]);
+            expect(work.lexCalls, line).toBeGreaterThan(0);
+            expect(work.lexedChars, line).toBeLessThanOrEqual(120);
+            expect(work.cachedCalls, line).toBe(0);
+            return work.lexCalls;
+        };
+        for (const [plain, bracketed] of pairs) {
+            expect(lexCallsAt(bracketed), bracketed).toBeLessThanOrEqual(lexCallsAt(plain));
+        }
+    });
+
     it('starts a fresh statement on the row below any line, finished or not (#1527)', () => {
         const resolve = (text: string) => {
             const source = 'Sub Probe()\n' + text;

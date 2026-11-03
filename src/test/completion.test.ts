@@ -58,6 +58,19 @@ suite('Completion editor surface', () => {
             }, 'typing the trigger must open the native enum menu even with quickSuggestions disabled', 4000);
         });
     }
+    test('completed bracketed types leave no identifier list', async () => {
+        for (const [index, line] of ['Dim t As [Long] ', 'Dim r As Excel.[Range] ', 'Set c = New [Collection] '].entries()) {
+            const { document, caret } = await probe(`BracketedType${index}`, `Sub Demo()\n${line}\nEnd Sub\n`, line);
+            const times: number[] = [];
+            for (let sample = 0; sample < 11; sample++) {
+                const start = performance.now();
+                assert.deepEqual(labels(await completions(document, caret)), []);
+                times.push(performance.now() - start);
+            }
+            const warm = times.slice(1).sort((a, b) => a - b);
+            console.log(`Bracketed type provider command ms: ${line} first=${times[0].toFixed(1)}, warm median=${warm[5].toFixed(1)}, warm max=${warm.at(-1)!.toFixed(1)}`);
+        }
+    });
     test('assignment constants retain variables and replace an existing value prefix once', async () => {
         const source = 'Sub Demo()\nDim chosen As XlHAlign\nActiveCell.HorizontalAlignment = xlHAlignLeft\nEnd Sub\n';
         const { document, caret } = await probe('AssignmentReplace', source, '= xlH');
