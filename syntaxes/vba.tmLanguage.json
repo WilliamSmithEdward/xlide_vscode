@@ -35,8 +35,16 @@
           "patterns": [{ "include": "#comment-continuation" }]
         },
         {
+          "comment": "Rem immediately after Then is a word, not a comment (oracle issue231_59_compile)",
+          "match": "(?i)(?<![.!])\\b(Then)\\s+(Rem)\\b",
+          "captures": {
+            "1": { "name": "keyword.control.vba" },
+            "2": { "name": "keyword.other.vba" }
+          }
+        },
+        {
           "name": "comment.line.rem.vba",
-          "begin": "(?i)^\\s*\\bRem\\b",
+          "begin": "(?i)(?<![.!])\\bRem\\b",
           "end": "(?=\\n)",
           "patterns": [{ "include": "#comment-continuation" }]
         }
@@ -64,11 +72,12 @@
           "beginCaptures": {
             "1": { "name": "keyword.control.preprocessor.vba" }
           },
-          "end": "(?=\\n)",
+          "end": "(?=\\n|:)",
           "patterns": [
             { "include": "#strings" },
             { "include": "#numbers" },
-            { "include": "#comments" }
+            { "include": "#comments" },
+            { "match": "\\[[^\\]\\r\\n]*\\]?" }
           ]
         },
         {
