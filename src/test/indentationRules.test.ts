@@ -4,8 +4,9 @@
 // VS Code's rules decide alone.
 
 import * as assert from 'node:assert/strict';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { activate, closeAllEditors, open, until, writeModule } from './support';
+import { activate, closeAllEditors, open, until, writeModule, workspaceRoot } from './support';
 
 const indents = (text: string): string[] => text.split(/\r?\n/).map((line) => /^[ \t]*/.exec(line)![0]);
 
@@ -205,4 +206,47 @@ suite('VBA indentation rules', () => {
 		}
 		assert.deepEqual(after, cases);
 	});
+
+	test('Reindent Lines indents non-ASCII headers and loop variables in every host example', async () => {
+		const layout = [
+			'Public Type État', '    n As Long', 'End Type',
+			'Private Enum Größe', '    Small', 'End Enum',
+			'Public Static Property Get Länge() As Long', '    Länge = 1', 'End Property',
+			'Sub 名前()', '    Dim ячейка As Object',
+			...['ThisWorkbook.Worksheets', 'ActiveDocument.Paragraphs',
+				'ActivePresentation.Slides', 'CurrentDb.TableDefs'].flatMap((collection) => [
+				`    For Each ячейка In ${collection}`, '        n = n + 1', '    Next',
+			]),
+			'    For État = 1 To 5', '        n = n + État', '    Next', 'End Sub', '',
+		];
+		const uri = vscode.Uri.file(path.join(workspaceRoot(), 'NamesIndentProbe.bas'));
+		await vscode.workspace.fs.writeFile(uri, Buffer.from(layout.map((line) => line.trimStart()).join('\r\n')));
+		const document = await open(uri);
+		vscode.window.activeTextEditor!.options = { insertSpaces: true, tabSize: 4 };
+		await vscode.commands.executeCommand('editor.action.reindentlines');
+		assert.deepEqual(indents(document.getText()), indents(layout.join('\r\n')));
+	});
+
+
+	test('Enter indents after a non-ASCII procedure header', async () => {
+		const uri = vscode.Uri.file(path.join(workspaceRoot(), 'NamesEnterProbe.bas'));
+		await vscode.workspace.fs.writeFile(uri, Buffer.from('Sub Main()\r\nEnd Sub\r\n'));
+		const document = await open(uri);
+		const editor = vscode.window.activeTextEditor!;
+		editor.options = { insertSpaces: true, tabSize: 4 };
+		const write = async (line: string): Promise<string> => {
+			await until(async () => await editor.edit((edit) => edit.replace(new vscode.Range(1, 0, document.lineCount, 0),
+				`${line}\r\nEnd Sub\r\n`)) || undefined, 'Replace the probe after pending editor edits settle');
+			const end = document.lineAt(1).range.end;
+			editor.selection = new vscode.Selection(end, end);
+			await vscode.commands.executeCommand('type', { text: '\n' });
+			return document.lineAt(2).text;
+		};
+		await until(async () => await write('    Case 1') === '        ' ? true : undefined,
+			'Enter waits for the module to be tokenized');
+		for (const line of ['Sub 名前()', 'Function État() As Long', 'Public Static Property Get Größe()']) {
+			assert.equal(await write(line), '    ', line);
+		}
+	});
+
 });

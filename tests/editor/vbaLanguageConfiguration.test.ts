@@ -112,6 +112,37 @@ function enterRuleMatches(config: VbaLanguageConfiguration, line: string): boole
 }
 
 describe('VBA language configuration', () => {
+	it('indents non-ASCII procedure, property, type, enum and loop names', () => {
+		const config = loadConfig();
+		for (const name of ['名前', 'État', 'Größe', 'ячейка', 'ค่า', 'E\u0301tat', 'ÉRem', 'Remé', 'Asé', 'As名前']) {
+			for (const line of [`Sub ${name}()`, `Public Static Function ${name}() As Long`,
+				`Private Property Get ${name}()`, `Public Static Property Let ${name}(v)`,
+				`Public Type ${name}`, `Private Enum ${name}`,
+				`For ${name} = 1 To 5`, ...['ThisWorkbook.Worksheets', 'ActiveDocument.Paragraphs',
+					'ActivePresentation.Slides', 'CurrentDb.TableDefs'].map((collection) => `For Each ${name} In ${collection}`)]) {
+				expect(lineRules(config, line), line).toEqual({ increase: true, decrease: false, enter: true });
+			}
+			for (const line of [`For ${name} = 1 To 5: Next`, `For Each ${name} In items: Next`,
+				`For ${name} = 1 ' To 5`, `For Each ${name} In`, `' Sub ${name}()`]) {
+				expect(lineRules(config, line), line).toEqual({ increase: false, decrease: false, enter: false });
+			}
+		}
+	});
+
+	it('keeps actual As and Rem keywords distinct from non-ASCII names', () => {
+		const config = loadConfig();
+		for (const line of ['Public Type As Long', 'Private Enum As Long', 'For 名前 = Toé', 'For 名前 = éTo 5']) {
+			expect(lineRules(config, line), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+		for (const line of ['For ÉRem = 1 To 5 Rem note: Next', 'For Remé = 1 To 5 Rem note: Next',
+			'For Each ÉRem In items Rem note: Next', 'For Each Remé In items Rem note: Next',
+			'For 名前 = 1 To 5: Nexté = 2', 'For Each 名前 In items: Nexté = 2',
+			'For 名前 = 1 To 5: Next名前 = 2', 'For Each 名前 In items: Next名前 = 2',
+			'For 名前 = 1 To 5: NextValue = 2']) {
+			expect(lineRules(config, line), line).toEqual({ increase: true, decrease: false, enter: true });
+		}
+	});
+
 	it('uses JavaScript-compatible indentation, folding, and enter regexes', () => {
 		const config = loadConfig();
 		const patterns = [
