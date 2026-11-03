@@ -12,7 +12,7 @@
 // sees comes first: a local, module or project name Service is not the
 // referenced module.
 
-import type { ReferencedProjectModule, ReferencedProjectSurface } from '../../symbols/referencedProjects';
+import { referencedProjectNames, type ReferencedProjectModule, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { PushFn } from '../analysisContext';
 import { absoluteSpan, forEachVariableGroup, statementTokens, tokenName, type ProcedureStatementVisitor } from '../walker';
@@ -28,7 +28,7 @@ function referencedNames(surfaces: readonly ReferencedProjectSurface[]): Referen
 	const projects = new Map(surfaces.map((surface) => [surface.name.toLowerCase(), surface]));
 	const modules = new Map<string, { project: ReferencedProjectSurface; module: ReferencedProjectModule }>();
 	for (const project of surfaces) {
-		for (const module of project.modules) {
+		for (const module of referencedProjectNames(project).modules.values()) {
 			const key = module.name.toLowerCase();
 			if (module.kind === 'standard' && module.visible && !modules.has(key)) {
 				modules.set(key, { project, module });
@@ -87,7 +87,7 @@ export function checkReferencedProjectNames(
 				}
 				const project = names.projects.get(lower);
 				if (project) {
-					const module = project.modules.find((candidate) => candidate.name.toLowerCase() === second.toLowerCase());
+					const module = referencedProjectNames(project).modules.get(second.toLowerCase());
 					if (module?.visible) {
 						// ProbeLibrary.Service.Nope(): the module's own members.
 						const third = toks[i + 3]?.rawText === '.' ? tokenName(toks[i + 4]) : undefined;
@@ -97,7 +97,7 @@ export function checkReferencedProjectNames(
 						continue;
 					}
 					// ProbeLibrary.Value(): a member of any of its visible standard modules.
-					const member = project.modules.some((candidate) => candidate.kind === 'standard' && candidate.visible && hasMember(candidate, second));
+					const member = referencedProjectNames(project).values.has(second.toLowerCase());
 					if (!member) {
 						report(`${head}.${second}`, absoluteSpan(stmt.span, toks[i + 2]));
 					}

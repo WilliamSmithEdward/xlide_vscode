@@ -44,7 +44,7 @@ import {
 	type VbaRuntimeFunction,
 } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type { ReferencedProjectSurface } from '../../symbols/referencedProjects';
+import { referencedProjectNames as indexedReferencedProjectNames, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
 import {
 	type ModuleSymbolKind,
@@ -1027,14 +1027,8 @@ export interface ProjectQualifiers {
 function referencedProjectNames(surfaces: readonly ReferencedProjectSurface[] | undefined): ReadonlySet<string> {
 	const names = new Set<string>();
 	for (const surface of surfaces ?? []) {
-		for (const module of surface.modules) {
-			if (!module.visible) {
-				continue;
-			}
-			names.add(module.name.toLowerCase());
-			for (const member of module.members) {
-				names.add(member.toLowerCase());
-			}
+		for (const name of indexedReferencedProjectNames(surface).bareNames) {
+			names.add(name);
 		}
 	}
 	return names;
