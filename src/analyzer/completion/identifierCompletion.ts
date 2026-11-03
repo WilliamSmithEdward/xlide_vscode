@@ -213,7 +213,7 @@ function identifierCompletionsAt(
 	} else if (last >= 0 && tokens[last].kind === 'newline') {
 		// Statement start: offer everything.
 		last -= 1;
-	} else if (last >= 0 && isIdentLike(tokens[last])) {
+	} else if (last >= 0 && isFinishedWord(tokens[last])) {
 		if (finishedWordEndsList(tokens, last, cursor.statementStart)) {
 			return [];
 		}
@@ -378,6 +378,11 @@ function addInScopeSymbols(
 	}
 }
 
+/** Closed bracketed names are words here, including when the lexer accepts an unfinished bracket. */
+function isFinishedWord(token: VbaToken): boolean {
+	return isIdentLike(token) || (token.kind === 'bracketedIdentifier' && token.rawText.endsWith(']'));
+}
+
 /**
  * Whether the word the caret has moved past leaves no expression to start:
  * a name being declared (`Dim first, second `, `Sub Test(ByVal value `), a
@@ -395,7 +400,7 @@ function finishedWordEndsList(tokens: readonly VbaToken[], last: number, stateme
 		return true;
 	}
 	let name = statement.length - 1;
-	while (name >= 2 && statement[name - 1].rawText === '.' && isIdentLike(statement[name - 2])) {
+	while (name >= 2 && statement[name - 1].rawText === '.' && isFinishedWord(statement[name - 2])) {
 		name -= 2;
 	}
 	const word = statement[statement.length - 1].rawText.toLowerCase();

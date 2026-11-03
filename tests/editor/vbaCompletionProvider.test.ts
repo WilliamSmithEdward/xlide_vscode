@@ -142,6 +142,30 @@ describe('completion provider surface', () => {
         const prelude = 'Sub Helper()\nEnd Sub\nSub Demo()\nDim total As Long\n';
         const labels = async (line: string, trigger?: string, before = prelude) =>
             (await prepareRequest(line, context, undefined, before).run(trigger)).items.map(item => String(item.label));
+        it.each(['Dim t As [Long] ', 'Dim r As [Range] ', 'Dim r As Excel.[Range] ', 'Dim r As [Excel].[Range] ', 'Set c = New [Collection] ', 'Set c = New [VBA].[Collection] '])('ends a bracketed type list at %j', async line => {
+            for (const trigger of [undefined, ' ']) expect(await labels(line, trigger)).toEqual([]);
+        });
+        it('keeps only As after a bracketed declaration name', async () => {
+            for (const trigger of [undefined, ' ']) expect(await labels('Dim [my value] ', trigger)).toEqual(['As']);
+        });
+        it('uses no more tokenization calls than the plain type', async () => {
+            const tokenize = vi.spyOn(lexer, 'tokenizeCached');
+            await labels('Set c = New Collection ');
+            await labels('Set c = New [Collection] ');
+            tokenize.mockClear();
+            await labels('Set c = New Collection ');
+            const plainCalls = tokenize.mock.calls.length;
+            tokenize.mockClear();
+            await labels('Set c = New [Collection] ');
+            expect(tokenize.mock.calls.length).toBeLessThanOrEqual(plainCalls);
+        });
+        it('leaves unfinished brackets outside the finished-word gate', async () => {
+            expect(await labels('Dim t As [Lo')).toContain('total');
+        });
+        it('preserves expressions following a bracketed value', async () => {
+            expect(await labels('x = [total] + ')).toContain('total');
+            expect(await labels('Call [Helper] ')).toContain('total');
+        });
         it.each(['Call ', 'If ', 'MsgBox ', 'Debug.Print ', 'For i = 1 To ', 'Call total$ '])('offers the general list on Ctrl+Space after %j', async line => {
             const got = await labels(line);
             expect(got).toEqual(expect.arrayContaining(['total', 'Helper', 'MsgBox', hostGlobals[host]]));
