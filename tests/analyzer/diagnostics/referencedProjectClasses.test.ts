@@ -8,7 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { referencedProjectSurface, type ReferencedProjectSurface } from '../../../src/analyzer/symbols/referencedProjects';
+import { referencedProjectSurface, type ReferencedProjectModuleSource, type ReferencedProjectSurface } from '../../../src/analyzer/symbols/referencedProjects';
 import { analyzeVbaModuleSource } from '../../../src/vbaModuleAnalysis';
 import { buildVbaProjectIndex, effectiveModuleKind, projectAnalysisOptionsForModule, projectProcedureSignatures } from '../../../src/vbaProjectAnalysis';
 import { oracleModuleInput, oracleProjectReferences, type OracleFixtureModule } from '../../helpers/oracleModuleInput';
@@ -57,9 +57,9 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
-		expect(measured).toHaveLength(28);
+		expect(measured).toHaveLength(36);
 		for (const host of [undefined, 'word', 'powerpoint', 'access']) {
-			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(7);
+			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(9);
 		}
 	});
 
@@ -84,4 +84,41 @@ describe('the classes of a referenced VBA project', () => {
 		expect(errors(oracleCase)).toEqual([]);
 	});
 
+});
+
+describe.each(['excel', 'word', 'powerpoint', 'access'])('a referenced project in %s', (host) => {
+	const run = (modules: ReferencedProjectModuleSource[], code: string): string[] => {
+		const source = `Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Variant\r\n    ${code}\r\nEnd Sub\r\n`;
+		return analyzeVbaModuleSource({
+			source, moduleName: 'Module1', moduleKind: 'standard', host,
+			referencedLibraries: ['stdole', 'Office', 'ProbeLibrary'], projectName: 'VBAProject',
+			referencedProjects: ['ProbeLibrary'], referencedProjectSurfaces: [referencedProjectSurface('ProbeLibrary', modules)],
+		}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error').map((diagnostic) => diagnostic.message);
+	};
+	const enums: ReferencedProjectModuleSource[] = [
+		{ name: 'Widget', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Enum WidgetColor\r\n    wcRed = 1\r\nEnd Enum\r\n' },
+		{ name: 'Service', kind: 'standard', source: 'Option Explicit\r\nPublic Enum ServiceKind\r\n    skOne = 1\r\nEnd Enum\r\n' },
+	];
+
+	it("checks the member named after one of its Enums", () => {
+		expect(run(enums, 'x = ProbeLibrary.WidgetColor.wcRed + ProbeLibrary.ServiceKind.skOne')).toEqual([]);
+		expect(run(enums, 'x = ProbeLibrary.WidgetColor.Nope')).toEqual(["Method or data member not found: 'ProbeLibrary.WidgetColor.Nope'."]);
+		expect(run(enums, 'x = ProbeLibrary.ServiceKind.Nope')).toEqual(["Method or data member not found: 'ProbeLibrary.ServiceKind.Nope'."]);
+	});
+
+	it('keeps an exposed document module a type and leaves its members unjudged', () => {
+		// XLIDE keeps no member list for a document module: its host object's members are its own.
+		const sheet: ReferencedProjectModuleSource[] = [{ name: 'Sheet1', kind: 'document', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n' }];
+		expect(run(sheet, 'Dim s As ProbeLibrary.Sheet1\r\n    ProbeLibrary.Sheet1.Hello\r\n    x = ProbeLibrary.Sheet1.Range("A1")')).toEqual([]);
+		expect(referencedProjectSurface('ProbeLibrary', sheet).modules[0]).toEqual({ name: 'Sheet1', kind: 'document', visible: true, members: [], types: ['Sheet1'], enums: [] });
+	});
+
+	it("offers an exposed document module's Public Enums as an exposed class's", () => {
+		const sheet: ReferencedProjectModuleSource[] = [{ name: 'Sheet1', kind: 'document', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Enum SheetKind\r\n    shOne = 1\r\nEnd Enum\r\n' }];
+		expect(run(sheet, 'Dim s As ProbeLibrary.SheetKind\r\n    x = ProbeLibrary.SheetKind.shOne + ProbeLibrary.shOne + shOne')).toEqual([]);
+		expect(run(sheet, 'x = ProbeLibrary.SheetKind.Nope')).toEqual(["Method or data member not found: 'ProbeLibrary.SheetKind.Nope'."]);
+		// Not exposed, it offers nothing.
+		const hidden: ReferencedProjectModuleSource[] = [{ name: 'Sheet1', kind: 'document', source: sheet[0].source.replace('Attribute VB_Exposed = True\r\n', '') }];
+		expect(referencedProjectSurface('ProbeLibrary', hidden).modules[0]).toEqual({ name: 'Sheet1', kind: 'document', visible: false, members: [], types: [] });
+	});
 });
