@@ -56,6 +56,9 @@ function vbaOrHostValue(lower: string, model: HostObjectModel | undefined): bool
 const hasMember = (module: ReferencedProjectModule, name: string): boolean =>
 	module.members.some((member) => member.toLowerCase() === name.toLowerCase());
 
+const hasObjectMember = (module: ReferencedProjectModule, name: string): boolean =>
+	(module.objectMembers ?? []).some((member) => member.name.toLowerCase() === name.toLowerCase());
+
 export function checkReferencedProjectNames(
 	source: string,
 	surfaces: readonly ReferencedProjectSurface[] | undefined,
@@ -118,7 +121,9 @@ export function checkReferencedProjectNames(
 						if (module.kind === 'class' && !module.predeclared) {
 							// ProbeLibrary.Widget, a class with no default instance, is no value.
 							report(`${head}.${second}`, absoluteSpan(stmt.span, toks[i + 2]));
-						} else if (third && (module.kind === 'standard' ? !hasMember(module, third) : false)) {
+						} else if (third && (module.kind === 'standard' ? !hasMember(module, third)
+							// A document module's members are its host object's too: unjudged.
+							: module.kind === 'class' && !hasObjectMember(module, third))) {
 							report(`${head}.${second}.${third}`, absoluteSpan(stmt.span, toks[i + 4]));
 						}
 						continue;

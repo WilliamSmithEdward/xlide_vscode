@@ -32,6 +32,18 @@ export interface ReferencedProjectModule {
 	enums?: ReferencedEnum[];
 	/** Whether the class name denotes a default instance. */
 	predeclared?: boolean;
+	/** Public members visible on an instance across the project boundary. */
+	objectMembers?: ReferencedObjectMember[];
+	/** A default member makes the surface non-exhaustive: indexing may return another type. */
+	defaultMember?: boolean;
+}
+
+/** A member of an exposed class of a referenced project. */
+export interface ReferencedObjectMember {
+	name: string;
+	kind: 'method' | 'property';
+	/** The exposed class of the same project the member gives, `Public Child As Widget`: its name. */
+	type?: string;
 }
 
 /** A Public Enum of a referenced project's module. */
@@ -54,6 +66,8 @@ export interface ReferencedProjectModuleSource {
 }
 
 const OPTION_PRIVATE_MODULE = /^[ \t]*Option[ \t]+Private[ \t]+Module\b/im;
+/** A procedure's `VB_UserMemId = 0` or a variable's `VB_VarUserMemId = 0` makes it the default member. */
+const DEFAULT_MEMBER = /^[ \t]*Attribute[ \t]+[^ \t.]+\.VB_(?:Var)?UserMemId[ \t]*=[ \t]*0[ \t]*$/im;
 const PREDECLARED = /^[ \t]*Attribute[ \t]+VB_PredeclaredId[ \t]*=[ \t]*True\b/im;
 const EXPOSED = /^[ \t]*Attribute[ \t]+VB_Exposed[ \t]*=[ \t]*True\b/im;
 /** No module of the referenced project: < is no identifier character. */
@@ -71,6 +85,7 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 	}
 	// What a module of another project could see, were it in this one.
 	const visibleSymbols = index.visibleIdentifierSymbols(OUTSIDE);
+	const exposedClasses = new Map(modules.filter((mod) => mod.kind === 'class' && EXPOSED.test(mod.source)).map((mod) => [mod.name.toLowerCase(), mod.name]));
 	return {
 		name,
 		modules: modules.map((mod): ReferencedProjectModule => {
@@ -92,9 +107,14 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 			}
 			// A document module or form is a class module too: its name is a
 			// type and its Public Enums are offered as an exposed class's are.
-			const enums = publicEnums(index.getModule(mod.name)?.root.children ?? []);
+			const symbols = index.getModule(mod.name)?.root.children ?? [];
+			const enums = publicEnums(symbols);
 			// What only a class's name and objects give; a document module's are its host object's too.
-			const classFacts = mod.kind === 'class' ? { predeclared: PREDECLARED.test(mod.source) } : {};
+			const classFacts = mod.kind === 'class' ? {
+				predeclared: PREDECLARED.test(mod.source),
+				objectMembers: objectMembers(symbols, name, exposedClasses),
+				defaultMember: DEFAULT_MEMBER.test(mod.source),
+			} : {};
 			return { name: mod.name, kind: mod.kind, visible: true, members: [], ...classFacts,
 				types: [mod.name, ...enums.map((decl) => decl.name)], enums };
 		}),
@@ -212,4 +232,49 @@ export function referencedProjectForBareName(
 		}
 	}
 	return undefined;
+}
+
+/** What an object of a class offers another project: its Public procedures and variables, a Property's name once. An event is none: `w.Changed` is "Method or data member not found". */
+function objectMembers(symbols: readonly VbaSymbol[], projectName: string, exposedClasses: ReadonlyMap<string, string>): ReferencedObjectMember[] {
+	const out = new Map<string, ReferencedObjectMember>();
+	for (const symbol of symbols) {
+		const kind = objectMemberKind(symbol);
+		const key = symbol.name.toLowerCase();
+		if (!kind) {
+			continue;
+		}
+		const member = out.get(key) ?? { name: symbol.name, kind };
+		out.set(key, member);
+		// What a Property Get, a Function or a variable gives; a Let or Set takes it.
+		const type = symbol.kind === 'propertyLet' || symbol.kind === 'propertySet' ? undefined : exposedClassNamed(symbol.asType, projectName, exposedClasses);
+		if (type) {
+			member.type = type;
+		}
+	}
+	return [...out.values()];
+}
+
+/** The exposed class of the project a declared type names, bare or after the project's name. */
+function exposedClassNamed(asType: string | undefined, projectName: string, exposedClasses: ReadonlyMap<string, string>): string | undefined {
+	const parts = (asType ?? '').split('.').map((part) => part.trim().replace(/^\[(.*)\]$/, '$1').toLowerCase());
+	if (parts.length > 2 || (parts.length === 2 && parts[0] !== projectName.toLowerCase())) {
+		return undefined;
+	}
+	return exposedClasses.get(parts[parts.length - 1]);
+}
+
+function objectMemberKind(symbol: VbaSymbol): ReferencedObjectMember['kind'] | undefined {
+	switch (symbol.kind) {
+		case 'sub':
+		case 'function':
+			return symbol.visibility === 'Private' || symbol.visibility === 'Friend' ? undefined : 'method';
+		case 'propertyGet':
+		case 'propertyLet':
+		case 'propertySet':
+			return symbol.visibility === 'Private' || symbol.visibility === 'Friend' ? undefined : 'property';
+		case 'moduleVariable':
+			return symbol.visibility === 'Public' || symbol.visibility === 'Global' ? 'property' : undefined;
+		default:
+			return undefined;
+	}
 }

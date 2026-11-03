@@ -468,6 +468,8 @@ function diagnosticMemberCompletionContext(
 		receiverTypeCache: new Map(),
 		receiverChainCache: new Map(),
 		memberSurfaceCache: new Map(),
+		referencedProjectSurfaces: opts.referencedProjectSurfaces,
+		referencedLibraries: opts.referencedLibraries,
 	};
 	const meProjectType = meProjectTypeFor(opts.moduleName, opts.moduleKind);
 	if (meProjectType) {

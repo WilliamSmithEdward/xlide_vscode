@@ -63,6 +63,7 @@ import {
 } from '../symbols/symbolModel';
 import { projectSymbolsNamed } from '../symbols/nameResolution';
 import type { FormControlInfo } from '../symbols/projectIndex';
+import { referencedProjectForBareName, referencedProjectNames, type ReferencedProjectModule, type ReferencedProjectSurface } from '../symbols/referencedProjects';
 
 /** Project/module facts the resolver needs that come from outside the source. */
 export interface MemberCompletionContext {
@@ -133,6 +134,13 @@ export interface MemberCompletionContext {
 	 * on this context are: one source, one pass.
 	 */
 	memberSurfaceCache?: Map<string, MemberSurface | undefined>;
+	/**
+	 * What each referenced VBA project XLIDE read offers this one: its exposed
+	 * classes are types, with the members an object of one offers.
+	 */
+	referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
+	/** The libraries the project references, in its order: what a bare name reaches first. */
+	referencedLibraries?: readonly string[];
 }
 
 /** A single member-completion result. */
@@ -196,6 +204,8 @@ const COMBINED_TYPE_PREFIX = 'combined:';
 const COMBINED_TYPE_SEPARATOR = '|';
 const UNION_TYPE_PREFIX = 'union:';
 const UNION_TYPE_SEPARATOR = '|';
+/** An exposed class of a referenced VBA project: `referencedClass:<project>|<class>`, lowercased. */
+const REFERENCED_CLASS_PREFIX = 'referencedClass:';
 
 type CompletionMemberSource = Pick<
 	HostMember,
@@ -1413,6 +1423,12 @@ function resolveRoot(
 		// not gated on it; misusing a class that is not predeclared is the diagnostics' concern.
 		return projectTypeKey(lower);
 	}
+	// A referenced project's exposed class with a default instance is that
+	// instance by name: `Solo.Value` compiles.
+	const referencedInstance = !projectSurface ? referencedInstanceKey(root, ctx) : undefined;
+	if (referencedInstance) {
+		return referencedInstance;
+	}
 	return ctx.allowSetAssignmentRefinement === false
 		? undefined
 		: findSetAssignedObjectType(source, offset, root, ctx);
@@ -1710,6 +1726,24 @@ function computeMemberSurfaceForType(
 			exhaustive: false,
 		};
 	}
+	if (typeName.startsWith(REFERENCED_CLASS_PREFIX)) {
+		const found = referencedClassForKey(typeName, ctx);
+		if (!found) {
+			return undefined;
+		}
+		return {
+			owner: `${found.project.name}.${found.module.name}`,
+			members: (found.module.objectMembers ?? []).map((member) => ({
+				name: member.name,
+				kind: member.kind,
+				// `Public Child As Widget` gives the project's own Widget.
+				returns: member.type && referencedClassKey(found.project, member.type),
+			})),
+			// The class's own code declares every member another project reaches,
+			// but `w(1).Value` reaches its default member's, which is not followed.
+			exhaustive: !found.module.defaultMember,
+		};
+	}
 	if (typeName.startsWith(VBA_LIBRARY_PREFIX)) {
 		const qualifier = resolveVbaLibraryQualifier(typeName.slice(VBA_LIBRARY_PREFIX.length));
 		if (!qualifier?.constants) {
@@ -1942,6 +1976,10 @@ function resolveAnyMemberReturnType(
 			kind: resolved.every((item) => item.kind === 'method') ? 'method' : 'property',
 		};
 	}
+	if (ownerType.startsWith(REFERENCED_CLASS_PREFIX)) {
+		const member = memberSurfaceForType(ownerType, ctx)?.members.find((candidate) => candidate.name.toLowerCase() === memberName.toLowerCase());
+		return member?.returns ? { type: member.returns, kind: member.kind } : undefined;
+	}
 	const combined = parseCombinedTypeKey(ownerType);
 	if (combined) {
 		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
@@ -2071,7 +2109,57 @@ function resolveDeclaredObjectType(
 		const codeNameHost = ctx.codeNames?.[key];
 		return codeNameHost ? combinedTypeKey(key, codeNameHost) : projectTypeKey(key);
 	}
-	return resolveHostAlias(declaredType, model) ?? resolveMsFormsTypeName(declaredType);
+	return resolveHostAlias(declaredType, model) ?? resolveMsFormsTypeName(declaredType) ?? referencedClassTypeKey(declaredType, ctx);
+}
+
+/**
+ * The key of an exposed class of a referenced VBA project a declared type
+ * names: `ProbeLibrary.Widget`, or `Widget` where the project's own types,
+ * VBA's, the host's and the libraries before that project have none of the
+ * name (see referencedProjectForBareName).
+ */
+function referencedClassTypeKey(declaredType: string, ctx: MemberCompletionContext): string | undefined {
+	const surfaces = ctx.referencedProjectSurfaces;
+	if (!surfaces?.length) {
+		return undefined;
+	}
+	// `As ProbeLibrary. _` with `Widget` on the next line is one name.
+	const parts = declaredType.replace(/[ \t]*_[ \t]*\r?\n[ \t]*/g, '').split('.').map((part) => part.trim().replace(/^\[(.*)\]$/, '$1'));
+	if (parts.length > 2 || parts.some((part) => !IDENT_RE.test(part))) {
+		return undefined;
+	}
+	const lower = parts[parts.length - 1].toLowerCase();
+	if (parts.length === 1 && projectClassMembersByName(ctx).has(lower)) {
+		return undefined;
+	}
+	const project = parts.length === 2
+		? surfaces.find((surface) => surface.name.toLowerCase() === parts[0].toLowerCase())
+		: referencedProjectForBareName(lower, surfaces, ctx.referencedLibraries, ctx.model?.hostName ?? 'Excel', (names) => names.types.has(lower));
+	const module = project && referencedProjectNames(project).types.get(lower);
+	// The class itself, not an Enum it declares: `As WidgetColor` is a Long.
+	return project && module?.kind === 'class' && module.name.toLowerCase() === lower ? referencedClassKey(project, module.name) : undefined;
+}
+
+/** A referenced project's exposed class with a default instance a bare name reaches, `Solo`, as its key. */
+function referencedInstanceKey(root: string, ctx: MemberCompletionContext): string | undefined {
+	const lower = root.toLowerCase();
+	const project = referencedProjectForBareName(lower, ctx.referencedProjectSurfaces, ctx.referencedLibraries, ctx.model?.hostName ?? 'Excel',
+		(names) => names.modules.has(lower) || names.values.has(lower));
+	const module = project && referencedProjectNames(project).modules.get(lower);
+	return project && module?.kind === 'class' && module.predeclared ? referencedClassKey(project, module.name) : undefined;
+}
+
+function referencedClassKey(project: ReferencedProjectSurface, className: string): string {
+	return `${REFERENCED_CLASS_PREFIX}${project.name.toLowerCase()}${COMBINED_TYPE_SEPARATOR}${className.toLowerCase()}`;
+}
+
+/** The exposed class a {@link REFERENCED_CLASS_PREFIX} key names, with its project. */
+function referencedClassForKey(typeName: string, ctx: MemberCompletionContext): { project: ReferencedProjectSurface; module: ReferencedProjectModule } | undefined {
+	const body = typeName.slice(REFERENCED_CLASS_PREFIX.length);
+	const sep = body.indexOf(COMBINED_TYPE_SEPARATOR);
+	const project = ctx.referencedProjectSurfaces?.find((surface) => surface.name.toLowerCase() === body.slice(0, sep));
+	const module = project && referencedProjectNames(project).modules.get(body.slice(sep + 1));
+	return project && module?.kind === 'class' ? { project, module } : undefined;
 }
 
 /**

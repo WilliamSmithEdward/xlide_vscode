@@ -36,8 +36,8 @@ const byId = (id: string): OracleCase => measured.find((oracleCase) => oracleCas
  * not follow, nor is a member of an Enum variable, `c.Value` being "Invalid
  * qualifier". And these Word cases also reference Normal, before
  * ProbeLibrary, as a project XLIDE has not read: a bare `Thing`, `Widget`,
- * `Solo`, `WidgetColor` or `ServiceKind` could be Normal's. The engine reads Normal where it can; see the
- * tests below.
+ * `Solo`, `WidgetColor` or `ServiceKind` could be Normal's. The engine
+ * reads Normal where it can; see the tests below.
  */
 const UNCHECKED = /_(function_chain_missing|default_member_missing|enum_variable_member)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing)_compile$/;
 
@@ -57,9 +57,9 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
-		expect(measured).toHaveLength(160);
+		expect(measured).toHaveLength(232);
 		for (const host of [undefined, 'word', 'powerpoint', 'access']) {
-			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(40);
+			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(58);
 		}
 	});
 
@@ -84,6 +84,148 @@ describe('the classes of a referenced VBA project', () => {
 		expect(errors(oracleCase)).toEqual([]);
 	});
 
+	it('names what the class lacks', () => {
+		expect(errors(byId('referenced_class_missing_member_compile'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Nope'."]);
+		expect(errors(byId('referenced_class_friend_member_compile'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Inner'."]);
+		expect(errors(byId('referenced_class_class_as_value_compile'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget'."]);
+		expect(errors(byId('referenced_class_new_bare_compile'))).toEqual(["invalid-new-type-name: 'Widget' is a class of the VBA project ProbeLibrary, which another project cannot create. This is a VBE compile error: Invalid use of New keyword."]);
+	});
+});
+
+describe('what an exposed class of a referenced project offers', () => {
+	const surface = referencedProjectSurface('ProbeLibrary', byId('referenced_class_qualified_type_compile').projectReference.modules.map((mod) => ({
+		name: mod.name, kind: mod.type === 'class' ? 'class' as const : 'standard' as const, source: mod.source,
+	})));
+	const module = (name: string) => surface.modules.find((candidate) => candidate.name === name);
+
+	it('is its Public members and Enums, and no Private, Friend or event member', () => {
+		expect(module('Widget')).toMatchObject({
+			visible: true,
+			types: ['Widget', 'WidgetColor'],
+			enums: [{ name: 'WidgetColor', members: ['wcRed'] }],
+			predeclared: false,
+			defaultMember: false,
+		});
+		expect(module('Widgets')).toMatchObject({ visible: true, defaultMember: true });
+		expect(module('Service')).toMatchObject({ types: ['ServiceKind'], enums: [{ name: 'ServiceKind', members: ['skOne'] }] });
+		expect(module('Widget')?.objectMembers?.map((member) => member.name)).toEqual(['Value', 'Child', 'Size', 'Twice', 'Poke']);
+		expect(module('Solo')).toMatchObject({ visible: true, predeclared: true });
+	});
+
+	it('is nothing for a private class, its Enum included', () => {
+		expect(module('Thing')).toEqual({ name: 'Thing', kind: 'class', visible: false, members: [], types: [] });
+	});
+});
+
+describe('which referenced project a bare name reaches', () => {
+	/** A case's own code, its references as the oracle's Excel file has them. */
+	const withCode = (code: string, extra: OracleFixtureModule[] = []): OracleCase => ({
+		...byId('referenced_class_qualified_type_compile'),
+		modules: [{ name: 'Module1', type: 'standard', source: `Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long, v As Variant\r\n    ${code.replace(/\n/g, '\r\n')}\r\nEnd Sub\r\n` }, ...extra],
+	});
+	const project = (name: string, modules: OracleFixtureModule[]): ReferencedProjectSurface => referencedProjectSurface(name, modules.map((mod) => ({
+		name: mod.name, kind: mod.type === 'class' ? 'class' as const : 'standard' as const, source: mod.source,
+	})));
+	const before = (surface: ReferencedProjectSurface) => (references: References): References => ({
+		...references,
+		referencedLibraries: ['stdole', 'Office', surface.name, 'ProbeLibrary'],
+		referencedProjectSurfaces: [surface, ...references.referencedProjectSurfaces!],
+	});
+
+	it('is the first project that has it, a module before a later class', () => {
+		// First's standard module Solo wins over ProbeLibrary's predeclared class Solo.
+		const first = project('First', [{ name: 'Solo', type: 'standard', source: 'Option Explicit\r\nPublic Function Good() As Long\r\nEnd Function\r\n' }]);
+		expect(errors(withCode('x = Solo.Good()'), before(first))).toEqual([]);
+		expect(errors(withCode('x = Solo.Good()'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Solo.Good'."]);
+	});
+
+	it("is the first project's type, an earlier project's class winning", () => {
+		const first = project('First', [{ name: 'Widget', type: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Mine As Long\r\n' }]);
+		expect(errors(withCode('Dim w As Widget\n    x = w.Mine'), before(first))).toEqual([]);
+		expect(errors(withCode('Dim w As Widget\n    x = w.Value'), before(first))).toEqual(["member-not-found: Method or data member not found: 'First.Widget.Value'."]);
+		// Qualified, it is the project named.
+		expect(errors(withCode('Dim w As ProbeLibrary.Widget\n    x = w.Mine'), before(first))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Mine'."]);
+	});
+
+	it('is none where a library before the project might have it', () => {
+		const unread = (references: References): References => ({ ...references, referencedLibraries: ['stdole', 'Unread', 'Office', 'ProbeLibrary'] });
+		expect(errors(withCode('Dim w As Widget\n    Set w = New Widget'), unread)).toEqual([]);
+		expect(errors(withCode('x = Solo.Nope'), unread)).toEqual([]);
+		expect(errors(withCode('Dim w As Widget\n    x = w.Nope'), unread)).toEqual([]);
+		// Qualified, the name is the project's whatever comes before it.
+		expect(errors(withCode('Dim w As ProbeLibrary.Widget\n    Set w = New ProbeLibrary.Widget\n    x = w.Nope'), unread)).toHaveLength(2);
+	});
+
+	it("is ProbeLibrary's in Word once Normal is read and lacks it", () => {
+		const normal = project('Normal', [{ name: 'NewMacros', type: 'standard', source: 'Option Explicit\r\n' }]);
+		const read = (references: References): References => ({ ...references, referencedProjectSurfaces: [normal, ...references.referencedProjectSurfaces!] });
+		for (const id of ['referenced_class_word_private_bare_type_compile', 'referenced_class_word_new_bare_compile', 'referenced_class_word_predeclared_missing_compile',
+			'referenced_class_word_enum_bare_missing_compile', 'referenced_class_word_module_enum_bare_missing_compile']) {
+			expect(errors(byId(id), read), id).toHaveLength(1);
+		}
+	});
+});
+
+describe('how a referenced class is named', () => {
+	const withCode = (code: string): OracleCase => ({
+		...byId('referenced_class_qualified_type_compile'),
+		modules: [{ name: 'Module1', type: 'standard', source: `Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long\r\n    ${code.replace(/\n/g, '\r\n')}\r\nEnd Sub\r\n` }],
+	});
+
+	it('across a line continuation', () => {
+		expect(errors(withCode('Dim w As ProbeLibrary. _\n        Widget\n    x = w.Value'))).toEqual([]);
+		expect(errors(withCode('Dim w As ProbeLibrary. _\n        Widget\n    x = w.Nope'))).toEqual(["member-not-found: Method or data member not found: 'ProbeLibrary.Widget.Nope'."]);
+		expect(errors(withCode('Dim t As ProbeLibrary. _\n        Thing'))[0]).toMatch(/offers no type 'Thing'/);
+	});
+
+	it('with a variable as its default member', () => {
+		const surface = referencedProjectSurface('ProbeLibrary', [
+			{ name: 'Bag', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Items As Collection\r\nAttribute Items.VB_VarUserMemId = 0\r\n' },
+		]);
+		expect(surface.modules[0]).toMatchObject({ visible: true, defaultMember: true });
+	});
+
+	it('by a member of the library itself, qualified with its own project name', () => {
+		const surface = referencedProjectSurface('ProbeLibrary', [
+			{ name: 'Node', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Parent As ProbeLibrary.Node\r\nPublic Other As OtherLib.Node\r\nPublic Function Up() As Node\r\nEnd Function\r\n' },
+		]);
+		expect(surface.modules[0].objectMembers).toEqual([
+			{ name: 'Parent', kind: 'property', type: 'Node' },
+			{ name: 'Other', kind: 'property' },
+			{ name: 'Up', kind: 'method', type: 'Node' },
+		]);
+	});
+});
+
+describe('the work a large referenced project costs', () => {
+	it('reads its module list a bounded number of times, however many names refer to it', () => {
+		const classes = Array.from({ length: 300 }, (_, i): OracleFixtureModule => ({ name: `Part${i}`, type: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Value As Long\r\n' }));
+		const surface = referencedProjectSurface('ProbeLibrary', classes.map((mod) => ({ name: mod.name, kind: 'class' as const, source: mod.source })));
+		let reads = 0;
+		const counted: ReferencedProjectSurface = {
+			name: surface.name,
+			modules: new Proxy(surface.modules, {
+				get(target, key, receiver) {
+					if (typeof key === 'string' && /^\d+$/.test(key)) {
+						reads += 1;
+					}
+					return Reflect.get(target, key, receiver);
+				},
+			}),
+		};
+		const lines = classes.map((mod, i) => `    Dim a${i} As ProbeLibrary.${mod.name}, b${i} As ${mod.name}\r\n    x = a${i}.Value + b${i}.Value`);
+		const source = `Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Long\r\n${lines.join('\r\n')}\r\nEnd Sub\r\n`;
+		const found = analyzeVbaModuleSource({
+			source, moduleName: 'Module1', moduleKind: 'standard', host: 'excel',
+			referencedLibraries: ['stdole', 'Office', 'ProbeLibrary'], projectName: 'VBAProject',
+			referencedProjects: ['ProbeLibrary'], referencedProjectSurfaces: [counted],
+		}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
+		expect(found).toEqual([]);
+		// Each rule that indexes the project reads it once. Building its
+		// type list anew for each of the 300 qualified type names, as
+		// missingReference.ts did before, read it 90,600 times.
+		expect(reads).toBeLessThan(10 * classes.length);
+	});
 });
 
 describe.each(['excel', 'word', 'powerpoint', 'access'])('a referenced project in %s', (host) => {
