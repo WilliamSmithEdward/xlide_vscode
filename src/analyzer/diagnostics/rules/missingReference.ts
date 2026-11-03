@@ -73,12 +73,12 @@ function librariesInModel(model: HostObjectModel | undefined): ReadonlySet<strin
  * A string literal is one token, so `CreateObject("Excel.Application")` is
  * not a match: late binding names nothing the compiler has to resolve.
  */
-function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): Array<{ library: string; span: Span; typeQualifier: boolean }> {
+function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): Array<{ library: string; member: string; span: Span; typeQualifier: boolean }> {
 	// The pass has the module's token stream already; a second full lex of
 	// the module here was 2% of a large project's analysis (issue #139).
 	const tokens = tokenizeCached(source);
 	const toks = tokens.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	const out: Array<{ library: string; span: Span; typeQualifier: boolean }> = [];
+	const out: Array<{ library: string; member: string; span: Span; typeQualifier: boolean }> = [];
 	const procedures = bindings?.symbols.root.children?.filter(symbol => isProcedureKind(symbol.kind)) ?? [];
 	// Direct assignments introduce implicit locals without Option Explicit. Keep
 	// them scoped to their procedure; a member write does not introduce its root.
@@ -124,7 +124,7 @@ function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): A
 				name: library, context: 'memberReceiver', offset: toks[i].start});
 			if (binding.scope !== 'unresolved' || (procedure && implicitWrites.get(procedure)?.has(library.toLowerCase()))) { continue; }
 		}
-		out.push({ library, typeQualifier, span: { start: toks[i].start, end: toks[i + 2].end } });
+		out.push({ library, member: tokenName(toks[i + 2]) ?? toks[i + 2].rawText, typeQualifier, span: { start: toks[i].start, end: toks[i + 2].end } });
 	}
 	return out;
 }
@@ -270,7 +270,9 @@ export function checkMissingLibraryReference(
 		const lower = found.library.toLowerCase();
 		const referencedTypes = found.typeQualifier ? referencedProjectTypes(lower, project) : undefined;
 		if (referencedTypes) {
-			const typeName = source.slice(found.span.start, found.span.end).split('.').pop()?.trim().replace(/^\[(.*)\]$/, '$1') ?? '';
+			// Use the token name: continuation trivia and escaped identifiers are
+			// already handled by the lexer, including CR-only physical lines.
+			const typeName = found.member;
 			if (!referencedTypes.has(typeName.toLowerCase())) {
 				push(
 					'missingLibraryReference',
