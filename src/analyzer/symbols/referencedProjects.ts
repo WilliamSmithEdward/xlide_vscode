@@ -27,6 +27,8 @@ export interface ReferencedProjectModule {
 	members: string[];
 	/** The types it offers by name: its Public Types and Enums, or the class itself when exposed. */
 	types: string[];
+	enums?: string[];
+	enumMembers?: string[];
 }
 
 /** A referenced VBA project that was read, under the name the reference gives it. */
@@ -70,11 +72,19 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 					kind: mod.kind,
 					visible,
 					members: own.filter((symbol) => symbol.kind !== 'type' && symbol.kind !== 'enum').map((symbol) => symbol.name),
+					enums: own.filter((symbol) => symbol.kind === 'enum').map((symbol) => symbol.name),
 					types: own.filter((symbol) => symbol.kind === 'type' || symbol.kind === 'enum').map((symbol) => symbol.name),
 				};
 			}
-			const exposed = EXPOSED.test(mod.source);
-			return { name: mod.name, kind: mod.kind, visible: exposed, members: [], types: exposed ? [mod.name] : [] };
+			if (mod.kind !== 'class' || !EXPOSED.test(mod.source)) {
+				return { name: mod.name, kind: mod.kind, visible: false, members: [], types: [] };
+			}
+			const enums = (index.getModule(mod.name)?.root.children ?? []).filter((symbol) => symbol.kind === 'enum' && symbol.visibility !== 'Private');
+			return { name: mod.name, kind: mod.kind, visible: true, members: [],
+				types: [mod.name, ...enums.map((symbol) => symbol.name)],
+				enums: enums.map((symbol) => symbol.name),
+				enumMembers: enums.flatMap((symbol) => (symbol.children ?? []).filter((member) => member.kind === 'enumMember').map((member) => member.name)),
+			};
 		}),
 	};
 }
@@ -119,9 +129,9 @@ export function referencedProjectNames(surface: ReferencedProjectSurface): Refer
 				continue;
 			}
 			bareNames.add(key);
-			for (const member of module.members) {
+			for (const member of [...module.members, ...(module.enums ?? []), ...(module.enumMembers ?? [])]) {
 				bareNames.add(member.toLowerCase());
-				if (module.kind === 'standard') {
+				if (module.kind === 'standard' || module.enums?.includes(member) || module.enumMembers?.includes(member)) {
 					values.add(member.toLowerCase());
 				}
 			}
