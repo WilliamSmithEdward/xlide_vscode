@@ -87,6 +87,32 @@ describe('project type semantic tokens', () => {
 		]);
 	});
 
+	it('marks the type after TypeOf whose operand calls or indexes', () => {
+		const source =
+			'Public Sub T(c As Collection)\n' +
+			'    If TypeOf F() Is Person Then Debug.Print "ok"\n' +
+			'    If TypeOf c(1) Is Person Then Debug.Print "ok"\n' +
+			'    If TypeOf G(c Is Nothing) Is Person Then Debug.Print "ok"\n' +
+			'    If TypeOf G(TypeOf c Is Person) Is Person Then Debug.Print "ok"\n' +
+			'    Do\n' +
+			'        Debug.Print "ok"\n' +
+			'    Loop Until TypeOf c Is Person\n' +
+			'    If TypeOf c!Item Is Person Then Debug.Print "ok"\n' +
+			'End Sub\n';
+		const projectTypes: VbaProjectTypeName[] = [
+			{ name: 'Person', kind: 'class', moduleName: 'Person' },
+		];
+		expect(tokenTexts(source, { projectTypes })).toEqual([
+			{ text: 'Person', type: 'class' },
+			{ text: 'Person', type: 'class' },
+			{ text: 'Person', type: 'class' },
+			{ text: 'Person', type: 'class' },
+			{ text: 'Person', type: 'class' },
+			{ text: 'Person', type: 'class' },
+			{ text: 'Person', type: 'class' },
+		]);
+	});
+
 	it('marks project classes in Implements statements, and library-qualified ones', () => {
 		// `Excel.Worksheet` used to be invisible here, because a type-library
 		// qualifier resolved to nothing at all. It is a real type, and an

@@ -188,8 +188,21 @@ function typeNameSpansAfterTypeOfIs(source: string, span: Span): TypeNameReferen
 	const toks = codeTokens(source, span);
 	const out: TypeNameReference[] = [];
 	let sawTypeOf = false;
+	// The operand may call or index, `TypeOf F() Is Type` or `TypeOf c(1) Is
+	// Type`: inside its parentheses an `Is` is no outer TypeOf's, though a
+	// TypeOf there has its own. Each parenthesis keeps the state around it.
+	const outer: boolean[] = [];
 	for (let i = 0; i < toks.length; i++) {
 		const lower = (toks[i].canonicalText ?? toks[i].rawText).toLowerCase();
+		if (lower === '(') {
+			outer.push(sawTypeOf);
+			sawTypeOf = false;
+			continue;
+		}
+		if (lower === ')' && outer.length > 0) {
+			sawTypeOf = outer.pop()!;
+			continue;
+		}
 		if (lower === 'typeof') {
 			sawTypeOf = true;
 			continue;
@@ -205,11 +218,12 @@ function typeNameSpansAfterTypeOfIs(source: string, span: Span): TypeNameReferen
 			sawTypeOf = false;
 			continue;
 		}
-		// `TypeOf expr Is Type` only allows the operand's qualified chain
-		// (name, '.', name, ...) between TypeOf and Is. Any other significant
-		// token means this is a malformed/non-TypeOf use; clear the flag so a
-		// later unrelated `Is` in the same statement is not misclassified.
-		if (lower !== '.' && !tokenName(toks[i])) {
+		// `TypeOf expr Is Type` otherwise allows the operand's qualified chain
+		// (name, '.' or '!', name, ...) between TypeOf and Is: `TypeOf bag!Item`.
+		// Any other significant token means this is a malformed/non-TypeOf use;
+		// clear the flag so a later unrelated `Is` in the same statement is not
+		// misclassified.
+		if (lower !== '.' && lower !== '!' && !tokenName(toks[i])) {
 			sawTypeOf = false;
 		}
 	}
@@ -347,6 +361,11 @@ function collectBlockHeader(
 			? block.body[0].span.start
 			: block.span.end;
 		collectHeaderSpan(source, { start: block.span.start, end }, out);
+		// The closing line after the body: `Loop Until TypeOf o Is T`.
+		const last = block.body && block.body.length > 0 ? block.body[block.body.length - 1].span.end : undefined;
+		if (last !== undefined && last < block.span.end) {
+			collectHeaderSpan(source, { start: last, end: block.span.end }, out);
+		}
 	}
 }
 

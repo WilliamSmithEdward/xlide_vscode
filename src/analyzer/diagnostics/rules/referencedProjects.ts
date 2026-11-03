@@ -12,8 +12,11 @@
 // sees comes first: a local, module or project name Service is not the
 // referenced module.
 
+import type { HostObjectModel } from '../../host/excelObjectModel';
+import { resolveHostConstant, resolveHostGlobal, resolveHostGlobalMember } from '../../host/hostModel';
+import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject, resolveVbaLibraryQualifier } from '../../runtime/vbaRuntime';
 import { collectTypeNameReferences } from '../../semantic/typeSemanticTokens';
-import { referencedProjectNames, type ReferencedProjectModule, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
+import { referencedProjectForBareName, referencedProjectNames, type ReferencedProjectModule, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { PushFn } from '../analysisContext';
 import { absoluteSpan, forEachVariableGroup, statementTokens, tokenName, type ProcedureStatementVisitor } from '../walker';
@@ -23,6 +26,8 @@ interface ReferencedNames {
 	projects: Map<string, ReferencedProjectSurface>;
 	/** A visible standard module of a referenced project, by name, and the project it is in. */
 	modules: Map<string, { project: ReferencedProjectSurface; module: ReferencedProjectModule }>;
+	/** Every Enum name a referenced project offers: what a bare `X.Y` may need checking for. */
+	enumNames: ReadonlySet<string>;
 }
 
 function referencedNames(surfaces: readonly ReferencedProjectSurface[]): ReferencedNames {
@@ -36,7 +41,16 @@ function referencedNames(surfaces: readonly ReferencedProjectSurface[]): Referen
 			}
 		}
 	}
-	return { projects, modules };
+	const enumNames = new Set(surfaces.flatMap((project) => [...referencedProjectNames(project).enums.keys()]));
+	return { projects, modules, enumNames };
+}
+
+/** A name VBA or the host library gives as a value: a function, constant, object, VBA module or host global. */
+function vbaOrHostValue(lower: string, model: HostObjectModel | undefined): boolean {
+	return resolveRuntimeFunction(lower) !== undefined || resolveRuntimeConstant(lower) !== undefined
+		|| resolveRuntimeObject(lower) !== undefined || resolveVbaLibraryQualifier(lower) !== undefined
+		|| resolveHostGlobal(lower, model) !== undefined || resolveHostGlobalMember(lower, model) !== undefined
+		|| resolveHostConstant(lower, model) !== undefined;
 }
 
 const hasMember = (module: ReferencedProjectModule, name: string): boolean =>
@@ -48,6 +62,7 @@ export function checkReferencedProjectNames(
 	moduleSymbols: readonly VbaSymbol[],
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	projectModuleNames: ReadonlySet<string> | undefined,
+	order: { libraries: readonly string[] | undefined; hostName: string; hostModel: HostObjectModel | undefined },
 	push: PushFn,
 ): ProcedureStatementVisitor {
 	if (!surfaces || surfaces.length === 0) {
@@ -127,7 +142,22 @@ export function checkReferencedProjectNames(
 				}
 				// Service.Nope(), Service being the referenced project's.
 				const referenced = names.modules.get(lower);
-				if (referenced && !hasMember(referenced.module, second)) {
+				if (referenced) {
+					if (!hasMember(referenced.module, second)) {
+						report(`${head}.${second}`, absoluteSpan(stmt.span, toks[i + 2]));
+					}
+					continue;
+				}
+				// WidgetColor.Nope, WidgetColor being the first Enum of the name a
+				// bare name reaches (see referencedProjectForBareName). VBA and the
+				// host come first with their values too: Excel's ActiveWorkbook.
+				if (!names.enumNames.has(lower)) {
+					continue;
+				}
+				const enumDecl = referencedProjectForBareName(lower, surfaces, order.libraries, order.hostName,
+					(projectNames) => projectNames.bareNames.has(lower) || projectNames.types.has(lower));
+				const decl = enumDecl && referencedProjectNames(enumDecl).enums.get(lower);
+				if (decl && !decl.members.some((member) => member.toLowerCase() === second.toLowerCase()) && !vbaOrHostValue(lower, order.hostModel)) {
 					report(`${head}.${second}`, absoluteSpan(stmt.span, toks[i + 2]));
 				}
 			}

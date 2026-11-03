@@ -93,7 +93,9 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 			// A document module or form is a class module too: its name is a
 			// type and its Public Enums are offered as an exposed class's are.
 			const enums = publicEnums(index.getModule(mod.name)?.root.children ?? []);
-			return { name: mod.name, kind: mod.kind, visible: true, members: [], predeclared: PREDECLARED.test(mod.source),
+			// What only a class's name and objects give; a document module's are its host object's too.
+			const classFacts = mod.kind === 'class' ? { predeclared: PREDECLARED.test(mod.source) } : {};
+			return { name: mod.name, kind: mod.kind, visible: true, members: [], ...classFacts,
 				types: [mod.name, ...enums.map((decl) => decl.name)], enums };
 		}),
 	};
