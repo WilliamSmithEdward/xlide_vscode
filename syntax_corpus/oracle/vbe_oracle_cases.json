@@ -228094,6 +228094,154 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error",
       "host": "access"
+    },
+    {
+      "id": "nonascii_names_distinct_excel_compile",
+      "description": "\u00C9tat declared, Etat assigned under Option Explicit: Compile error: Variable not defined, so the two are different names. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim \u00C9tat As Long\r\n    Etat = 1\r\n    Main = \u00C9tat\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "excel"
+    },
+    {
+      "id": "nonascii_names_distinct_word_compile",
+      "description": "\u00C9tat declared, Etat assigned under Option Explicit: Compile error: Variable not defined, so the two are different names. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim \u00C9tat As Long\r\n    Etat = 1\r\n    Main = \u00C9tat\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "word"
+    },
+    {
+      "id": "nonascii_names_distinct_powerpoint_compile",
+      "description": "\u00C9tat declared, Etat assigned under Option Explicit: Compile error: Variable not defined, so the two are different names. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim \u00C9tat As Long\r\n    Etat = 1\r\n    Main = \u00C9tat\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "powerpoint"
+    },
+    {
+      "id": "nonascii_names_distinct_access_compile",
+      "description": "\u00C9tat declared, Etat assigned under Option Explicit: Compile error: Variable not defined, so the two are different names. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim \u00C9tat As Long\r\n    Etat = 1\r\n    Main = \u00C9tat\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "host": "access"
+    },
+    {
+      "id": "nonascii_names_excel_runtime",
+      "description": "Names outside ASCII (\u00C9tat, If\u00C9tat, Gr\u00F6\u00DFe, L\u00E4nge, \u00C7ouleur, Z\u00E4hler) as a Type and its field, an Enum, a Function, locals and a For variable: runs. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Gr\u00F6\u00DFe\r\n    L\u00E4nge As Long\r\nEnd Type\r\nPrivate Enum \u00C7ouleur\r\n    Rouge = 1\r\n    Vert = 2\r\nEnd Enum\r\nPrivate Function Z\u00E4hler(ByVal n As Long) As Long\r\n    Dim \u00C9tat As Long, If\u00C9tat As Long\r\n    For \u00C9tat = 1 To n\r\n        If\u00C9tat = If\u00C9tat + \u00C9tat\r\n    Next\r\n    Z\u00E4hler = If\u00C9tat\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim g As Gr\u00F6\u00DFe\r\n    g.L\u00E4nge = Z\u00E4hler(3) + Vert\r\n    Main = \"ok\" & g.L\u00E4nge\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "excel"
+    },
+    {
+      "id": "nonascii_names_word_runtime",
+      "description": "Names outside ASCII (\u00C9tat, If\u00C9tat, Gr\u00F6\u00DFe, L\u00E4nge, \u00C7ouleur, Z\u00E4hler) as a Type and its field, an Enum, a Function, locals and a For variable: runs. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Gr\u00F6\u00DFe\r\n    L\u00E4nge As Long\r\nEnd Type\r\nPrivate Enum \u00C7ouleur\r\n    Rouge = 1\r\n    Vert = 2\r\nEnd Enum\r\nPrivate Function Z\u00E4hler(ByVal n As Long) As Long\r\n    Dim \u00C9tat As Long, If\u00C9tat As Long\r\n    For \u00C9tat = 1 To n\r\n        If\u00C9tat = If\u00C9tat + \u00C9tat\r\n    Next\r\n    Z\u00E4hler = If\u00C9tat\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim g As Gr\u00F6\u00DFe\r\n    g.L\u00E4nge = Z\u00E4hler(3) + Vert\r\n    Main = \"ok\" & g.L\u00E4nge\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "word"
+    },
+    {
+      "id": "nonascii_names_powerpoint_runtime",
+      "description": "Names outside ASCII (\u00C9tat, If\u00C9tat, Gr\u00F6\u00DFe, L\u00E4nge, \u00C7ouleur, Z\u00E4hler) as a Type and its field, an Enum, a Function, locals and a For variable: runs. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Gr\u00F6\u00DFe\r\n    L\u00E4nge As Long\r\nEnd Type\r\nPrivate Enum \u00C7ouleur\r\n    Rouge = 1\r\n    Vert = 2\r\nEnd Enum\r\nPrivate Function Z\u00E4hler(ByVal n As Long) As Long\r\n    Dim \u00C9tat As Long, If\u00C9tat As Long\r\n    For \u00C9tat = 1 To n\r\n        If\u00C9tat = If\u00C9tat + \u00C9tat\r\n    Next\r\n    Z\u00E4hler = If\u00C9tat\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim g As Gr\u00F6\u00DFe\r\n    g.L\u00E4nge = Z\u00E4hler(3) + Vert\r\n    Main = \"ok\" & g.L\u00E4nge\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "powerpoint"
+    },
+    {
+      "id": "nonascii_names_access_runtime",
+      "description": "Names outside ASCII (\u00C9tat, If\u00C9tat, Gr\u00F6\u00DFe, L\u00E4nge, \u00C7ouleur, Z\u00E4hler) as a Type and its field, an Enum, a Function, locals and a For variable: runs. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Gr\u00F6\u00DFe\r\n    L\u00E4nge As Long\r\nEnd Type\r\nPrivate Enum \u00C7ouleur\r\n    Rouge = 1\r\n    Vert = 2\r\nEnd Enum\r\nPrivate Function Z\u00E4hler(ByVal n As Long) As Long\r\n    Dim \u00C9tat As Long, If\u00C9tat As Long\r\n    For \u00C9tat = 1 To n\r\n        If\u00C9tat = If\u00C9tat + \u00C9tat\r\n    Next\r\n    Z\u00E4hler = If\u00C9tat\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim g As Gr\u00F6\u00DFe\r\n    g.L\u00E4nge = Z\u00E4hler(3) + Vert\r\n    Main = \"ok\" & g.L\u00E4nge\r\nEnd Function\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "host": "access"
     }
   ]
 }
