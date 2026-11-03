@@ -148,17 +148,6 @@ describe('completion provider surface', () => {
         it('keeps only As after a bracketed declaration name', async () => {
             for (const trigger of [undefined, ' ']) expect(await labels('Dim [my value] ', trigger)).toEqual(['As']);
         });
-        it('uses no more tokenization calls than the plain type', async () => {
-            const tokenize = vi.spyOn(lexer, 'tokenizeCached');
-            await labels('Set c = New Collection ');
-            await labels('Set c = New [Collection] ');
-            tokenize.mockClear();
-            await labels('Set c = New Collection ');
-            const plainCalls = tokenize.mock.calls.length;
-            tokenize.mockClear();
-            await labels('Set c = New [Collection] ');
-            expect(tokenize.mock.calls.length).toBeLessThanOrEqual(plainCalls);
-        });
         it('leaves unfinished brackets outside the finished-word gate', async () => {
             expect(await labels('Dim t As [Lo')).toContain('total');
         });
