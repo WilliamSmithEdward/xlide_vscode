@@ -2,6 +2,27 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.6] - 2026-11-02
+
+Faster typing in modules with nested If blocks, class module handlers in
+completion, and indentation and colouring that read a line as code. Sam
+(@swsammy) contributed all of it.
+
+- Keep typing inside a procedure fast in a module with nested If blocks. Each
+  level of nesting doubled the work of the parse after a keystroke. In a
+  4,376-line class, the first suggestion row was ready about 62 ms after a
+  key, down from about 200 ms (#1586, contributed by Sam).
+- Offer `Class_Initialize` and `Class_Terminate` at module level in a class
+  module, beside the keywords and identifiers, in every host. A handler the
+  class already has is not offered (#1587, contributed by Sam).
+- Read only code in the indentation rules, on Enter and on Reindent Lines. A
+  `Then` in a comment or a string no longer indents the next line, and neither
+  does a line that closes the block it opens, such as `Else: End If` or
+  `For Each ws In Worksheets: Next` (#1588, contributed by Sam).
+- Colour `Line Input #`, `Width #`, `Name ... As` and `Reset` as keywords where
+  a statement can start. A bare call to your own `Reset` is coloured as the
+  statement too (#1589, contributed by Sam).
+
 ## [11.2.5] - 2026-11-02
 
 Folding that follows VBA's blocks, colouring by where a word stands, and
