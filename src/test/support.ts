@@ -41,9 +41,9 @@ export async function activate(): Promise<void> {
  * uses, creating the module when the workbook lacks it. The extension reads
  * the workbook by modification time, so it sees the new content at once.
  */
-export async function writeModule(moduleName: string, source: string): Promise<vscode.Uri> {
+export async function writeModule(moduleName: string, source: string, kind: 'standard' | 'class' = 'standard'): Promise<vscode.Uri> {
 	await activate();
-	engineWriteModule(workbookPath(), moduleName, source, 'standard');
+	engineWriteModule(workbookPath(), moduleName, source, kind);
 	return moduleUri(moduleName);
 }
 

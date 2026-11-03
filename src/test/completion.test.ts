@@ -481,6 +481,29 @@ suite('Completion editor surface', () => {
             assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 4),
                 ['Private Sub Workbook_Open()', unit, 'End Sub']);
         });
+        test(`a class module handler is offered beside the keywords and indents with ${indentation}`, async () => {
+            const document = await open(await writeModule(`ClassHandler${tabSize}${indentSize}`, 'Option Explicit\r\nClass_I\r\n', 'class'));
+            const editor = vscode.window.activeTextEditor!;
+            editor.options = { insertSpaces, tabSize, indentSize };
+            const caret = new vscode.Position(1, 'Class_I'.length);
+            editor.selection = new vscode.Selection(caret, caret);
+            await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+            // The module is known to be a class once the project context is read.
+            const blank = await until(async () => {
+                const offered = labels(await completions(document, new vscode.Position(2, 0)));
+                return offered.includes('Class_Initialize') ? offered : undefined;
+            }, 'Class_Initialize must be offered on a blank module-level line', 8000);
+            for (const label of ['Class_Terminate', 'Private Sub', 'Dim']) {
+                assert.ok(blank.includes(label), `${label} must be offered beside the class handlers`);
+            }
+            await vscode.commands.executeCommand('editor.action.triggerSuggest');
+            await until(async () => {
+                await vscode.commands.executeCommand('acceptSelectedSuggestion');
+                return /Class_Initialize\(\)/.test(document.getText()) || undefined;
+            }, 'accepting Class_Initialize must insert the handler', 4000);
+            assert.deepEqual(document.getText().split(/\r?\n/).slice(1, 4),
+                ['Private Sub Class_Initialize()', unit, 'End Sub']);
+        });
     }
     test('Smart Enter seeds a With member and undo restores the original source', async () => {
         const source = 'Sub Demo()\n\tWith ActiveSheet\n\tEnd With\nEnd Sub\n';
