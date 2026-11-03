@@ -227,6 +227,24 @@ suite('VBA indentation rules', () => {
 		assert.deepEqual(indents(document.getText()), indents(layout.join('\r\n')));
 	});
 
+	test('Reindent Lines reads a keyword joined to a non-ASCII character as a name', async () => {
+		const layout = [
+			'Sub Main()',
+			'    If ÉRem > ThisWorkbook.Sheets.Count Then', '        n = 1', '    End If',
+			'    If Thené = ActiveDocument.Paragraphs.Count Then', '        n = 2', '    End If',
+			'    Nexté = 3', '    Caseé = 4', '    Elseé = 5', '    Loopé = 6', '    Wendé = 7',
+			'    With ÉRem: End With',
+			'    While n < ActivePresentation.Slides.Count: Wendé = 8', '        n = n + 1', '    Wend',
+			'    Do While CurrentDb.TableDefs.Count > n: Loopé = 9', '        n = n + 1', '    Loop',
+			'End Sub', '',
+		];
+		const uri = vscode.Uri.file(path.join(workspaceRoot(), 'KeywordNamesIndentProbe.bas'));
+		await vscode.workspace.fs.writeFile(uri, Buffer.from(layout.map((line) => line.trimStart()).join('\r\n')));
+		const document = await open(uri);
+		vscode.window.activeTextEditor!.options = { insertSpaces: true, tabSize: 4 };
+		await vscode.commands.executeCommand('editor.action.reindentlines');
+		assert.deepEqual(indents(document.getText()), indents(layout.join('\r\n')));
+	});
 
 	test('Enter indents after a non-ASCII procedure header', async () => {
 		const uri = vscode.Uri.file(path.join(workspaceRoot(), 'NamesEnterProbe.bas'));

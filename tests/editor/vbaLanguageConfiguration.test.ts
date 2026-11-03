@@ -143,6 +143,38 @@ describe('VBA language configuration', () => {
 		}
 	});
 
+	it('reads a keyword joined to a non-ASCII character as a name, in every rule', () => {
+		const config = loadConfig();
+		for (const line of [
+			'If ÉRem > ThisWorkbook.Sheets.Count Then', 'If Remé > ActiveDocument.Paragraphs.Count Then', 'If Thené = 1 Then', 'If a = éThen Then',
+			'While n < ActivePresentation.Slides.Count: Wendé = 1', 'Do While CurrentDb.TableDefs.Count > n: Loopé = 1',
+			'With ThisWorkbook: End Withé', 'Select Case n: End Selecté',
+		]) {
+			expect(lineRules(config, line), line).toEqual({ increase: true, decrease: false, enter: true });
+		}
+		for (const line of ['ElseIf ÉRem > 1 Then', 'Case ÉRem', 'Else: End Ifé', 'Case 1: End Selecté']) {
+			expect(lineRules(config, line), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+		for (const line of ['If a Thené', 'If a éThen', '#If a Thené', '#If a éThen',
+			'Caseé = 1', 'Elseé = 1', 'ElseIfé = 1', 'Nexté = 2', 'Loopé = 2', 'Wendé = 2', 'EndIfé = 1',
+			'Doé = 1', 'Whileé = 1', 'Withé = 1', 'Foré = 1', 'Selecté = 1',
+		]) {
+			expect(lineRules(config, line), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+		// A name holding Rem hides no closer behind a comment that is not there.
+		for (const line of ['With ÉRem: End With', 'Do While Remé: Loop', 'While ÉRem: Wend', 'Select Case Remé: End Select']) {
+			expect(lineRules(config, line), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+		expect(lineRules(config, 'Case ÉRem: End Select')).toEqual({ increase: false, decrease: true, enter: false });
+	});
+
+	it('reindents statements on names joined to keywords as Format Document lays them out', () => {
+		const source = ['Sub Main()', '    If ÉRem > 1 Then', '        n = 1', '    End If', '    Nexté = 2', '    Caseé = 3', '    Elseé = 4',
+			'    Loopé = 5', '    Wendé = 6', '    With ÉRem: End With', '    n = 7', 'End Sub'].join('\r\n');
+		expect(formatted(source)).toBe(source);
+		expect(reindent(loadConfig(), source)).toBe(source);
+	});
+
 	it('uses JavaScript-compatible indentation, folding, and enter regexes', () => {
 		const config = loadConfig();
 		const patterns = [
