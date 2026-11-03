@@ -351,4 +351,58 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[13], [`Name ${NAME}`, 'As keyword.other.vba', 'String support.type.vba']);
 		assert.deepEqual(lines[14], [`Reset ${NAME}`, 'As keyword.other.vba', 'Long support.type.vba']);
 	});
+
+	// Oracle issue231_01/07/09/12/13_runtime and issue231_60/61_compile
+	// cover one-line If, colon, label, line number and continued Rem comments.
+	test('colors statement-following Rem and its continuation as comments', async () => {
+		await withProbe([
+			'If True Then Main = 1 Rem first', 'If False Then Main = 1 Rem rest Else Main = 2',
+			'If True Then Main = 1 Else Rem branch', 'Main = 1: Rem colon',
+			'L1: Rem label', '10 Rem numbered', 'Main = 1: Rem note _', 'continued',
+			'wb.Save: Rem Excel', 'doc.Save: Rem Word',
+			'pres.Save: Rem PowerPoint', 'rs.MoveNext: Rem Access',
+		], async (file) => {
+			for (const text of ['Rem first', 'Rem rest Else Main = 2', 'Rem branch', 'Rem colon',
+				'Rem label', 'Rem numbered', 'continued', 'Rem Excel', 'Rem Word', 'Rem PowerPoint', 'Rem Access']) {
+				assert.match(await scopesOfToken(file, text), /comment\.line\.rem\.vba/);
+			}
+		});
+	});
+
+	// Oracle issue231_59_compile rejects Rem immediately after Then.
+	test('keeps Then Rem as words and Rem members as members', async () => {
+		await withProbe(['If True Then Rem note'], async (file) => {
+			assert.match(await scopesOfToken(file, 'Rem'), /keyword\.other\.vba/);
+			assert.doesNotMatch(await scopesOfToken(file, 'note'), /comment/);
+		});
+		await withProbe(['x.Rem = 1', 'x!Rem = 2'], async (file) => {
+			assert.match(await scopesOfToken(file, 'Rem'), /variable\.other\.member\.vba/);
+		});
+	});
+
+	// Oracle issue1323_06_runtime and issue1321f_14/15_runtime cover colons;
+	// issue1331_02/03/10_runtime only compile inside a skipped arm. They do
+	// not authorize recognizing directives after a colon.
+	test('ends a directive scope at its own colon, outside literals and brackets', async () => {
+		for (const line of ['#Const A = 1', '#Else', '#ElseIf True Then', '#End If']) {
+			await withProbe([line + ': Rem tail'], async (file) => {
+				assert.match(await scopesOfToken(file, 'Rem tail'), /comment\.line\.rem\.vba/);
+				assert.doesNotMatch(await scopesOf(file, ':'), /meta\.preprocessor/);
+			});
+		}
+		await withProbe(['#Const A = 1: total = 2', 'x = 1: #Const B = 2'], async (file) => {
+			assert.match(await scopesOfToken(file, 'total'), /variable\.other\.vba/);
+			assert.doesNotMatch(await scopesOfToken(file, 'Const'), /preprocessor/);
+		});
+		// Existing date/string coloring must survive the directive boundary.
+		await withProbe(['#If #12:00:00 PM# = 0.5 Then', '#Const A = "a:b"',
+			'#Const [Rem] = 1', '#Const [a:b] = 2'], async (file) => {
+			assert.match(await scopesOfToken(file, '#12:00:00 PM#'), /constant\.other\.date\.vba/);
+			assert.match(await scopesOf(file, 'Then'), /meta\.preprocessor/);
+			assert.match(await scopesOf(file, 'a:b'), /string\.quoted/);
+			assert.match(await scopesOf(file, '[Rem]'), /meta\.preprocessor/);
+			assert.match(await scopesOf(file, '[a:b]'), /meta\.preprocessor/);
+		});
+	});
+
 });
