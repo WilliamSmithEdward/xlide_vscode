@@ -31,6 +31,9 @@ read as names. Sam (@swsammy) contributed or measured all of it.
 - Indent after block names outside ASCII, and read a keyword joined to such a
   letter as a name, so `If ÉRem > 1 Then` indents and `Nexté = 2` stays where it
   is (#1592, contributed by Sam, and #1594).
+- Leave the line after a procedure, Type or Enum closed on its own line where
+  it is, such as `Public Sub Delete(): End Sub`, and indent after `Do: x = 1`,
+  on Enter and on Reindent Lines (#1608, contributed by Sam).
 - Colour `Rem` after a statement, label or line number as a comment, and end a
   directive's colour at its own colon, as in `#Else: Rem note` (#1591,
   contributed by Sam).
