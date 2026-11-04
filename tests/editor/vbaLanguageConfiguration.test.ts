@@ -473,6 +473,55 @@ describe('VBA language configuration', () => {
 		}
 	});
 
+	it('does not indent after a procedure, Type or Enum declared and closed on one line', () => {
+		// Oracle, in all four Office hosts: one_line_procedures_types_and_do_colon_*_runtime.
+		const config = loadConfig();
+		for (const line of [
+			'Public Sub Delete(): End Sub', 'Sub Skip(): End Sub', 'Private Sub Reset(): n = 0: End Sub',
+			'Public Function IsEqual(v As Variant) As Boolean: End Function', 'Private Function Twice(ByVal v As Long) As Long: Twice = 2 * v: End Function',
+			'Public Static Property Get Count() As Long: Count = m: End Property', 'Property Let Count(ByVal v As Long): m = v: End Property',
+			'Friend Property Set Target(ByVal ws As Object): Set m_ws = ws: End Property',
+			'Private Type Rec: n As Long: End Type', 'Public Enum Colour: Red = 1: Green: End Enum',
+		]) {
+			expect(lineRules(config, line), line).toMatchObject({ increase: false, enter: false });
+		}
+		// A header with a statement after it still opens its block, and an End inside a string or a comment closes nothing.
+		for (const line of [
+			'Sub Main(): n = 0', 'Function Name() As String: Name = ": End Function"', "Property Get Count() As Long ' : End Property",
+			'Sub Main(): Rem : End Sub', 'Private Type Rec: n As Long', 'Private Enum Colour: Red',
+		]) {
+			expect(lineRules(config, line), line).toMatchObject({ increase: true, enter: true });
+		}
+	});
+
+	it('indents after Do with a statement after it on its line, as after Do alone', () => {
+		// Oracle, in all four Office hosts: one_line_procedures_types_and_do_colon_*_runtime runs the
+		// statement after `Do:` on each pass of the loop.
+		const config = loadConfig();
+		for (const line of ['Do: n = n + 1', 'Do:', 'Do: n = ThisWorkbook.Sheets.Count \' note']) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: true, enter: true });
+		}
+		for (const line of ['Do: n = n + 1: Loop Until n > 9', 'Do: Loop', 'Do:Loop While n < 9']) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: false, enter: false });
+		}
+	});
+
+	it('reindents one-line procedures, Types and Enums and a Do: loop as Format Document lays them out, for each Office host', () => {
+		const modules = [
+			['Private Type Rec: n As Long: End Type', 'Public Sub Delete(): End Sub', 'Sub Main()', '    n = ThisWorkbook.Sheets.Count', 'End Sub'],
+			['Public Enum Colour: Red = 1: Green: End Enum', 'Private Function Twice(ByVal v As Long) As Long: Twice = 2 * v: End Function',
+				'Function Main() As Long', '    Main = Twice(ActiveDocument.Paragraphs.Count)', 'End Function'],
+			['Public Static Property Get Count() As Long: Count = m: End Property', 'Property Let Count(ByVal v As Long): m = v: End Property',
+				'Sub Main()', '    Do: m = m + 1', '        n = ActivePresentation.Slides.Count', '    Loop Until m > n', 'End Sub'],
+			['Sub Main()', '    Do: n = n + 1', '        If n > CurrentDb.TableDefs.Count Then Exit Do', '    Loop', 'End Sub', 'Sub Skip(): End Sub', 'Sub Last()', 'End Sub'],
+		].map((lines) => lines.join('\r\n'));
+		const config = loadConfig();
+		for (const source of modules) {
+			expect(formatted(source), source).toBe(source);
+			expect(reindent(config, source), source).toBe(source);
+		}
+	});
+
 	it('reindents headers with modifiers and directive arms as Format Document lays them out, for each Office host', () => {
 		const config = loadConfig();
 		const modules = [
