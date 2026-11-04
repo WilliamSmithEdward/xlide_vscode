@@ -2,6 +2,44 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.7] - 2026-11-04
+
+Referenced VBA projects checked as the VBE checks them, and names outside ASCII
+read as names. Sam (@swsammy) contributed or measured all of it.
+
+- Report a referenced project's exposed class used with New or as a value:
+  `New ProbeLibrary.Widget`, `v = ProbeLibrary.Widget` and `v = Widget`, in
+  block headers too. The type after `TypeOf ... Is` stays a type when the
+  operand calls, indexes, uses `!` or has a member named `Is`, and on a Do
+  block's closing line. A bare name follows reference order, and is left
+  unjudged where an unread library before it might have it (#1606, issue #1602
+  from Sam's #1599).
+- Check the members of a referenced class instance: `w.Nope`, a Friend or
+  Private member, an event, and chains such as `w.Child.Nope`, in With blocks
+  and through a default instance. Completion and hover do not offer these
+  members yet (#1607, issue #1603 from Sam's #1600).
+- Recognize a referenced project's Public Enums, so `ProbeLibrary.WidgetColor`,
+  `wcRed` and `ServiceKind.skOne` no longer get false errors, and a missing
+  member of one is reported (#1598, contributed by Sam).
+- Resolve a referenced type split by a line continuation (#1596, contributed
+  by Sam), and keep the work of many references to one project bounded (#1597,
+  contributed by Sam).
+- Colour a name outside ASCII as one name and read it as one word: `Sub 名前()`
+  colours `Sub` as a keyword, and `Ünïcödé` is one word to suggestions,
+  occurrence highlighting and Expand Selection (#1605, issue #1604 from Sam's
+  #1601).
+- Indent after block names outside ASCII, and read a keyword joined to such a
+  letter as a name, so `If ÉRem > 1 Then` indents and `Nexté = 2` stays where it
+  is (#1592, contributed by Sam, and #1594).
+- Leave the line after a procedure, Type or Enum closed on its own line where
+  it is, such as `Public Sub Delete(): End Sub`, and indent after `Do: x = 1`,
+  on Enter and on Reindent Lines (#1608, contributed by Sam).
+- Colour `Rem` after a statement, label or line number as a comment, and end a
+  directive's colour at its own colon, as in `#Else: Rem note` (#1591,
+  contributed by Sam).
+- Offer no general list after a finished bracketed type name, such as
+  `Dim t As [Long] ` (#1595, contributed by Sam).
+
 ## [11.2.6] - 2026-11-02
 
 Faster typing in modules with nested If blocks, class module handlers in
