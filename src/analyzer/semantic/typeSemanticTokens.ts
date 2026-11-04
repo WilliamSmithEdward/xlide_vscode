@@ -188,16 +188,31 @@ function typeNameSpansAfterTypeOfIs(source: string, span: Span): TypeNameReferen
 	const toks = codeTokens(source, span);
 	const out: TypeNameReference[] = [];
 	let sawTypeOf = false;
+	// What was pending outside each open parenthesis: the operand may call or
+	// index, `TypeOf F(a Is b) Is Type`, and an `Is` inside belongs to no outer
+	// TypeOf, though a TypeOf there has its own.
+	const pending: boolean[] = [];
 	for (let i = 0; i < toks.length; i++) {
 		const lower = (toks[i].canonicalText ?? toks[i].rawText).toLowerCase();
-		if (lower === 'typeof') {
+		const afterAccess = toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!';
+		if (lower === '(') {
+			pending.push(sawTypeOf);
+			sawTypeOf = false;
+			continue;
+		}
+		if (lower === ')') {
+			sawTypeOf = pending.pop() ?? false;
+			continue;
+		}
+		if (lower === 'typeof' && !afterAccess) {
 			sawTypeOf = true;
 			continue;
 		}
 		if (!sawTypeOf) {
 			continue;
 		}
-		if (lower === 'is') {
+		// `TypeOf o.Is Is Type`: a member named Is is part of the operand.
+		if (lower === 'is' && !afterAccess) {
 			const ref = typeNameReferenceFromTokens(toks, i + 1, span.start, 'typeOfIs');
 			if (ref) {
 				out.push(ref);
@@ -205,11 +220,12 @@ function typeNameSpansAfterTypeOfIs(source: string, span: Span): TypeNameReferen
 			sawTypeOf = false;
 			continue;
 		}
-		// `TypeOf expr Is Type` only allows the operand's qualified chain
-		// (name, '.', name, ...) between TypeOf and Is. Any other significant
-		// token means this is a malformed/non-TypeOf use; clear the flag so a
-		// later unrelated `Is` in the same statement is not misclassified.
-		if (lower !== '.' && !tokenName(toks[i])) {
+		// `TypeOf expr Is Type` only allows the operand's chain of names,
+		// joined by '.' or '!', between TypeOf and Is, with its arguments
+		// handled above. Any other significant token means this is a
+		// malformed/non-TypeOf use; clear the flag so a later unrelated `Is` in
+		// the same statement is not misclassified.
+		if (lower !== '.' && lower !== '!' && !tokenName(toks[i])) {
 			sawTypeOf = false;
 		}
 	}
@@ -347,6 +363,11 @@ function collectBlockHeader(
 			? block.body[0].span.start
 			: block.span.end;
 		collectHeaderSpan(source, { start: block.span.start, end }, out);
+		// What follows the body, a Do block's `Loop Until TypeOf o Is T`.
+		const bodyEnd = block.body?.at(-1)?.span.end;
+		if (bodyEnd !== undefined && bodyEnd < block.span.end) {
+			collectHeaderSpan(source, { start: bodyEnd, end: block.span.end }, out);
+		}
 	}
 }
 

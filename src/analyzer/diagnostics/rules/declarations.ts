@@ -32,6 +32,7 @@ import type {
 } from '../../parser/nodes';
 import { isTypeDeclarationSuffix } from '../../parser/typeDeclarationSuffix';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import { referencedProjectNames, referencedProjectReached, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { ModuleSymbolKind } from '../../symbols/symbolModel';
 import {
 	collectTypeNameReferences,
@@ -1694,6 +1695,29 @@ export function checkInvalidAsTypeNames(
 		if (resolved) {
 			continue;
 		}
+		const referenced = referencedProjectType(ref, opts);
+		// `New ProbeLibrary.Widget` and `New Widget`, an exposed class another
+		// project can name but not create (issue #1602, measured in Excel, Word,
+		// PowerPoint and Access 16.0). `WithEvents w As New` is the WithEvents rule's.
+		if (referenced?.exposedClass && isNewTypeReference(ref.kind)
+			&& !(ref.kind === 'newDeclaration' && withEventsNewDeclarationSpans.some((span) => containsSpan(span, ref.span)))) {
+			push(
+				'invalidNewTypeName',
+				`'${lookupName}' is a class of the VBA project ${referenced.project.name}, which another project cannot create. This is a VBE compile error: Invalid use of New keyword.`,
+				ref.span,
+			);
+			continue;
+		}
+		// `TypeOf o Is ProbeLibrary.Thing`, a class the project does not expose. A
+		// declaration or New there is missing-library-reference's.
+		if (ref.kind === 'typeOfIs' && ref.qualifier && referenced && !referenced.offered) {
+			push(
+				'invalidAsTypeName',
+				`'${referenced.project.name}' is a VBA project this project references, and it offers no type '${ref.name}'. This is a VBE compile error: User-defined type not defined.`,
+				ref.span,
+			);
+			continue;
+		}
 		// A Private Type or Enum of another module, bare or qualified, and any
 		// name qualified by a variable, are no type here (issue #490, measured
 		// in Excel 16.0).
@@ -1742,7 +1766,7 @@ export function checkInvalidAsTypeNames(
 		libraries ??= opts.referencedLibraries === undefined ? undefined :
 			[...new Set(opts.referencedLibraries.length
 				? ['VBA', opts.hostModel?.hostName ?? opts.host ?? 'Excel', ...opts.referencedLibraries] : opts.referencedLibraries)]
-				.map((library) => libraryTypeNames(library));
+				.map((library) => readProjectTypeNames(library, opts.referencedProjectSurfaces) ?? libraryTypeNames(library));
 		ownTypes ??= new Set(activeModuleMembers(mod, activity).filter((member) => member.kind === 'Type' || member.kind === 'Enum').map((member) => member.name.toLowerCase()));
 		if (!ref.qualifier && !SCRIPTING_TYPE_NAMES.has(ref.name.toLowerCase()) && !ownTypes.has(ref.name.toLowerCase()) && libraries !== undefined && libraries.length > 0 && libraries.every((names) => names !== undefined && !names.has(ref.name.toLowerCase()))) {
 			push(
@@ -1752,6 +1776,33 @@ export function checkInvalidAsTypeNames(
 			);
 		}
 	}
+}
+
+/**
+ * The referenced VBA project XLIDE read that a type reference reaches: the one
+ * its qualifier names, or for a bare name the first in reference order that
+ * offers it. `exposedClass` says the name is the class itself, not an Enum.
+ */
+function referencedProjectType(
+	ref: { name: string; qualifier?: string },
+	opts: AnalyzeModuleOptions,
+): { project: ReferencedProjectSurface; offered: boolean; exposedClass: boolean } | undefined {
+	const lower = ref.name.toLowerCase();
+	const surfaces = opts.referencedProjectSurfaces;
+	const project = ref.qualifier
+		? surfaces?.find((surface) => surface.name.toLowerCase() === ref.qualifier!.toLowerCase())
+		: referencedProjectReached(lower, surfaces, { libraries: opts.referencedLibraries, hostName: opts.hostModel?.hostName ?? opts.host ?? 'Excel' }, (names) => names.types.has(lower));
+	if (!project) {
+		return undefined;
+	}
+	const module = referencedProjectNames(project).types.get(lower);
+	return { project, offered: module !== undefined, exposedClass: module?.kind === 'class' && module.name.toLowerCase() === lower };
+}
+
+/** The types a read referenced project offers, lowercased; undefined for any other library. */
+function readProjectTypeNames(library: string, surfaces: readonly ReferencedProjectSurface[] | undefined): ReadonlySet<string> | undefined {
+	const project = surfaces?.find((surface) => surface.name.toLowerCase() === library.toLowerCase());
+	return project && new Set(referencedProjectNames(project).types.keys());
 }
 
 /** The variables the module declares, at module level or in a procedure, lowercased. */

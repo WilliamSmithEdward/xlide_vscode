@@ -109,6 +109,11 @@ function checkStatement(
 		if (prev.rawText === ')' || prev.rawText === ']' || prev.kind === 'identifier' || prev.kind === 'bracketedIdentifier') {
 			return false;
 		}
+		// `o.Is()`: a member spelled like a keyword is still called.
+		const before = toks[prev === toks[i - 1] ? i - 2 : i - 3]?.rawText;
+		if (before === '.' || before === '!') {
+			return false;
+		}
 		return prev.kind !== 'keyword' || OPERAND_KEYWORDS.has(tokenText(prev));
 	};
 	// A single group is already linear; avoid index allocation on the common path.
