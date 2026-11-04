@@ -64,7 +64,7 @@ async function lineTokens(lines: string[]): Promise<string[][]> {
 			while (text.length < line.length && next < tokens.length) {
 				const token = tokens[next++];
 				text += token.c;
-				if (/^[A-Za-z]/.test(token.c.trim())) {
+				if (/^\p{L}/u.test(token.c.trim())) {
 					words.push(`${token.c.trim()} ${token.t.split(' ').at(-1)}`);
 				}
 			}
@@ -403,6 +403,41 @@ suite('VBA grammar', () => {
 			assert.match(await scopesOf(file, '[Rem]'), /meta\.preprocessor/);
 			assert.match(await scopesOf(file, '[a:b]'), /meta\.preprocessor/);
 		});
+	});
+
+	// Every host compiles accented Latin names (oracle nonascii_names_<host>_runtime). The other
+	// scripts follow the lexer, since the test projects' code page holds Latin only.
+	test('colors a name outside ASCII as one name in every rule that reads a name (issue #1604)', async () => {
+		const lines = await lineTokens([
+			'Attribute État.VB_VarUserMemId = 0',
+			'Implements IÉtat',
+			'Public Type Größe',
+			'Private Enum Çouleur',
+			'Public Event Geändert(ByVal 値 As Long)',
+			'Private Declare PtrSafe Sub Zähler Lib "x" ()',
+			'Private Property Get Länge() As Long',
+			'Function 名前() As Long',
+			'Sub Ячейка()',
+			'    Dim ค่า As Long, IfÉtat As Long, cafe\u0301 As Long',
+			'    ThisWorkbook.Größe = ActiveDocument.Länge + ActivePresentation.Значение + CurrentDb!ค่า',
+			'    If値 = 値If',
+			'End Sub',
+		]);
+		const name = (word: string) => word.split(' ')[0];
+		const scope = (word: string) => word.split(' ')[1];
+		assert.deepEqual(lines[0], ['Attribute keyword.other.attribute.vba', 'État.VB_VarUserMemId variable.other.attribute.vba']);
+		assert.deepEqual(lines[1], ['Implements keyword.other.implements.vba', 'IÉtat entity.name.type.vba']);
+		assert.deepEqual(lines[2], ['Public storage.modifier.vba', 'Type storage.type.vba', 'Größe entity.name.type.vba']);
+		assert.deepEqual(lines[3], ['Private storage.modifier.vba', 'Enum storage.type.vba', 'Çouleur entity.name.type.vba']);
+		assert.deepEqual(lines[4].slice(0, 3), ['Public storage.modifier.vba', 'Event keyword.other.event.vba', 'Geändert entity.name.function.vba']);
+		assert.ok(lines[4].includes(`値 ${NAME}`), lines[4].join());
+		assert.ok(lines[5].includes('Zähler entity.name.function.vba'), lines[5].join());
+		assert.ok(lines[6].includes('Länge entity.name.function.property.vba'), lines[6].join());
+		assert.deepEqual(lines[7].slice(0, 2), ['Function storage.type.function.vba', '名前 entity.name.function.vba']);
+		assert.deepEqual(lines[8], ['Sub storage.type.function.vba', 'Ячейка entity.name.function.vba']);
+		assert.deepEqual(lines[9].filter((word) => scope(word) === NAME).map(name), ['ค่า', 'IfÉtat', 'cafe\u0301']);
+		assert.deepEqual(lines[10].filter((word) => scope(word) === MEMBER).map(name), ['Größe', 'Länge', 'Значение', 'ค่า']);
+		assert.deepEqual(lines[11], [`If値 ${NAME}`, `値If ${NAME}`]);
 	});
 
 });
