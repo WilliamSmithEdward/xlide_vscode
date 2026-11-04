@@ -20,8 +20,10 @@
 //   `v = Widget` "Variable not defined" (issue #1602).
 
 import { libraryTypeNames } from '../host/libraryTypeNames';
-import { ProjectIndex } from './projectIndex';
-import type { ModuleSymbolKind, VbaSymbol } from './symbolModel';
+import { tokenName } from '../lexer/tokenHelpers';
+import { tokenize } from '../lexer/tokenize';
+import { isDefaultProjectObjectMember, ProjectIndex } from './projectIndex';
+import { procedureSignatureFromSymbol, type ModuleSymbolKind, type VbaSymbol } from './symbolModel';
 
 /** One module of a referenced project, as the referring project sees it. */
 export interface ReferencedProjectModule {
@@ -37,6 +39,20 @@ export interface ReferencedProjectModule {
 	enums?: ReferencedEnum[];
 	/** Whether an exposed class's name is its default instance. */
 	predeclared?: boolean;
+	/** What an object of an exposed class offers another project. */
+	objectMembers?: ReferencedObjectMember[];
+	/** Whether the class has a default member, which an index into an object reaches. */
+	defaultMember?: boolean;
+}
+
+/** A Public member of an exposed class of a referenced project. */
+export interface ReferencedObjectMember {
+	name: string;
+	kind: 'method' | 'property';
+	/** The exposed class of the same project it returns, `Public Child As Widget`. */
+	returnsClass?: string;
+	/** Whether it declares parameters, so arguments in a call are its own. */
+	takesArguments: boolean;
 }
 
 /** A Public Enum of a referenced project's module. */
@@ -76,6 +92,7 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 	}
 	// What a module of another project could see, were it in this one.
 	const visibleSymbols = index.visibleIdentifierSymbols(OUTSIDE);
+	const exposedClasses = new Map(modules.filter((mod) => mod.kind === 'class' && EXPOSED.test(mod.source)).map((mod) => [mod.name.toLowerCase(), mod.name]));
 	return {
 		name,
 		modules: modules.map((mod): ReferencedProjectModule => {
@@ -97,7 +114,8 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 			}
 			// A document module or form is a class module too: its name is a
 			// type and its Public Enums are offered as an exposed class's are.
-			const enums = publicEnums(index.getModule(mod.name)?.root.children ?? []);
+			const symbols = index.getModule(mod.name)?.root.children ?? [];
+			const enums = publicEnums(symbols);
 			return {
 				name: mod.name,
 				kind: mod.kind,
@@ -105,7 +123,12 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 				members: [],
 				types: [mod.name, ...enums.map((decl) => decl.name)],
 				enums,
-				...(mod.kind === 'class' ? { predeclared: PREDECLARED.test(mod.source) } : {}),
+				// A document module or form's members are its host object's too: unjudged.
+				...(mod.kind === 'class' ? {
+					predeclared: PREDECLARED.test(mod.source),
+					objectMembers: objectMembersOf(symbols, name, exposedClasses),
+					defaultMember: symbols.some(isDefaultProjectObjectMember),
+				} : {}),
 			};
 		}),
 	};
@@ -219,6 +242,69 @@ export interface ReferencedLookupOrder {
 	/** The project's references, in order; undefined where they are not known. */
 	libraries: readonly string[] | undefined;
 	hostName: string;
+}
+
+/** What an object of a class offers another project: Public procedures and variables. Friend, Private and events are none. */
+function objectMembersOf(symbols: readonly VbaSymbol[], projectName: string, exposedClasses: ReadonlyMap<string, string>): ReferencedObjectMember[] {
+	const out = new Map<string, ReferencedObjectMember>();
+	for (const symbol of symbols) {
+		const kind = objectMemberKind(symbol);
+		if (!kind) {
+			continue;
+		}
+		const key = symbol.name.toLowerCase();
+		const member = out.get(key) ?? { name: symbol.name, kind, takesArguments: false };
+		out.set(key, member);
+		// A Property Let or Set takes the value; what the member gives is its Get's.
+		if (symbol.kind !== 'propertyLet' && symbol.kind !== 'propertySet') {
+			member.returnsClass = exposedClassNamed(symbol.asType, projectName, exposedClasses);
+			member.takesArguments = (procedureSignatureFromSymbol(symbol)?.params.length ?? 0) > 0;
+		}
+	}
+	return [...out.values()];
+}
+
+function objectMemberKind(symbol: VbaSymbol): ReferencedObjectMember['kind'] | undefined {
+	switch (symbol.kind) {
+		case 'sub':
+		case 'function':
+			return symbol.visibility === 'Private' || symbol.visibility === 'Friend' ? undefined : 'method';
+		case 'propertyGet':
+		case 'propertyLet':
+		case 'propertySet':
+			return symbol.visibility === 'Private' || symbol.visibility === 'Friend' ? undefined : 'property';
+		case 'moduleVariable':
+			return symbol.visibility === 'Public' || symbol.visibility === 'Global' ? 'property' : undefined;
+		default:
+			return undefined;
+	}
+}
+
+/** The same project's exposed class a declared type names, bare or after the project's name. */
+function exposedClassNamed(asType: string | undefined, projectName: string, exposedClasses: ReadonlyMap<string, string>): string | undefined {
+	const names = asType === undefined ? undefined : declaredTypeNames(asType);
+	if (!names || names.length > 2 || (names.length === 2 && names[0].toLowerCase() !== projectName.toLowerCase())) {
+		return undefined;
+	}
+	return exposedClasses.get(names[names.length - 1].toLowerCase());
+}
+
+/**
+ * The names of a declared type as the lexer reads them, `ProbeLibrary.Widget`:
+ * across any line continuation it accepts, and with brackets off. Undefined
+ * unless the text is names joined by dots.
+ */
+export function declaredTypeNames(text: string): string[] | undefined {
+	const tokens = tokenize(text).filter((token) => token.kind !== 'newline');
+	const names: string[] = [];
+	for (let i = 0; i < tokens.length; i += 2) {
+		const name = tokenName(tokens[i]);
+		if (name === undefined || (i > 0 && tokens[i - 1].rawText !== '.')) {
+			return undefined;
+		}
+		names.push(name);
+	}
+	return names.length > 0 && tokens.length % 2 === 1 ? names : undefined;
 }
 
 /** The Public Enums among a module's symbols, each with its members. */

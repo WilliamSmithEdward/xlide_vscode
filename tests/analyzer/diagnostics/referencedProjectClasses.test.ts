@@ -8,7 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { referencedProjectSurface, type ReferencedProjectModuleSource, type ReferencedProjectSurface } from '../../../src/analyzer/symbols/referencedProjects';
+import { referencedProjectSurface, type ReferencedProjectModule, type ReferencedProjectModuleSource, type ReferencedProjectSurface } from '../../../src/analyzer/symbols/referencedProjects';
 import { analyzeVbaModuleSource } from '../../../src/vbaModuleAnalysis';
 import { buildVbaProjectIndex, effectiveModuleKind, projectAnalysisOptionsForModule, projectProcedureSignatures } from '../../../src/vbaProjectAnalysis';
 import { oracleModuleInput, oracleProjectReferences, type OracleFixtureModule } from '../../helpers/oracleModuleInput';
@@ -39,7 +39,7 @@ const byId = (id: string): OracleCase => measured.find((oracleCase) => oracleCas
  * `Solo` could be Normal's. The engine reads Normal where it can; see the
  * tests below.
  */
-const UNCHECKED = /_(function_chain_missing|default_member_missing|enum_variable_member)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing)_compile$/;
+const UNCHECKED = /_(function_chain_missing|default_member_missing|enum_variable_member)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing|bare_missing_member)_compile$/;
 
 type References = ReturnType<typeof oracleProjectReferences>;
 
@@ -57,9 +57,9 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
-		expect(measured).toHaveLength(140);
+		expect(measured).toHaveLength(224);
 		for (const host of [undefined, 'word', 'powerpoint', 'access']) {
-			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(35);
+			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(56);
 		}
 	});
 
@@ -119,6 +119,85 @@ describe.each(['excel', 'word', 'powerpoint', 'access'])('which referenced proje
 
 	it("reports New on a class only as the name's first project offers it", () => {
 		expect(run('Dim w As Object\r\n    Set w = New Widget', ['Second'], [second]).join()).toContain('Invalid use of New keyword');
+	});
+});
+
+// What the oracle's one provider cannot hold (issue #1603): a second project,
+// a member named Item, a run-time function's name and a continued member type.
+describe.each(['excel', 'word', 'powerpoint', 'access'])('the members of a referenced class in %s', (host) => {
+	const exposed = 'Attribute VB_Exposed = True\r\nOption Explicit\r\n';
+	const predeclared = `Attribute VB_PredeclaredId = True\r\n${exposed}`;
+	const run = (code: string, projects: Record<string, ReferencedProjectModuleSource[]>, params = ''): string[] => {
+		const surfaces = Object.entries(projects).map(([name, modules]) => referencedProjectSurface(name, modules));
+		return analyzeVbaModuleSource({
+			source: `Option Explicit\r\nPublic Sub Main(${params})\r\n    Dim x As Variant\r\n    ${code}\r\nEnd Sub\r\n`,
+			moduleName: 'Module1', moduleKind: 'standard', host, projectName: 'VBAProject',
+			referencedLibraries: ['stdole', 'Office', ...Object.keys(projects)], referencedProjects: Object.keys(projects), referencedProjectSurfaces: surfaces,
+		}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error').map((diagnostic) => diagnostic.message);
+	};
+	const solo: ReferencedProjectModuleSource = { name: 'Solo', kind: 'class', source: `${predeclared}Public Value As Long\r\n` };
+
+	it("takes an earlier project's Enum of the name before a later default instance", () => {
+		const palette: ReferencedProjectModuleSource = { name: 'Palette', kind: 'class', source: `${exposed}Public Enum Solo\r\n    sOne = 1\r\nEnd Enum\r\n` };
+		expect(run('x = Solo.sOne', { First: [palette], Second: [solo] })).toEqual([]);
+	});
+
+	it("lets no earlier project's hidden module stop a later default instance", () => {
+		const hidden: ReferencedProjectModuleSource = { name: 'Solo', kind: 'class', source: 'Option Explicit\r\n' };
+		const secret: ReferencedProjectModuleSource = { name: 'Solo', kind: 'standard', source: 'Option Private Module\r\nOption Explicit\r\n' };
+		for (const earlier of [hidden, secret]) {
+			expect(run('x = Solo.Value', { First: [earlier], Second: [solo] })).toEqual([]);
+			expect(run('x = Solo.Nope', { First: [earlier], Second: [solo] }).join()).toContain('Nope');
+		}
+	});
+
+	it('leaves a run-time function ahead of a default instance of its name', () => {
+		const shadow: ReferencedProjectModuleSource = { name: 'CreateObject', kind: 'class', source: `${predeclared}Public Value As Long\r\n` };
+		expect(run('x = CreateObject("Excel.Application").Visible', { ProbeLibrary: [shadow] })).toEqual([]);
+	});
+
+	it("indexes what a parameterless Item returns, whatever it is called", () => {
+		const modules: ReferencedProjectModuleSource[] = [
+			{ name: 'Holder', kind: 'class', source: `${exposed}Public Function Item() As Widgets\r\nEnd Function\r\nPublic Function Make(ByVal n As Long) As Widgets\r\nEnd Function\r\n` },
+			{ name: 'Widgets', kind: 'class', source: `${exposed}Public Own As Long\r\nPublic Function Get1(ByVal i As Long) As Object\r\nAttribute Get1.VB_UserMemId = 0\r\nEnd Function\r\n` },
+		];
+		const params = 'ByVal h As ProbeLibrary.Holder';
+		// `Item(1)` indexes Widgets, so what it gives is unjudged. `Make(1)` is Make's own argument.
+		expect(run('x = h.Item(1).Anything', { ProbeLibrary: modules }, params)).toEqual([]);
+		expect(run('x = h.Make(1).Own', { ProbeLibrary: modules }, params)).toEqual([]);
+		expect(run('x = h.Make(1).Nope', { ProbeLibrary: modules }, params).join()).toContain('Nope');
+	});
+
+	it.each(['\n', '\r\n', '\r'])('reads a member type continued with %j lines', (eol) => {
+		const modules: ReferencedProjectModuleSource[] = [{ name: 'Widget', kind: 'class', source: `${exposed}Public Child As ProbeLibrary. _${eol}    Widget\r\nPublic Value As Long\r\n` }];
+		const params = 'ByVal w As ProbeLibrary.Widget';
+		expect(run('x = w.Child.Value', { ProbeLibrary: modules }, params)).toEqual([]);
+		expect(run('x = w.Child.Nope', { ProbeLibrary: modules }, params).join()).toContain('Nope');
+	});
+
+	it('reads the module list a bounded number of times, however many names refer to it', () => {
+		const modules: ReferencedProjectModule[] = Array.from({ length: 300 }, (_, i) => ({
+			name: `Part${i}`, kind: 'class', visible: true, types: [`Part${i}`], members: [], objectMembers: [{ name: 'Value', kind: 'property', takesArguments: false }],
+		}));
+		let reads = 0;
+		const surface: ReferencedProjectSurface = {
+			name: 'ProbeLibrary',
+			modules: new Proxy(modules, {
+				get(target, key, receiver) {
+					if (typeof key === 'string' && /^\d+$/.test(key)) { reads++; }
+					return Reflect.get(target, key, receiver);
+				},
+			}),
+		};
+		const params = modules.slice(0, 25).map((module, i) => `ByVal p${i} As ProbeLibrary.${module.name}`).join(', ');
+		const body = modules.slice(0, 25).map((_, i) => `x = p${i}.Value`).join('\r\n    ');
+		const found = analyzeVbaModuleSource({
+			source: `Option Explicit\r\nPublic Sub Main(${params})\r\n    Dim x As Variant\r\n    ${body}\r\nEnd Sub\r\n`,
+			moduleName: 'Module1', moduleKind: 'standard', host, projectName: 'VBAProject',
+			referencedLibraries: ['stdole', 'Office', 'ProbeLibrary'], referencedProjects: ['ProbeLibrary'], referencedProjectSurfaces: [surface],
+		}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
+		expect(found).toEqual([]);
+		expect(reads).toBeLessThan(modules.length * 4);
 	});
 });
 
