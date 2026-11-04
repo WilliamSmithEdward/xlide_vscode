@@ -50,6 +50,7 @@ import {
 	resolveRuntimeObject,
 	resolveRuntimeObjectType,
 	resolveVbaLibraryQualifier,
+	resolveRuntimeFunction,
 } from '../runtime/vbaRuntime';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaDoc } from '../docs/docModel';
@@ -63,6 +64,14 @@ import {
 } from '../symbols/symbolModel';
 import { projectSymbolsNamed } from '../symbols/nameResolution';
 import type { FormControlInfo } from '../symbols/projectIndex';
+import {
+	declaredTypeNames,
+	referencedProjectNames,
+	referencedProjectReached,
+	type ReferencedLookupOrder,
+	type ReferencedProjectModule,
+	type ReferencedProjectSurface,
+} from '../symbols/referencedProjects';
 
 /** Project/module facts the resolver needs that come from outside the source. */
 export interface MemberCompletionContext {
@@ -133,6 +142,10 @@ export interface MemberCompletionContext {
 	 * on this context are: one source, one pass.
 	 */
 	memberSurfaceCache?: Map<string, MemberSurface | undefined>;
+	/** What each referenced VBA project XLIDE read offers: its exposed classes' members. */
+	referencedProjectSurfaces?: readonly ReferencedProjectSurface[];
+	/** Which library a bare name reaches first, where the surfaces are given. */
+	referencedLookupOrder?: ReferencedLookupOrder;
 }
 
 /** A single member-completion result. */
@@ -196,6 +209,8 @@ const COMBINED_TYPE_PREFIX = 'combined:';
 const COMBINED_TYPE_SEPARATOR = '|';
 const UNION_TYPE_PREFIX = 'union:';
 const UNION_TYPE_SEPARATOR = '|';
+/** An exposed class of a referenced VBA project: `referencedClass:<project>:<class>`, lowercased. */
+const REFERENCED_CLASS_PREFIX = 'referencedClass:';
 
 type CompletionMemberSource = Pick<
 	HostMember,
@@ -1022,8 +1037,7 @@ function receiverTypeFromImplicitWithChain(
 		// not re-indexed (avoids over-resolving SparklineGroups.Item(1) one level).
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments && !isExplicitElementAccessor(segment.name)
-				&& !memberTakesOwnArguments(signatureForMember(currentType, segment.name, ctx)),
+			argumentsIndexResult(currentType, segment, ctx),
 			ctx,
 		);
 	}
@@ -1140,8 +1154,7 @@ function receiverTypeFromChain(
 		// not re-indexed (avoids over-resolving SparklineGroups.Item(1) one level).
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments && !isExplicitElementAccessor(segment.name)
-				&& !memberTakesOwnArguments(signatureForMember(currentType, segment.name, ctx)),
+			argumentsIndexResult(currentType, segment, ctx),
 			ctx,
 		);
 		cache?.set(keyFor(s + 1), currentType);
@@ -1412,6 +1425,11 @@ function resolveRoot(
 		// is invisible to a host that reads module text without its header, so the offer is
 		// not gated on it; misusing a class that is not predeclared is the diagnostics' concern.
 		return projectTypeKey(lower);
+	}
+	// A referenced project's class with a default instance is that instance by name.
+	const referencedInstance = projectSurface ? undefined : referencedInstanceOfName(root, ctx);
+	if (referencedInstance) {
+		return referencedInstance;
 	}
 	return ctx.allowSetAssignmentRefinement === false
 		? undefined
@@ -1710,6 +1728,20 @@ function computeMemberSurfaceForType(
 			exhaustive: false,
 		};
 	}
+	if (typeName.startsWith(REFERENCED_CLASS_PREFIX)) {
+		const found = referencedClassOfKey(typeName, ctx);
+		return found && {
+			owner: `${found.project.name}.${found.module.name}`,
+			members: (found.module.objectMembers ?? []).map((member) => ({
+				name: member.name,
+				kind: member.kind,
+				returns: member.returnsClass && referencedClassKey(found.project, member.returnsClass),
+			})),
+			// A default member forwards nothing by name: `ws.Nope` fails, and an
+			// index into it, `ws(1)`, is left unjudged below.
+			exhaustive: true,
+		};
+	}
 	if (typeName.startsWith(VBA_LIBRARY_PREFIX)) {
 		const qualifier = resolveVbaLibraryQualifier(typeName.slice(VBA_LIBRARY_PREFIX.length));
 		if (!qualifier?.constants) {
@@ -1942,6 +1974,11 @@ function resolveAnyMemberReturnType(
 			kind: resolved.every((item) => item.kind === 'method') ? 'method' : 'property',
 		};
 	}
+	if (ownerType.startsWith(REFERENCED_CLASS_PREFIX)) {
+		const lower = memberName.toLowerCase();
+		const member = memberSurfaceForType(ownerType, ctx)?.members.find((candidate) => candidate.name.toLowerCase() === lower);
+		return member?.returns ? { type: member.returns, kind: member.kind } : undefined;
+	}
 	const combined = parseCombinedTypeKey(ownerType);
 	if (combined) {
 		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
@@ -2015,6 +2052,11 @@ function applyDefaultMemberReturnType(
 	if (!typeName || !hasArguments) {
 		return typeName;
 	}
+	// `ws(1)` reaches a referenced class's default member, whose type is not
+	// followed, so what it gives is unjudged. Not the class's own members.
+	if (typeName.startsWith(REFERENCED_CLASS_PREFIX)) {
+		return referencedClassOfKey(typeName, ctx)?.module.defaultMember ? undefined : typeName;
+	}
 	const union = parseUnionTypeKey(typeName);
 	if (union) {
 		return typeKeyFor(
@@ -2071,7 +2113,75 @@ function resolveDeclaredObjectType(
 		const codeNameHost = ctx.codeNames?.[key];
 		return codeNameHost ? combinedTypeKey(key, codeNameHost) : projectTypeKey(key);
 	}
-	return resolveHostAlias(declaredType, model) ?? resolveMsFormsTypeName(declaredType);
+	return resolveHostAlias(declaredType, model) ?? resolveMsFormsTypeName(declaredType) ?? referencedClassOfDeclaredType(declaredType, ctx);
+}
+
+/** The key of the referenced project's exposed class a declared type names, `ProbeLibrary.Widget` or a bare `Widget`. */
+function referencedClassOfDeclaredType(declaredType: string, ctx: MemberCompletionContext): string | undefined {
+	const surfaces = ctx.referencedProjectSurfaces;
+	if (!surfaces?.length) {
+		return undefined;
+	}
+	const names = declaredTypeNames(declaredType);
+	if (!names || names.length > 2) {
+		return undefined;
+	}
+	const lower = names[names.length - 1].toLowerCase();
+	let project: ReferencedProjectSurface | undefined;
+	if (names.length === 2) {
+		project = surfaces.find((surface) => surface.name.toLowerCase() === names[0].toLowerCase());
+	} else if (ctx.referencedLookupOrder && !projectClassMembersByName(ctx).has(lower) && !isOwnTypeOrEnum(lower, ctx)) {
+		project = referencedProjectReached(lower, surfaces, ctx.referencedLookupOrder, (offered) => offered.types.has(lower));
+	}
+	const module = project && referencedProjectNames(project).types.get(lower);
+	// The class itself: an Enum it declares, `As WidgetColor`, is a Long.
+	return project && module?.kind === 'class' && module.name.toLowerCase() === lower ? referencedClassKey(project, module.name) : undefined;
+}
+
+/** The key of the default instance a bare name reaches, where no name of this project or an earlier library has it. */
+function referencedInstanceOfName(root: string, ctx: MemberCompletionContext): string | undefined {
+	const lower = root.toLowerCase();
+	if (!ctx.referencedProjectSurfaces?.length || !ctx.referencedLookupOrder || isOwnTypeOrEnum(lower, ctx) || resolveRuntimeFunction(lower)) {
+		return undefined;
+	}
+	// The first project that offers the name in any form. A hidden module offers nothing.
+	const project = referencedProjectReached(lower, ctx.referencedProjectSurfaces, ctx.referencedLookupOrder,
+		(offered) => offered.bareNames.has(lower) || offered.types.has(lower));
+	const module = project && referencedProjectNames(project).modules.get(lower);
+	return project && module?.kind === 'class' && module.visible && module.predeclared ? referencedClassKey(project, module.name) : undefined;
+}
+
+/** Whether this module or another of the project declares a Type or Enum of the name. */
+function isOwnTypeOrEnum(lower: string, ctx: MemberCompletionContext): boolean {
+	return !!ctx.parsedModule?.members.some((member) => (member.kind === 'Type' || member.kind === 'Enum') && member.name?.toLowerCase() === lower)
+		|| projectSymbolsNamed(ctx.projectSymbols, lower).some((symbol) => symbol.kind === 'type' || symbol.kind === 'enum');
+}
+
+function referencedClassKey(project: ReferencedProjectSurface, className: string): string {
+	return `${REFERENCED_CLASS_PREFIX}${project.name.toLowerCase()}:${className.toLowerCase()}`;
+}
+
+function referencedClassOfKey(typeName: string, ctx: MemberCompletionContext): { project: ReferencedProjectSurface; module: ReferencedProjectModule } | undefined {
+	const [projectName, className] = typeName.slice(REFERENCED_CLASS_PREFIX.length).split(':');
+	const project = ctx.referencedProjectSurfaces?.find((surface) => surface.name.toLowerCase() === projectName);
+	const module = project && referencedProjectNames(project).modules.get(className);
+	return project && module?.kind === 'class' ? { project, module } : undefined;
+}
+
+/**
+ * Whether the arguments in `x.Member(1)` go on to what Member returns, an
+ * index into it. A referenced class's member answers from what it declares,
+ * whatever it is called: `w.Item(1)` on a parameterless Item indexes its result.
+ */
+function argumentsIndexResult(ownerType: string, segment: ReceiverChainSegment, ctx: MemberCompletionContext): boolean {
+	if (!segment.hasArguments) {
+		return false;
+	}
+	if (ownerType.startsWith(REFERENCED_CLASS_PREFIX)) {
+		const lower = segment.name.toLowerCase();
+		return !referencedClassOfKey(ownerType, ctx)?.module.objectMembers?.find((member) => member.name.toLowerCase() === lower)?.takesArguments;
+	}
+	return !isExplicitElementAccessor(segment.name) && !memberTakesOwnArguments(signatureForMember(ownerType, segment.name, ctx));
 }
 
 /**

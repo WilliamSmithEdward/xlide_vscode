@@ -428,7 +428,7 @@ function isDefaultMemberAttribute(attr: VbaSymbolAttribute): boolean {
 	);
 }
 
-function isDefaultProjectObjectMember(symbol: VbaSymbol): boolean {
+export function isDefaultProjectObjectMember(symbol: VbaSymbol): boolean {
 	return (symbol.attributes ?? []).some(isDefaultMemberAttribute);
 }
 

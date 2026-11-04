@@ -122,7 +122,10 @@ export function checkReferencedProjectNames(
 						}
 						// ProbeLibrary.Service.Nope(): the module's own members.
 						const third = toks[i + 3]?.rawText === '.' ? tokenName(toks[i + 4]) : undefined;
-						if (third && module.kind === 'standard' && !hasMember(module, third)) {
+						// A document module's members are its host object's too: unjudged.
+						const judged = module.kind === 'standard' ? hasMember(module, third ?? '')
+							: module.kind !== 'class' || !!module.objectMembers?.some((member) => member.name.toLowerCase() === third?.toLowerCase());
+						if (third && !judged) {
 							report(`${head}.${second}.${third}`, absoluteSpan(stmt.span, toks[i + 4]));
 						}
 						continue;

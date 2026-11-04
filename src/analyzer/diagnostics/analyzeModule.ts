@@ -468,6 +468,8 @@ function diagnosticMemberCompletionContext(
 		receiverTypeCache: new Map(),
 		receiverChainCache: new Map(),
 		memberSurfaceCache: new Map(),
+		referencedProjectSurfaces: opts.referencedProjectSurfaces,
+		referencedLookupOrder: { libraries: opts.referencedLibraries, hostName: opts.hostModel?.hostName ?? opts.host ?? 'Excel' },
 	};
 	const meProjectType = meProjectTypeFor(opts.moduleName, opts.moduleKind);
 	if (meProjectType) {
