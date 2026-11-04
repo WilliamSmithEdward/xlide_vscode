@@ -1,7 +1,7 @@
 // The VBA indentation and Enter rules in a real VS Code: Reindent Lines lays
-// out a module the way Format Document does, and Enter after a directive arm
-// indents the next line. Smart Enter does not act on #Else or #ElseIf, so
-// VS Code's rules decide alone.
+// out a module the way Format Document does, and Enter indents the next line
+// as Format Document would. Smart Enter does not act on these lines (#Else,
+// #ElseIf, and lines with a statement colon), so VS Code's rules decide alone.
 
 import * as assert from 'node:assert/strict';
 import * as path from 'node:path';
@@ -186,6 +186,69 @@ suite('VBA indentation rules', () => {
 			['    Else n = 2', '        '],
 		];
 		const document = await open(await writeModule('IndentationOneLineEnterProbe', 'Sub Main()\r\nEnd Sub\r\n'));
+		const editor = vscode.window.activeTextEditor!;
+		editor.options = { insertSpaces: true, tabSize: 4 };
+		// As in the #Else test above: Enter follows the rules only on a line
+		// VS Code has tokenized, so wait for the module's first line.
+		const write = async (line: string): Promise<string> => {
+			const rest = new vscode.Range(1, 0, document.lineCount, 0);
+			assert.ok(await editor.edit((edit) => edit.replace(rest, `${line}\r\nEnd Sub\r\n`)));
+			const end = document.lineAt(1).range.end;
+			editor.selection = new vscode.Selection(end, end);
+			await vscode.commands.executeCommand('type', { text: '\n' });
+			return document.lineAt(2).text;
+		};
+		await until(async () => await write('    Case 1') === '        ' ? true : undefined,
+			'Enter after `Case 1` should indent once the module is tokenized');
+		const after: Array<[string, string]> = [];
+		for (const [line] of cases) {
+			after.push([line, await write(line)]);
+		}
+		assert.deepEqual(after, cases);
+	});
+
+	test('Reindent Lines leaves the line after a one-line procedure, Type or Enum where Format Document does, and indents after Do:', async () => {
+		// Oracle, in all four Office hosts: one_line_procedures_types_and_do_colon_*_runtime.
+		const layout = [
+			'Private Type Rec: n As Long: End Type',
+			'Public Enum Colour: Red = 1: Green: End Enum',
+			'Public Sub Delete(): End Sub',
+			'Private Function Twice(ByVal v As Long) As Long: Twice = 2 * v: End Function',
+			'Public Static Property Get Count() As Long: Count = ThisWorkbook.Sheets.Count: End Property',
+			'Sub Main()',
+			'    Dim n As Long',
+			'    Do: n = n + 1',
+			'        If n > ActiveDocument.Paragraphs.Count Then Exit Do',
+			'    Loop',
+			'    n = ActivePresentation.Slides.Count + CurrentDb.TableDefs.Count',
+			'End Sub',
+			'',
+		];
+		const document = await open(await writeModule('IndentationOneLineProcProbe', layout.map((line) => line.trimStart()).join('\r\n')));
+		const editor = vscode.window.activeTextEditor!;
+		editor.options = { insertSpaces: true, tabSize: 4 };
+		const formatEdits = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+			'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 4, insertSpaces: true });
+		assert.ok(formatEdits && formatEdits.length > 0, 'Format Document should answer');
+		await vscode.commands.executeCommand('editor.action.reindentlines');
+		assert.deepEqual(indents(document.getText()), indents(layout.join('\r\n')));
+		const reindented = document.getText();
+		await vscode.commands.executeCommand('editor.action.formatDocument');
+		assert.deepEqual(indents(document.getText()), indents(reindented), 'Format Document keeps the reindented layout');
+	});
+
+	test('Enter does not indent after a one-line procedure, Type or Enum, and indents after Do:', async () => {
+		// Lines Smart Enter leaves alone, so VS Code's rules decide.
+		const cases: Array<[line: string, indentAfter: string]> = [
+			['Public Sub Delete(): End Sub', ''],
+			['Private Function Twice(ByVal v As Long) As Long: Twice = 2 * v: End Function', ''],
+			['Property Let Count(ByVal v As Long): m = v: End Property', ''],
+			['Private Type Rec: n As Long: End Type', ''],
+			['Public Enum Colour: Red = 1: Green: End Enum', ''],
+			['Sub Main(): n = ThisWorkbook.Sheets.Count', '    '],
+			['    Do: n = n + 1', '        '],
+		];
+		const document = await open(await writeModule('IndentationOneLineProcEnter', 'Sub Main()\r\nEnd Sub\r\n'));
 		const editor = vscode.window.activeTextEditor!;
 		editor.options = { insertSpaces: true, tabSize: 4 };
 		// As in the #Else test above: Enter follows the rules only on a line
