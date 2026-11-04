@@ -56,7 +56,7 @@
     },
     "attributes": {
       "comment": "Module header Attribute lines (VB_Name, VB_Exposed, etc.)",
-      "match": "(?i)^\\s*(Attribute)\\s+([A-Za-z_][A-Za-z0-9_\\.]*(?:\\s+[A-Za-z_][A-Za-z0-9_]*)*)\\s*(=)",
+      "match": "(?i)^\\s*(Attribute)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_\\.]*(?:\\s+[\\p{L}_][\\p{L}\\p{M}0-9_]*)*)\\s*(=)",
       "captures": {
         "1": { "name": "keyword.other.attribute.vba" },
         "2": { "name": "variable.other.attribute.vba" },
@@ -97,7 +97,7 @@
         },
         {
           "comment": "Implements directive (class modules, section 5.2.1)",
-          "match": "(?i)^\\s*(Implements)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "(?i)^\\s*(Implements)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
             "1": { "name": "keyword.other.implements.vba" },
             "2": { "name": "entity.name.type.vba" }
@@ -145,13 +145,13 @@
     "members": {
       "comment": "A name right after . or ! is looked up on what stands before it, whatever it is spelled like: rng.End, wb.Close, Debug.Print, rs!Date. The ! of a type suffix has no name right after it",
       "name": "variable.other.member.vba",
-      "match": "(?<=[.!])[A-Za-z_][A-Za-z0-9_]*"
+      "match": "(?<=[.!])[\\p{L}_][\\p{L}\\p{M}0-9_]*"
     },
     "procedures": {
       "patterns": [
         {
           "comment": "Sub / Function declaration - captures visibility, Static, keyword, and name",
-          "match": "(?i)^\\s*((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "(?i)^\\s*((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
             "1": { "name": "storage.modifier.vba" },
             "2": { "name": "storage.modifier.static.vba" },
@@ -161,7 +161,7 @@
         },
         {
           "comment": "Property Get / Let / Set declaration",
-          "match": "(?i)^\\s*((?:Public|Private|Friend)\\s+)?(?:(Static)\\s+)?(Property)\\s+(Get|Let|Set)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "(?i)^\\s*((?:Public|Private|Friend)\\s+)?(?:(Static)\\s+)?(Property)\\s+(Get|Let|Set)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
             "1": { "name": "storage.modifier.vba" },
             "2": { "name": "storage.modifier.static.vba" },
@@ -189,7 +189,7 @@
       "patterns": [
         {
           "comment": "Declare [PtrSafe] Sub/Function - Windows API declaration",
-          "match": "(?i)^\\s*((?:Public|Private)\\s+)?(Declare)(?:\\s+(PtrSafe))?\\s+(Sub|Function)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "(?i)^\\s*((?:Public|Private)\\s+)?(Declare)(?:\\s+(PtrSafe))?\\s+(Sub|Function)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
             "1": { "name": "storage.modifier.vba" },
             "2": { "name": "keyword.other.declare.vba" },
@@ -200,7 +200,7 @@
         },
         {
           "comment": "Type or Enum block header",
-          "match": "(?i)^\\s*((?:Public|Private|Global)\\s+)?(Type|Enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "(?i)^\\s*((?:Public|Private|Global)\\s+)?(Type|Enum)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
             "1": { "name": "storage.modifier.vba" },
             "2": { "name": "storage.type.vba" },
@@ -209,7 +209,7 @@
         },
         {
           "comment": "Event declaration in class modules",
-          "match": "(?i)^\\s*((?:Public|Private)\\s+)?(Event)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "(?i)^\\s*((?:Public|Private)\\s+)?(Event)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
             "1": { "name": "storage.modifier.vba" },
             "2": { "name": "keyword.other.event.vba" },
@@ -402,7 +402,7 @@
         {
           "comment": "Ordinary identifier",
           "name": "variable.other.vba",
-          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+          "match": "\\b[\\p{L}_][\\p{L}\\p{M}0-9_]*\\b"
         }
       ]
     }

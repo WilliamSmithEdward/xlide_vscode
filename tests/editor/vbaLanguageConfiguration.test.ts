@@ -6,7 +6,7 @@ import { VBA_SMART_BLOCK_SNIPPETS } from '../../src/vbaSmartBlockSnippets';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from '../../src/xlideVbaEditorOverrides';
 
 interface VbaLanguageConfiguration {
-	wordPattern?: string;
+	wordPattern?: string | { pattern: string; flags?: string };
 	indentationRules?: Record<string, string>;
 	folding?: { markers?: Record<string, string> };
 	onEnterRules?: Array<{ beforeText?: string; afterText?: string }>;
@@ -293,8 +293,7 @@ describe('VBA language configuration', () => {
 	});
 
 	it('finds no word inside a number, so typing one opens no suggestions (issue #1577)', () => {
-		const pattern = new RegExp(loadConfig().wordPattern ?? '', 'g');
-		const wordsOf = (line: string): string[] => [...line.matchAll(pattern)].map((match) => match[0]);
+		const wordsOf = (line: string): string[] => [...line.matchAll(wordPattern(loadConfig()))].map((match) => match[0]);
 		for (const number of ['123', '1.5e3', '1.5E+3', '1.e3', '.5e3', '1.5e', '2D-1', '1d', '&HFF', '&H1F&', '&hff', '&H', '&O17', '&o', '&17']) {
 			expect(wordsOf(number), number).toEqual([]);
 			expect(wordsOf(`x = ${number} + y`), number).toEqual(['x', 'y']);
@@ -307,6 +306,34 @@ describe('VBA language configuration', () => {
 			['1.foo', ['foo']],
 			['s & HFF', ['s', 'HFF']],
 			['s &Hello &Hex(1) &Option', ['s', 'Hello', 'Hex', 'Option']],
+		] as const) {
+			expect(wordsOf(line), line).toEqual(words);
+		}
+	});
+
+	// The lexer reads a name as MS-VBAL 3.3.5.1's non-Latin forms (isIdentStart in
+	// src/analyzer/lexer/tokenize.ts): a letter in any script, then letters, combining marks,
+	// digits and underscores. Excel, Word, PowerPoint and Access compile the Latin names here
+	// (oracle nonascii_names_<host>_runtime); the Japanese, Cyrillic, Thai and decomposed names
+	// follow the lexer.
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b1cbd42c-6caa-4510-8f28-b0eebabf1956
+	it('finds a name outside ASCII as one word, as the lexer reads it, and still no word inside a number', () => {
+		const wordsOf = (line: string): string[] => [...line.matchAll(wordPattern(loadConfig()))].map((match) => match[0]);
+		for (const [line, words] of [
+			['Dim État As Long: 名前 = 1: Ünïcödé = 2', ['Dim', 'État', 'As', 'Long', '名前', 'Ünïcödé']],
+			['Sub 名前()', ['Sub', '名前']],
+			['For Each ячейка In ThisWorkbook.Sheets(1).UsedRange', ['For', 'Each', 'ячейка', 'In', 'ThisWorkbook', 'Sheets', 'UsedRange']],
+			['Set Абзац = ActiveDocument.Paragraphs(1)', ['Set', 'Абзац', 'ActiveDocument', 'Paragraphs']],
+			['Größe = ActivePresentation.Slides.Count', ['Größe', 'ActivePresentation', 'Slides', 'Count']],
+			['Set Tabelle = CurrentDb.TableDefs!Größe', ['Set', 'Tabelle', 'CurrentDb', 'TableDefs', 'Größe']],
+			['ค่า = ab\u0301c + ab\u0301', ['ค่า', 'ab\u0301c', 'ab\u0301']],
+			['If名前 = 1: 名前If = 2', ['If名前', '名前If']],
+			// A character outside ASCII that is not a letter or a mark is no part of a name.
+			['a\u00a0b = a\u3000b + a×b + a😀b', ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b']],
+			// The number guards read the wider name characters.
+			['名前 = 1.5e3 + &HFF + 2D-1 + 1.e3', ['名前']],
+			['x1.e3 = État.e3 + Zähler1', ['x1', 'e3', 'État', 'e3', 'Zähler1']],
+			['É1.e3 = 1.e3名前 + &HFF名前', ['É1', 'e3', 'e3名前', 'HFF名前']],
 		] as const) {
 			expect(wordsOf(line), line).toEqual(words);
 		}
@@ -868,6 +895,12 @@ interface LineRules {
 	increase: boolean;
 	decrease: boolean;
 	enter: boolean;
+}
+
+/** The word pattern as VS Code compiles it, with the g flag it adds. */
+function wordPattern(config: VbaLanguageConfiguration): RegExp {
+	const { pattern, flags = '' } = typeof config.wordPattern === 'string' ? { pattern: config.wordPattern } : config.wordPattern ?? { pattern: '' };
+	return new RegExp(pattern, flags.includes('g') ? flags : `${flags}g`);
 }
 
 function lineRules(config: VbaLanguageConfiguration, line: string): LineRules {

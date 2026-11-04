@@ -64,7 +64,7 @@ async function lineTokens(lines: string[]): Promise<string[][]> {
 			while (text.length < line.length && next < tokens.length) {
 				const token = tokens[next++];
 				text += token.c;
-				if (/^[A-Za-z]/.test(token.c.trim())) {
+				if (/^\p{L}/u.test(token.c.trim())) {
 					words.push(`${token.c.trim()} ${token.t.split(' ').at(-1)}`);
 				}
 			}
@@ -403,6 +403,68 @@ suite('VBA grammar', () => {
 			assert.match(await scopesOf(file, '[Rem]'), /meta\.preprocessor/);
 			assert.match(await scopesOf(file, '[a:b]'), /meta\.preprocessor/);
 		});
+	});
+
+	// Excel, Word, PowerPoint and Access compile the Latin names here: oracle
+	// nonascii_names_<host>_runtime (État, IfÉtat, Größe, Länge, Çouleur and Zähler as a Type and
+	// its field, an Enum, a Function, locals and a For variable) and
+	// nonascii_names_distinct_<host>_compile (État and Etat are different names). The Japanese,
+	// Cyrillic, Thai and decomposed names follow the lexer, which reads MS-VBAL 3.3.5.1's
+	// non-Latin identifier forms (isIdentStart in src/analyzer/lexer/tokenize.ts: a letter in
+	// any script, then letters, combining marks, digits and underscores).
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b1cbd42c-6caa-4510-8f28-b0eebabf1956
+	test('colors a name outside ASCII as one name, in every rule that reads a name', async () => {
+		const lines = await lineTokens([
+			'Attribute 名前.VB_VarUserMemId = 0',
+			'Implements IÜbersicht',
+			'Private Type Größe',
+			'    Länge As Long',
+			'End Type',
+			'Private Enum Çouleur',
+			'Public Event Änderung(ByVal ячейка As Object)',
+			'Private Declare PtrSafe Function Zähler Lib "kernel32" () As Long',
+			'Public Static Property Get Größe() As Long',
+			'Sub 名前()',
+			'    Dim État As Long, IfÉtat As Long, ค่า As String',
+			'    For État = 1 To ThisWorkbook.Sheets.Count: IfÉtat = IfÉtat + État: Next',
+			'    名前If = ActiveDocument.Paragraphs.Count: If名前 = 1',
+			'    ячейка.Значение = ActivePresentation.Slides(1).Name',
+			'    Set 名前 = CurrentDb.TableDefs!Größe',
+			'    ค่า = ab\u0301c & ab\u0301 & Zähler(État)',
+			'Größe:',
+			'    GoTo Größe',
+			'End Sub',
+		]);
+		assert.deepEqual(lines.slice(0, 10), [
+			['Attribute keyword.other.attribute.vba', '名前.VB_VarUserMemId variable.other.attribute.vba'],
+			['Implements keyword.other.implements.vba', 'IÜbersicht entity.name.type.vba'],
+			['Private storage.modifier.vba', 'Type storage.type.vba', 'Größe entity.name.type.vba'],
+			[`Länge ${NAME}`, 'As keyword.other.vba', 'Long support.type.vba'],
+			['End keyword.control.end.vba', 'Type keyword.control.end.vba'],
+			['Private storage.modifier.vba', 'Enum storage.type.vba', 'Çouleur entity.name.type.vba'],
+			['Public storage.modifier.vba', 'Event keyword.other.event.vba', 'Änderung entity.name.function.vba',
+				'ByVal keyword.other.vba', `ячейка ${NAME}`, 'As keyword.other.vba', 'Object support.type.vba'],
+			['Private storage.modifier.vba', 'Declare keyword.other.declare.vba', 'PtrSafe storage.modifier.vba',
+				'Function storage.type.function.vba', 'Zähler entity.name.function.vba', 'Lib keyword.other.vba',
+				'As keyword.other.vba', 'Long support.type.vba'],
+			['Public storage.modifier.vba', 'Static storage.modifier.static.vba', 'Property storage.type.property.vba',
+				'Get storage.type.property.vba', 'Größe entity.name.function.property.vba', 'As keyword.other.vba', 'Long support.type.vba'],
+			['Sub storage.type.function.vba', '名前 entity.name.function.vba'],
+		]);
+		assert.deepEqual(lines[10], [
+			'Dim storage.modifier.vba', `État ${NAME}`, 'As keyword.other.vba', 'Long support.type.vba',
+			`IfÉtat ${NAME}`, 'As keyword.other.vba', 'Long support.type.vba', `ค่า ${NAME}`, 'As keyword.other.vba', 'String support.type.vba',
+		]);
+		assert.deepEqual(lines[11].filter((word) => /^(État|IfÉtat|Sheets|Count) /.test(word)), [
+			`État ${NAME}`, `Sheets ${MEMBER}`, `Count ${MEMBER}`, `IfÉtat ${NAME}`, `IfÉtat ${NAME}`, `État ${NAME}`,
+		]);
+		assert.deepEqual(lines[12], [
+			`名前If ${NAME}`, `ActiveDocument ${NAME}`, `Paragraphs ${MEMBER}`, `Count ${MEMBER}`, `If名前 ${NAME}`,
+		]);
+		assert.deepEqual(lines[13], [`ячейка ${NAME}`, `Значение ${MEMBER}`, `ActivePresentation ${NAME}`, `Slides ${MEMBER}`, `Name ${MEMBER}`]);
+		assert.deepEqual(lines[14], ['Set keyword.other.vba', `名前 ${NAME}`, `CurrentDb ${NAME}`, `TableDefs ${MEMBER}`, `Größe ${MEMBER}`]);
+		assert.deepEqual(lines[15], [`ค่า ${NAME}`, `ab\u0301c ${NAME}`, `ab\u0301 ${NAME}`, `Zähler ${NAME}`, `État ${NAME}`]);
+		assert.deepEqual(lines.slice(16, 18), [[`Größe ${NAME}`], [`GoTo ${KEYWORD}`, `Größe ${NAME}`]]);
 	});
 
 });
