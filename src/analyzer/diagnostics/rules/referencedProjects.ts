@@ -96,7 +96,17 @@ export function checkReferencedProjectNames(
 						}
 						continue;
 					}
-					// ProbeLibrary.Value(): a member of any of its visible standard modules.
+					// ProbeLibrary.WidgetColor.wcRed: an Enum's own members.
+					const enumDecl = referencedProjectNames(project).enums.get(second.toLowerCase());
+					if (enumDecl) {
+						const third = toks[i + 3]?.rawText === '.' ? tokenName(toks[i + 4]) : undefined;
+						if (third && !enumDecl.members.some((member) => member.toLowerCase() === third.toLowerCase())) {
+							report(`${head}.${second}.${third}`, absoluteSpan(stmt.span, toks[i + 4]));
+						}
+						continue;
+					}
+					// ProbeLibrary.Value(): a member of any of its visible standard
+					// modules, or ProbeLibrary.wcRed, an exposed class's Enum member.
 					const member = referencedProjectNames(project).values.has(second.toLowerCase());
 					if (!member) {
 						report(`${head}.${second}`, absoluteSpan(stmt.span, toks[i + 2]));

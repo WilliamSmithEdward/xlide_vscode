@@ -15,7 +15,7 @@
 // - The referring project's own names come first: its own Value() wins.
 
 import { ProjectIndex } from './projectIndex';
-import type { ModuleSymbolKind } from './symbolModel';
+import type { ModuleSymbolKind, VbaSymbol } from './symbolModel';
 
 /** One module of a referenced project, as the referring project sees it. */
 export interface ReferencedProjectModule {
@@ -27,6 +27,14 @@ export interface ReferencedProjectModule {
 	members: string[];
 	/** The types it offers by name: its Public Types and Enums, or the class itself when exposed. */
 	types: string[];
+	/** Its Public Enums with their members: `WidgetColor.wcRed`, and in a class `ProbeLibrary.wcRed`. */
+	enums?: ReferencedEnum[];
+}
+
+/** A Public Enum of a referenced project's module. */
+export interface ReferencedEnum {
+	name: string;
+	members: string[];
 }
 
 /** A referenced VBA project that was read, under the name the reference gives it. */
@@ -70,11 +78,18 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 					kind: mod.kind,
 					visible,
 					members: own.filter((symbol) => symbol.kind !== 'type' && symbol.kind !== 'enum').map((symbol) => symbol.name),
+					enums: publicEnums(own),
 					types: own.filter((symbol) => symbol.kind === 'type' || symbol.kind === 'enum').map((symbol) => symbol.name),
 				};
 			}
 			const exposed = EXPOSED.test(mod.source);
-			return { name: mod.name, kind: mod.kind, visible: exposed, members: [], types: exposed ? [mod.name] : [] };
+			if (!exposed) {
+				return { name: mod.name, kind: mod.kind, visible: false, members: [], types: [] };
+			}
+			// A document module or form is a class module too: its name is a
+			// type and its Public Enums are offered as an exposed class's are.
+			const enums = publicEnums(index.getModule(mod.name)?.root.children ?? []);
+			return { name: mod.name, kind: mod.kind, visible: true, members: [], types: [mod.name, ...enums.map((decl) => decl.name)], enums };
 		}),
 	};
 }
@@ -85,8 +100,10 @@ export interface ReferencedProjectNames {
 	modules: ReadonlyMap<string, ReferencedProjectModule>;
 	/** Types offered by the surface, by lowercased name. */
 	types: ReadonlyMap<string, ReferencedProjectModule>;
-	/** Members of visible standard modules, available after the project name. */
+	/** Members of visible standard modules and exposed classes' Enum members, available after the project name. */
 	values: ReadonlySet<string>;
+	/** The Public Enums of visible modules, by lowercased name. */
+	enums: ReadonlyMap<string, ReferencedEnum>;
 	/** Visible module names and their members, available unqualified. */
 	bareNames: ReadonlySet<string>;
 }
@@ -105,6 +122,7 @@ export function referencedProjectNames(surface: ReferencedProjectSurface): Refer
 		const types = new Map<string, ReferencedProjectModule>();
 		const values = new Set<string>();
 		const bareNames = new Set<string>();
+		const enums = new Map<string, ReferencedEnum>();
 		for (const module of surface.modules) {
 			const key = module.name.toLowerCase();
 			if (!modules.has(key)) {
@@ -125,9 +143,28 @@ export function referencedProjectNames(surface: ReferencedProjectSurface): Refer
 					values.add(member.toLowerCase());
 				}
 			}
+			for (const decl of module.enums ?? []) {
+				bareNames.add(decl.name.toLowerCase());
+				if (!enums.has(decl.name.toLowerCase())) {
+					enums.set(decl.name.toLowerCase(), decl);
+				}
+				// A standard module's Enum members are among its members already.
+				for (const member of module.kind === 'standard' ? [] : decl.members) {
+					bareNames.add(member.toLowerCase());
+					values.add(member.toLowerCase());
+				}
+			}
 		}
-		names = { modules, types, values, bareNames };
+		names = { modules, types, values, enums, bareNames };
 		PROJECT_NAMES.set(surface, names);
 	}
 	return names;
+}
+
+/** The Public Enums among a module's symbols, each with its members. */
+function publicEnums(symbols: readonly VbaSymbol[]): ReferencedEnum[] {
+	return symbols.filter((symbol) => symbol.kind === 'enum' && symbol.visibility !== 'Private').map((symbol) => ({
+		name: symbol.name,
+		members: (symbol.children ?? []).filter((member) => member.kind === 'enumMember').map((member) => member.name),
+	}));
 }
