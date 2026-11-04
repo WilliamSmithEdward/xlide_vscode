@@ -6,7 +6,7 @@ import { VBA_SMART_BLOCK_SNIPPETS } from '../../src/vbaSmartBlockSnippets';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from '../../src/xlideVbaEditorOverrides';
 
 interface VbaLanguageConfiguration {
-	wordPattern?: string;
+	wordPattern?: { pattern: string; flags: string };
 	indentationRules?: Record<string, string>;
 	folding?: { markers?: Record<string, string> };
 	onEnterRules?: Array<{ beforeText?: string; afterText?: string }>;
@@ -293,8 +293,7 @@ describe('VBA language configuration', () => {
 	});
 
 	it('finds no word inside a number, so typing one opens no suggestions (issue #1577)', () => {
-		const pattern = new RegExp(loadConfig().wordPattern ?? '', 'g');
-		const wordsOf = (line: string): string[] => [...line.matchAll(pattern)].map((match) => match[0]);
+		const wordsOf = wordsReader();
 		for (const number of ['123', '1.5e3', '1.5E+3', '1.e3', '.5e3', '1.5e', '2D-1', '1d', '&HFF', '&H1F&', '&hff', '&H', '&O17', '&o', '&17']) {
 			expect(wordsOf(number), number).toEqual([]);
 			expect(wordsOf(`x = ${number} + y`), number).toEqual(['x', 'y']);
@@ -307,6 +306,32 @@ describe('VBA language configuration', () => {
 			['1.foo', ['foo']],
 			['s & HFF', ['s', 'HFF']],
 			['s &Hello &Hex(1) &Option', ['s', 'Hello', 'Hex', 'Option']],
+		] as const) {
+			expect(wordsOf(line), line).toEqual(words);
+		}
+	});
+
+	// Every host compiles accented Latin names (oracle nonascii_names_<host>_runtime).
+	// The other scripts follow the lexer, since the test projects' code page holds Latin only.
+	it('finds a name outside ASCII as one word, as the lexer reads it (issue #1604)', () => {
+		const wordsOf = wordsReader();
+		for (const [line, words] of [
+			['Set État = ThisWorkbook.Sheets(Größe)', ['Set', 'État', 'ThisWorkbook', 'Sheets', 'Größe']],
+			['Set Абзац = ActiveDocument.Paragraphs(1)', ['Set', 'Абзац', 'ActiveDocument', 'Paragraphs']],
+			['値 = ActivePresentation.Slides.Count', ['値', 'ActivePresentation', 'Slides', 'Count']],
+			['ค่า = CurrentDb.TableDefs!Länge', ['ค่า', 'CurrentDb', 'TableDefs', 'Länge']],
+			['e\u0301tat = cafe\u0301 + Zähler1', ['e\u0301tat', 'cafe\u0301', 'Zähler1']],
+			['If値 = 値If', ['If値', '値If']],
+		] as const) {
+			expect(wordsOf(line), line).toEqual(words);
+		}
+		// What is neither a letter nor a mark ends a name.
+		expect(wordsOf('a\u00a0b + c\u3000d + e×f + g\u{1F600}h')).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+		// The number guards read the wider characters: these are numbers, then names.
+		for (const [line, words] of [
+			['値 = 1.5e3 + &HFF + 2D-1 + 1.e3', ['値']],
+			['É1.e3 = x', ['É1', 'e3', 'x']],
+			['1.e3値 + &HFF値 + &O7é', ['e3値', 'HFF値', 'O7é']],
 		] as const) {
 			expect(wordsOf(line), line).toEqual(words);
 		}
@@ -863,6 +888,13 @@ describe('VBA language configuration', () => {
 		}
 	});
 });
+
+/** The words the word pattern finds in a line, compiled as VS Code compiles it: its own flags and `g`. */
+function wordsReader(): (line: string) => string[] {
+	const { pattern = '', flags = '' } = loadConfig().wordPattern ?? {};
+	const regex = new RegExp(pattern, `${flags}g`);
+	return (line) => [...line.matchAll(regex)].map((match) => match[0]);
+}
 
 interface LineRules {
 	increase: boolean;

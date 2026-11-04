@@ -6,8 +6,9 @@
 // Expand Selection runs in the editor, on the model's own words.
 
 import * as assert from 'node:assert/strict';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { activate, closeAllEditors, open, writeModule } from './support';
+import { activate, closeAllEditors, open, workspaceRoot, writeModule } from './support';
 
 const LONG_NAME = `VeryLong${'Name'.repeat(20)}`;
 const LINES = [
@@ -45,5 +46,28 @@ suite('VBA word pattern', () => {
 		assert.ok((await steps(2, 'hex1', 2)).includes('hex1'), 'a name ending in a digit is a word');
 		// VS Code looks for the word in growing windows: a start inside a long name is refused, then found.
 		assert.ok((await steps(3, LONG_NAME, LONG_NAME.length - 1)).includes(LONG_NAME), 'a long name is one word');
+	});
+
+	// A module written through the host keeps only its code page's characters, so this is a loose file.
+	test('finds the whole of a name outside ASCII (issue #1604)', async () => {
+		const names = ['値', 'Ünïcödé', 'ค่า', 'cafe\u0301'];
+		const uri = vscode.Uri.file(path.join(workspaceRoot(), 'WordPatternNames.bas'));
+		await vscode.workspace.fs.writeFile(uri, Buffer.from(`Sub Main()\r\n    ${names.join(' + ')}\r\nEnd Sub\r\n`));
+		try {
+			const document = await open(uri);
+			for (const name of names) {
+				const position = new vscode.Position(1, document.lineAt(1).text.indexOf(name) + 1);
+				const [chain] = await vscode.commands.executeCommand<vscode.SelectionRange[]>(
+					'vscode.executeSelectionRangeProvider', document.uri, [position],
+				);
+				const texts: string[] = [];
+				for (let range: vscode.SelectionRange | undefined = chain; range; range = range.parent) {
+					texts.push(document.getText(range.range));
+				}
+				assert.ok(texts.includes(name), `${name}: ${JSON.stringify(texts.slice(0, 3))}`);
+			}
+		} finally {
+			await vscode.workspace.fs.delete(uri);
+		}
 	});
 });
