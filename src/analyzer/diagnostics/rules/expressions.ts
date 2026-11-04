@@ -573,7 +573,8 @@ function invalidOperatorSequence(
 				message: "'Not' has nothing after it to negate. This is a VBE compile error: Syntax error.",
 			};
 		}
-		if (!isNonUnaryBinaryOperator(toks[i])) {
+		// `o.Is`: a member spelled like an operator is a name.
+		if (!isNonUnaryBinaryOperator(toks[i]) || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
 			continue;
 		}
 		// `total& = 3`: an `&` glued to the name before it is the Long

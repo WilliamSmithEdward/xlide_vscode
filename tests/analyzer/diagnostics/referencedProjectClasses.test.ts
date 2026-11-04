@@ -39,7 +39,7 @@ const byId = (id: string): OracleCase => measured.find((oracleCase) => oracleCas
  * `Solo` could be Normal's. The engine reads Normal where it can; see the
  * tests below.
  */
-const UNCHECKED = /_(function_chain_missing|default_member_missing|enum_variable_member)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing)_compile$/;
+const UNCHECKED = /_(function_chain_missing|default_member_missing|enum_variable_member)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing)_compile$/;
 
 type References = ReturnType<typeof oracleProjectReferences>;
 
@@ -57,9 +57,9 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
-		expect(measured).toHaveLength(36);
+		expect(measured).toHaveLength(140);
 		for (const host of [undefined, 'word', 'powerpoint', 'access']) {
-			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(9);
+			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(35);
 		}
 	});
 
@@ -84,6 +84,42 @@ describe('the classes of a referenced VBA project', () => {
 		expect(errors(oracleCase)).toEqual([]);
 	});
 
+});
+
+// Two referenced projects, which the oracle does not make: the order of the
+// references decides, as issue #1503 measured for a module and a procedure.
+describe.each(['excel', 'word', 'powerpoint', 'access'])('which referenced project a bare name reaches in %s', (host) => {
+	const first = referencedProjectSurface('First', [
+		{ name: 'Palette', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\nPublic Enum Solo\r\n    sOne = 1\r\nEnd Enum\r\n' },
+	]);
+	const second = referencedProjectSurface('Second', [
+		{ name: 'Solo', kind: 'standard', source: 'Option Explicit\r\nPublic Function Good() As Long\r\nEnd Function\r\n' },
+		{ name: 'Widget', kind: 'class', source: 'Attribute VB_Exposed = True\r\nOption Explicit\r\n' },
+	]);
+	const run = (code: string, libraries: string[], surfaces: ReferencedProjectSurface[] = [first, second]): string[] => analyzeVbaModuleSource({
+		source: `Option Explicit\r\nPublic Sub Main()\r\n    Dim x As Variant\r\n    ${code}\r\nEnd Sub\r\n`,
+		moduleName: 'Module1', moduleKind: 'standard', host, projectName: 'VBAProject',
+		referencedLibraries: ['stdole', 'Office', ...libraries], referencedProjects: surfaces.map((surface) => surface.name), referencedProjectSurfaces: surfaces,
+	}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error').map((diagnostic) => diagnostic.message);
+
+	it("is an earlier project's Enum before a later project's module of the name", () => {
+		expect(run('x = Solo.sOne', ['First', 'Second'])).toEqual([]);
+		expect(run('x = Solo.Nope', ['First', 'Second'])).toEqual(["Method or data member not found: 'Solo.Nope'."]);
+	});
+
+	it("is the module when its project comes first", () => {
+		expect(run('x = Solo.Good()', ['Second', 'First'])).toEqual([]);
+		expect(run('x = Solo.sOne', ['Second', 'First'])).toEqual(["Method or data member not found: 'Solo.sOne'."]);
+	});
+
+	it('is left unjudged where an unread library comes first and might have it', () => {
+		expect(run('x = Solo.Nope', ['Unread', 'First'], [first])).toEqual([]);
+		expect(run('Dim w As Object\r\n    Set w = New Widget', ['Unread', 'Second'], [second])).toEqual([]);
+	});
+
+	it("reports New on a class only as the name's first project offers it", () => {
+		expect(run('Dim w As Object\r\n    Set w = New Widget', ['Second'], [second]).join()).toContain('Invalid use of New keyword');
+	});
 });
 
 describe.each(['excel', 'word', 'powerpoint', 'access'])('a referenced project in %s', (host) => {

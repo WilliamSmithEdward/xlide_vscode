@@ -1055,12 +1055,16 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'referencedProjectNames',
+		// `If ProbeLibrary.Widget Is Nothing Then` fails as a statement does.
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkReferencedProjectNames(
 			ctx.source,
 			ctx.opts.referencedProjectSurfaces,
 			ctx.symbols.root.children ?? [],
 			ctx.opts.projectVisibleSymbols,
 			ctx.opts.projectModuleNames,
+			{ libraries: ctx.opts.referencedLibraries, hostName: ctx.opts.hostModel?.hostName ?? ctx.opts.host ?? 'Excel' },
+			ctx.opts.hostModel,
 			push,
 		),
 	},

@@ -87,6 +87,25 @@ describe('project type semantic tokens', () => {
 		]);
 	});
 
+	it.each([
+		['a called operand', 'x = TypeOf F() Is Person'],
+		['an argument with its own Is', 'x = TypeOf F(a Is b) Is Person'],
+		['a TypeOf nested in the arguments', 'x = TypeOf F(TypeOf o Is Person) Is Person'],
+		['a bang operand', 'x = TypeOf bag!Item Is Person'],
+		['a member named Is', 'x = TypeOf o.Is Is Person'],
+		['a called member named Is', 'x = TypeOf o.Is() Is Person'],
+	])('marks the type after TypeOf with %s (issue #1602)', (_name, line) => {
+		const projectTypes: VbaProjectTypeName[] = [{ name: 'Person', kind: 'class', moduleName: 'Person' }];
+		const persons = line.match(/Person/g)!.map(() => ({ text: 'Person', type: 'class' }));
+		expect(tokenTexts(`Public Sub T()\n    ${line}\nEnd Sub\n`, { projectTypes })).toEqual(persons);
+	});
+
+	it('marks the type after TypeOf on a Do block\'s closing line (issue #1602)', () => {
+		const projectTypes: VbaProjectTypeName[] = [{ name: 'Person', kind: 'class', moduleName: 'Person' }];
+		const source = 'Public Sub T()\n    Do\n        x = 1\n    Loop Until TypeOf o Is Person\nEnd Sub\n';
+		expect(tokenTexts(source, { projectTypes })).toEqual([{ text: 'Person', type: 'class' }]);
+	});
+
 	it('marks project classes in Implements statements, and library-qualified ones', () => {
 		// `Excel.Worksheet` used to be invisible here, because a type-library
 		// qualifier resolved to nothing at all. It is a real type, and an

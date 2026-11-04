@@ -13,7 +13,13 @@
 //   unless the class is exposed (VB_Exposed, Instancing PublicNotCreatable):
 //   `Dim t As ProbeLibrary.Thing` is "User-defined type not defined".
 // - The referring project's own names come first: its own Value() wins.
+// - An exposed class is a type another project can name but not create:
+//   `New ProbeLibrary.Widget` is "Invalid use of New keyword". Its name is a
+//   value only as a default instance (VB_PredeclaredId): otherwise
+//   `v = ProbeLibrary.Widget` is "Method or data member not found" and
+//   `v = Widget` "Variable not defined" (issue #1602).
 
+import { libraryTypeNames } from '../host/libraryTypeNames';
 import { ProjectIndex } from './projectIndex';
 import type { ModuleSymbolKind, VbaSymbol } from './symbolModel';
 
@@ -29,6 +35,8 @@ export interface ReferencedProjectModule {
 	types: string[];
 	/** Its Public Enums with their members: `WidgetColor.wcRed`, and in a class `ProbeLibrary.wcRed`. */
 	enums?: ReferencedEnum[];
+	/** Whether an exposed class's name is its default instance. */
+	predeclared?: boolean;
 }
 
 /** A Public Enum of a referenced project's module. */
@@ -52,6 +60,7 @@ export interface ReferencedProjectModuleSource {
 
 const OPTION_PRIVATE_MODULE = /^[ \t]*Option[ \t]+Private[ \t]+Module\b/im;
 const EXPOSED = /^[ \t]*Attribute[ \t]+VB_Exposed[ \t]*=[ \t]*True\b/im;
+const PREDECLARED = /^[ \t]*Attribute[ \t]+VB_PredeclaredId[ \t]*=[ \t]*True\b/im;
 /** No module of the referenced project: < is no identifier character. */
 const OUTSIDE = '<outside>';
 
@@ -89,7 +98,15 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 			// A document module or form is a class module too: its name is a
 			// type and its Public Enums are offered as an exposed class's are.
 			const enums = publicEnums(index.getModule(mod.name)?.root.children ?? []);
-			return { name: mod.name, kind: mod.kind, visible: true, members: [], types: [mod.name, ...enums.map((decl) => decl.name)], enums };
+			return {
+				name: mod.name,
+				kind: mod.kind,
+				visible: true,
+				members: [],
+				types: [mod.name, ...enums.map((decl) => decl.name)],
+				enums,
+				...(mod.kind === 'class' ? { predeclared: PREDECLARED.test(mod.source) } : {}),
+			};
 		}),
 	};
 }
@@ -136,7 +153,10 @@ export function referencedProjectNames(surface: ReferencedProjectSurface): Refer
 			if (!module.visible) {
 				continue;
 			}
-			bareNames.add(key);
+			// A class with no default instance is a type, never a value by name.
+			if (module.kind !== 'class' || module.predeclared) {
+				bareNames.add(key);
+			}
 			for (const member of module.members) {
 				bareNames.add(member.toLowerCase());
 				if (module.kind === 'standard') {
@@ -159,6 +179,46 @@ export function referencedProjectNames(surface: ReferencedProjectSurface): Refer
 		PROJECT_NAMES.set(surface, names);
 	}
 	return names;
+}
+
+/**
+ * The read project a bare name reaches. A name is looked up in VBA, the host's
+ * library and then the references in the project's order, and the first that
+ * has it wins. Undefined where a library before the project might have it: one
+ * whose type names are known and hold it, or one XLIDE did not read, whose
+ * names are unknown. `offers` says whether a read project has the name.
+ */
+export function referencedProjectReached(
+	lower: string,
+	surfaces: readonly ReferencedProjectSurface[] | undefined,
+	order: ReferencedLookupOrder,
+	offers: (names: ReferencedProjectNames) => boolean,
+): ReferencedProjectSurface | undefined {
+	if (!surfaces?.length || !order.libraries) {
+		return undefined;
+	}
+	for (const library of ['VBA', order.hostName, ...order.libraries]) {
+		const key = library.toLowerCase();
+		const surface = surfaces.find((candidate) => candidate.name.toLowerCase() === key);
+		if (surface) {
+			if (offers(referencedProjectNames(surface))) {
+				return surface;
+			}
+			continue;
+		}
+		const known = libraryTypeNames(library);
+		if (!known || known.has(lower)) {
+			return undefined;
+		}
+	}
+	return undefined;
+}
+
+/** What decides which library a bare name reaches. */
+export interface ReferencedLookupOrder {
+	/** The project's references, in order; undefined where they are not known. */
+	libraries: readonly string[] | undefined;
+	hostName: string;
 }
 
 /** The Public Enums among a module's symbols, each with its members. */
