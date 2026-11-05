@@ -69,6 +69,7 @@ import {
 	referencedProjectNames,
 	referencedProjectReached,
 	type ReferencedLookupOrder,
+	type ReferencedObjectMember,
 	type ReferencedProjectModule,
 	type ReferencedProjectSurface,
 } from '../symbols/referencedProjects';
@@ -211,6 +212,9 @@ const UNION_TYPE_PREFIX = 'union:';
 const UNION_TYPE_SEPARATOR = '|';
 /** An exposed class of a referenced VBA project: `referencedClass:<project>:<class>`, lowercased. */
 const REFERENCED_CLASS_PREFIX = 'referencedClass:';
+/** A referenced project by its name, and one of its standard modules (issue #1623). */
+const REFERENCED_PROJECT_PREFIX = 'referencedProject:';
+const REFERENCED_MODULE_PREFIX = 'referencedModule:';
 
 type CompletionMemberSource = Pick<
 	HostMember,
@@ -1431,6 +1435,12 @@ function resolveRoot(
 	if (referencedInstance) {
 		return referencedInstance;
 	}
+	// A read referenced project's own name reaches its standard modules and
+	// their members: `ProbeLibrary.NewWidget()` (issue #1623).
+	const referencedProject = projectSurface ? undefined : ctx.referencedProjectSurfaces?.find((surface) => surface.name.toLowerCase() === lower);
+	if (referencedProject) {
+		return `${REFERENCED_PROJECT_PREFIX}${referencedProject.name.toLowerCase()}`;
+	}
 	return ctx.allowSetAssignmentRefinement === false
 		? undefined
 		: findSetAssignedObjectType(source, offset, root, ctx);
@@ -1728,6 +1738,9 @@ function computeMemberSurfaceForType(
 			exhaustive: false,
 		};
 	}
+	if (typeName.startsWith(REFERENCED_PROJECT_PREFIX) || typeName.startsWith(REFERENCED_MODULE_PREFIX)) {
+		return referencedModuleSurface(typeName, ctx);
+	}
 	if (typeName.startsWith(REFERENCED_CLASS_PREFIX)) {
 		const found = referencedClassOfKey(typeName, ctx);
 		return found && {
@@ -1974,7 +1987,7 @@ function resolveAnyMemberReturnType(
 			kind: resolved.every((item) => item.kind === 'method') ? 'method' : 'property',
 		};
 	}
-	if (ownerType.startsWith(REFERENCED_CLASS_PREFIX)) {
+	if (isReferencedKey(ownerType)) {
 		const lower = memberName.toLowerCase();
 		const member = memberSurfaceForType(ownerType, ctx)?.members.find((candidate) => candidate.name.toLowerCase() === lower);
 		return member?.returns ? { type: member.returns, kind: member.kind } : undefined;
@@ -2181,7 +2194,60 @@ function argumentsIndexResult(ownerType: string, segment: ReceiverChainSegment, 
 		const lower = segment.name.toLowerCase();
 		return !referencedClassOfKey(ownerType, ctx)?.module.objectMembers?.find((member) => member.name.toLowerCase() === lower)?.takesArguments;
 	}
+	if (ownerType.startsWith(REFERENCED_PROJECT_PREFIX) || ownerType.startsWith(REFERENCED_MODULE_PREFIX)) {
+		const lower = segment.name.toLowerCase();
+		return !referencedModuleMembers(ownerType, ctx).find((member) => member.name.toLowerCase() === lower)?.takesArguments;
+	}
 	return !isExplicitElementAccessor(segment.name) && !memberTakesOwnArguments(signatureForMember(ownerType, segment.name, ctx));
+}
+
+function isReferencedKey(typeName: string): boolean {
+	return typeName.startsWith(REFERENCED_CLASS_PREFIX) || typeName.startsWith(REFERENCED_PROJECT_PREFIX) || typeName.startsWith(REFERENCED_MODULE_PREFIX);
+}
+
+/** The referenced project a project or module key names, and that module, if any. */
+function referencedModuleOfKey(typeName: string, ctx: MemberCompletionContext): { project: ReferencedProjectSurface; module?: ReferencedProjectModule } | undefined {
+	const moduleKey = typeName.startsWith(REFERENCED_MODULE_PREFIX);
+	const [projectName, moduleName] = typeName.slice((moduleKey ? REFERENCED_MODULE_PREFIX : REFERENCED_PROJECT_PREFIX).length).split(':');
+	const project = ctx.referencedProjectSurfaces?.find((surface) => surface.name.toLowerCase() === projectName);
+	if (!project) { return undefined; }
+	if (!moduleKey) { return { project }; }
+	const module = project.modules.find((candidate) => candidate.kind === 'standard' && candidate.visible && candidate.name.toLowerCase() === moduleName);
+	return module ? { project, module } : undefined;
+}
+
+/** The Public members a project key's visible standard modules, or a module key's one module, offer. */
+function referencedModuleMembers(typeName: string, ctx: MemberCompletionContext): readonly ReferencedObjectMember[] {
+	const found = referencedModuleOfKey(typeName, ctx);
+	if (!found) { return []; }
+	const modules = found.module ? [found.module] : found.project.modules.filter((module) => module.kind === 'standard' && module.visible);
+	return modules.flatMap((module) => module.moduleMembers ?? []);
+}
+
+/**
+ * What a referenced project's name, or one of its standard modules, offers
+ * after a dot: the modules (a project's), and their Public members with the
+ * class each returns, so `ProbeLibrary.NewWidget().Nope` reaches Widget. Never
+ * exhaustive: the referenced-project rule judges a name after the project or
+ * module itself, and its Types, Enums and classes are not listed here.
+ */
+function referencedModuleSurface(typeName: string, ctx: MemberCompletionContext): MemberSurface | undefined {
+	const found = referencedModuleOfKey(typeName, ctx);
+	if (!found) { return undefined; }
+	const modules = found.module ? [] : found.project.modules.filter((module) => module.kind === 'standard' && module.visible);
+	const lowerProject = found.project.name.toLowerCase();
+	return {
+		owner: found.module ? `${found.project.name}.${found.module.name}` : found.project.name,
+		members: [
+			...modules.map((module) => ({ name: module.name, kind: 'property' as const, returns: `${REFERENCED_MODULE_PREFIX}${lowerProject}:${module.name.toLowerCase()}` })),
+			...referencedModuleMembers(typeName, ctx).map((member) => ({
+				name: member.name,
+				kind: member.kind,
+				returns: member.returnsClass && referencedClassKey(found.project, member.returnsClass),
+			})),
+		],
+		exhaustive: false,
+	};
 }
 
 /**
