@@ -55,15 +55,25 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 	}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error').map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`));
 }
 
+/**
+ * Issue #1623's forms measured in every host: XLIDE does not yet report
+ * these three. A private class named in brackets after the project,
+ * `ProbeLibrary.[Thing]`; a member a qualified default instance lacks, read
+ * in `With ProbeLibrary.Solo`; and an `Implements ProbeLibrary.Widget` that
+ * defines none of Widget's members. Their valid neighbours agree.
+ */
+const PENDING = /_(bracket_private_type|with_qualified_predeclared_missing|implements_missing)_compile$/;
+const unchecked = (id: string): boolean => UNCHECKED.test(id) || PENDING.test(id);
+
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
-		expect(measured).toHaveLength(224);
+		expect(measured).toHaveLength(248);
 		for (const host of [undefined, 'word', 'powerpoint', 'access']) {
-			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(56);
+			expect(measured.filter((oracleCase) => oracleCase.host === host)).toHaveLength(62);
 		}
 	});
 
-	it.each(measured.filter((oracleCase) => !UNCHECKED.test(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s agrees with the VBE', (_id, oracleCase) => {
+	it.each(measured.filter((oracleCase) => !unchecked(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s agrees with the VBE', (_id, oracleCase) => {
 		const found = errors(oracleCase);
 		if (oracleCase.expected === 'accepted') {
 			expect(found).toEqual([]);
@@ -80,7 +90,7 @@ describe('the classes of a referenced VBA project', () => {
 		}
 	});
 
-	it.each(measured.filter((oracleCase) => UNCHECKED.test(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s is left unreported', (_id, oracleCase) => {
+	it.each(measured.filter((oracleCase) => unchecked(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s is left unreported', (_id, oracleCase) => {
 		expect(errors(oracleCase)).toEqual([]);
 	});
 
