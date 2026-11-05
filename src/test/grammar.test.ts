@@ -276,6 +276,36 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[11], [`ExitSub ${NAME}`, `Exit_Sub ${NAME}`]);
 	});
 
+	// Issue #1614. One-line procedures and blocks compile in every host (oracle
+	// one_line_procedures_types_and_do_colon_<host>_runtime), and the VBE shows both
+	// words of their closer as keywords. MS-VBAL 5.3.1.6, 5.3.1.7, 5.2.3.3 and 5.2.3.4.
+	test('colors End Sub, End Function, End Property, End Type and End Enum after a colon as closers', async () => {
+		const END = 'keyword.control.end.vba';
+		const lines = await lineTokens([
+			'Sub Bump(): m = m + 1: End Sub',
+			'Function F(): F = 1: End Function',
+			'Property Get P(): End Property',
+			'Private Type Rec: n As Long: End Type',
+			'Private Enum Colour: Red = 1: End Enum',
+			'Sub Stop1(): If x Then y = 1: End',
+			'    s = ": End Sub": o.End Sub',
+		]);
+		const closers = lines.slice(0, 5).map((line) => line.slice(-2));
+		assert.deepEqual(closers, [
+			[`End ${END}`, `Sub ${END}`],
+			[`End ${END}`, `Function ${END}`],
+			[`End ${END}`, `Property ${END}`],
+			[`End ${END}`, `Type ${END}`],
+			[`End ${END}`, `Enum ${END}`],
+		]);
+		assert.deepEqual(lines[5].at(-1), `End ${KEYWORD}`);
+		assert.deepEqual(lines[6].filter((word) => word.startsWith('End ')), [`End ${MEMBER}`]);
+		await withProbe(['    s = ": End Sub"', '    \' : End Sub'], async (file) => {
+			const held = (await tokensOf(file)).filter((token) => token.c.includes('End Sub'));
+			assert.deepEqual(held.map((token) => /\b(string|comment)\./.exec(token.t)?.[1]), ['string', 'comment']);
+		});
+	});
+
 	test('colors a name after . or ! as a member, whatever it is spelled like (issue #1574)', async () => {
 		const lines = await lineTokens([
 			'ws.Range("A1").End(xlUp).Select',
