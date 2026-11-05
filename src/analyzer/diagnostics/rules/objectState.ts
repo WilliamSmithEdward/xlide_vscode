@@ -16,6 +16,7 @@ import type {
 } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import { declaredTypeIsReferencedEnum } from '../../symbols/referencedProjects';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import {
 	procedureSymbolFor,
@@ -84,6 +85,22 @@ export function checkScalarMemberAccess(
 	const otherModules = new Set((memberCtx.projectClassMembers ?? [])
 		.filter((type) => type.kind === 'standardModule' && type.name.toLowerCase() !== symbols.moduleName.toLowerCase())
 		.map((type) => type.name.toLowerCase()));
+	// The project's own Types, Enums and modules come before a referenced
+	// one's. Built only once a referenced project's Enum might be the type.
+	let ownTypes: ReadonlySet<string> | undefined;
+	const ownTypeOrEnum = (asType: string): boolean => {
+		if (asType.includes('.')) { return false; }
+		ownTypes ??= new Set([
+			...[...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
+				.filter((symbol) => symbol.kind === 'type' || symbol.kind === 'enum')
+				.map((symbol) => symbol.name.toLowerCase()),
+			...(memberCtx.projectClassMembers ?? []).map((type) => type.name.toLowerCase()),
+		]);
+		return ownTypes.has(asType.trim().toLowerCase());
+	};
+	const referencedEnum = memberCtx.referencedProjectSurfaces?.length
+		? (asType: string): boolean => declaredTypeIsReferencedEnum(asType, memberCtx.referencedProjectSurfaces, memberCtx.referencedLookupOrder) && !ownTypeOrEnum(asType)
+		: undefined;
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
@@ -101,6 +118,9 @@ export function checkScalarMemberAccess(
 						name,
 						'memberReceiver',
 					),
+				// A referenced project's Enum is a Long too (issue #1623), unless
+				// the project has a type of the name itself.
+				referencedEnum,
 			)) {
 				push(
 					'scalarMemberAccess',
@@ -117,6 +137,7 @@ function scalarMemberAccesses(
 	span: Span,
 	env: ReadonlyMap<string, string>,
 	resolveDeclaredType?: (name: string) => SourceDeclaredType,
+	isReferencedEnum?: (asType: string) => boolean,
 ): Array<{ name: string; asType: string; span: Span; vbeError: string }> {
 	const toks = statementTokens(source, span);
 	const out: Array<{ name: string; asType: string; span: Span; vbeError: string }> = [];
@@ -136,7 +157,7 @@ function scalarMemberAccesses(
 			? declaredType.asType
 			: env.get(name.toLowerCase());
 		const normalized = normalizeType(asType);
-		if (!asType || !normalized || !isKnownScalarType(normalized)) {
+		if (!asType || !normalized || !(isKnownScalarType(normalized) || isReferencedEnum?.(asType))) {
 			continue;
 		}
 		const memberName = toks[i + 2] ? tokenName(toks[i + 2]) : undefined;
