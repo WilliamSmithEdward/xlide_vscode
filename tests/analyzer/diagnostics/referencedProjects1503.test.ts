@@ -65,9 +65,12 @@ describe('names reached through a referenced VBA project (issue #1503)', () => {
 		expect(errors(byId('issue1503_private_class_type_compile'))[0]).toMatch(/^missing-library-reference: 'ProbeLibrary' is a VBA project this project references, and it offers no type 'Thing'/);
 	});
 
-	it('keeps an unread referenced project reported, so a refused call is not turned silent', () => {
+	it('leaves an unread referenced project and its names unjudged (issue #1621)', () => {
+		// The VBE compiles the case, so the "Variable not defined" XLIDE gave
+		// here was false. A refused call through an unread project's Option
+		// Private module goes unreported instead, the cost of not reading it.
 		const unread = errors(measured.find((oracleCase) => oracleCase.id === 'issue1503_qualified_compile')!, false);
-		expect(unread).toEqual([expect.stringMatching(/^undeclared-variable: Variable not defined: 'ProbeLibrary'/)]);
+		expect(unread).toEqual([]);
 	});
 });
 
