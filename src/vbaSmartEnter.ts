@@ -41,6 +41,11 @@ export type VbaSmartBlockLayout = 'comfy' | 'compact';
 /** The indentation level a snippet or block template is written with. */
 export const VBA_BLOCK_INDENT_UNIT = '\t';
 export const DEFAULT_VBA_SMART_BLOCK_LAYOUT: VbaSmartBlockLayout = 'comfy';
+/**
+ * A With member line: a leading dot with a member after it. A lone `.`, the
+ * dot XLIDE seeds, is no member yet, so Enter on it seeds no other (issue #1620).
+ */
+export const WITH_MEMBER_LINE_RE = /^[ \t]*\.[ \t]*[\p{L}_[]/u;
 
 /** The editor options that decide what one indentation level is. */
 export interface VbaIndentOptions {
@@ -367,7 +372,7 @@ export function withMemberContinuationText(
     if (previousLine === undefined) {
         return undefined;
     }
-    if (!/^[ \t]*\./.test(lexerStrippedLine(previousLine))) {
+    if (!WITH_MEMBER_LINE_RE.test(lexerStrippedLine(previousLine))) {
         return undefined;
     }
 
