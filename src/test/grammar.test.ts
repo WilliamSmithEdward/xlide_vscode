@@ -489,4 +489,36 @@ suite('VBA grammar', () => {
 		});
 	});
 
+	// The VBE shows True, False, Nothing, Null and Empty as keywords inside #If, #ElseIf
+	// and #Const lines too, in Excel, Word, PowerPoint and Access. The grammar gives them
+	// a keyword scope there and leaves the rest of the expression in the directive scope.
+	// They are the literal identifiers of MS-VBAL 3.3.5.2.
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/7df907cb-ab6c-40d3-aa81-272742ce00c3
+	test('colors True, False, Nothing, Null and Empty as keywords in a directive', async () => {
+		const LITERAL = 'keyword.other.literal.vba';
+		const lines = await lineTokens([
+			'#Const A = True',
+			'#If A = TRUE And B = false Then \' True',
+			'#ElseIf Not Nothing Or Null = Empty Then',
+			'#Else',
+			'#End If',
+			'#Const [True] = 1',
+			'#Const Truex = 1',
+		]);
+		const literals = lines.map((line) => line.filter((word) => word.endsWith(` ${LITERAL}`)).map((word) => word.split(' ')[0]));
+		assert.deepEqual(literals, [['True'], ['TRUE', 'false'], ['Nothing', 'Null', 'Empty'], [], [], [], []]);
+		const DIRECTIVE = 'meta.preprocessor.vba';
+		assert.deepEqual(lines[0], [`A = ${DIRECTIVE}`, `True ${LITERAL}`]);
+		assert.deepEqual(lines[1], [`A = ${DIRECTIVE}`, `TRUE ${LITERAL}`, `And B = ${DIRECTIVE}`, `false ${LITERAL}`, `Then ${DIRECTIVE}`]);
+		assert.deepEqual(lines[5], []);
+		assert.deepEqual(lines[6], [`Truex = ${DIRECTIVE}`]);
+		await withProbe(['#If A Then \' True', '#Const [True] = 1'], async (file) => {
+			const tokens = await tokensOf(file);
+			const comment = tokens.find((token) => token.c.includes('True') && !token.c.includes('['));
+			assert.ok(comment, 'the comment holds True');
+			assert.match(comment.t.split(' ').at(-1) ?? '', /^comment\./);
+			assert.equal((await scopesOf(file, '[True]')).split(' ').at(-1), DIRECTIVE);
+		});
+	});
+
 });

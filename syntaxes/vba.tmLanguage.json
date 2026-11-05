@@ -77,6 +77,11 @@
             { "include": "#strings" },
             { "include": "#numbers" },
             { "include": "#comments" },
+            {
+              "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords in a directive too (MS-VBAL 3.3.5.2)",
+              "name": "keyword.other.literal.vba",
+              "match": "(?i)\\b(?:True|False|Nothing|Null|Empty)\\b"
+            },
             { "match": "\\[[^\\]\\r\\n]*\\]?" }
           ]
         },
