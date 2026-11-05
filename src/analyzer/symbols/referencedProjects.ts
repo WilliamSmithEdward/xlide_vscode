@@ -43,6 +43,12 @@ export interface ReferencedProjectModule {
 	objectMembers?: ReferencedObjectMember[];
 	/** Whether the class has a default member, which an index into an object reaches. */
 	defaultMember?: boolean;
+	/**
+	 * The exposed class of the same project the default member returns, where
+	 * it takes the index's arguments itself: `ws(1)` on a Widgets whose
+	 * default `Item(ByVal i As Long) As Widget` is a Widget (issue #1623).
+	 */
+	defaultMemberClass?: string;
 }
 
 /** A Public member of an exposed class of a referenced project. */
@@ -128,6 +134,7 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 					predeclared: PREDECLARED.test(mod.source),
 					objectMembers: objectMembersOf(symbols, name, exposedClasses),
 					defaultMember: symbols.some(isDefaultProjectObjectMember),
+					...defaultMemberClassOf(symbols, name, exposedClasses),
 				} : {}),
 			};
 		}),
@@ -264,6 +271,21 @@ export interface ReferencedLookupOrder {
 	/** The project's references, in order; undefined where they are not known. */
 	libraries: readonly string[] | undefined;
 	hostName: string;
+}
+
+/**
+ * The class a default member gives, when an index goes to it: a Public
+ * function or Property Get that declares parameters and returns an exposed
+ * class of the project. A default member taking none passes the index on to
+ * what it returns, which is not followed.
+ */
+function defaultMemberClassOf(symbols: readonly VbaSymbol[], projectName: string, exposedClasses: ReadonlyMap<string, string>): { defaultMemberClass?: string } {
+	const member = symbols.find((symbol) => isDefaultProjectObjectMember(symbol) && symbol.kind !== 'propertyLet' && symbol.kind !== 'propertySet');
+	if (!member || !objectMemberKind(member) || (procedureSignatureFromSymbol(member)?.params.length ?? 0) === 0) {
+		return {};
+	}
+	const returned = exposedClassNamed(member.asType, projectName, exposedClasses);
+	return returned ? { defaultMemberClass: returned } : {};
 }
 
 /** What an object of a class offers another project: Public procedures and variables. Friend, Private and events are none. */
