@@ -82,6 +82,15 @@
               "name": "keyword.other.literal.vba",
               "match": "(?i)\\b(?:True|False|Nothing|Null|Empty)\\b"
             },
+            {
+              "comment": "Then and the operators the VBE was measured showing as keywords in a directive (MS-VBAL 5.6.16.2), with the scopes they have outside one. Xor, Eqv, Imp, Mod and Like were not measured there, so they keep the directive scope",
+              "match": "(?i)\\b(?:(Then)|(And|Or|Not)|(Is))\\b",
+              "captures": {
+                "1": { "name": "keyword.control.vba" },
+                "2": { "name": "keyword.operator.logical.vba" },
+                "3": { "name": "keyword.operator.word.vba" }
+              }
+            },
             { "match": "\\[[^\\]\\r\\n]*\\]?" }
           ]
         },
