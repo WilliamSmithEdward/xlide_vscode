@@ -119,6 +119,8 @@ type LoopLineInfo = LoopOpenerLine | LoopNextLine;
 // Sub` and `Static Public Sub` both declare a procedure (issue #1496).
 const PROCEDURE_MODIFIERS = '(?:(?:Public|Private|Friend|Global)\\s+(?:Static\\s+)?|Static\\s+(?:(?:Public|Private|Friend|Global)\\s+)?)?';
 const PROCEDURE_OPENER_RE = new RegExp(`^${PROCEDURE_MODIFIERS}(?:Sub|Function|Property)\\b`, 'i');
+/** A Type field: one name, perhaps an array's bounds, then As. */
+const TYPE_FIELD_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*\s*(?:\([^)]*\)\s*)?As\b/iu;
 
 export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParensEdit | undefined {
     const stripped = lexerStrippedLine(line);
@@ -154,6 +156,11 @@ export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParen
 export function detectSmartBlockOpener(strippedLine: string): VbaSmartBlockOpener | undefined {
     const t = strippedLine.trim();
     if (!t || t.includes(':')) {
+        return undefined;
+    }
+    // A Type field named like a block word, `Sub As Long` or `Next(1 To 2) As Long`
+    // (issue #1619). No block line has As straight after its first word.
+    if (TYPE_FIELD_RE.test(t)) {
         return undefined;
     }
 
