@@ -422,6 +422,36 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[8].filter((word) => word.startsWith('Seek')), [`Seek ${KEYWORD}`, `Seek ${KEYWORD}`]);
 	});
 
+	// Issue #1618. The VBE shows the conversions, LBound, UBound and Debug as keywords, and
+	// Len in an Open statement's Len = clause, in Excel, Word, PowerPoint and Access. CDec,
+	// Abs, Int, Len(...) and the other built-ins it shows as names, though MS-VBAL 3.3.5.2
+	// lists them with the conversions; they keep the built-in function scope.
+	test('colors the conversions, LBound, UBound and Debug as keywords, as the VBE does', async () => {
+		const OTHER = 'keyword.other.vba';
+		const BUILTIN = 'support.function.builtin.vba';
+		const conversions = ['CBool', 'CByte', 'CCur', 'CDate', 'CDbl', 'CInt', 'CLng', 'CLngLng', 'CLngPtr', 'CSng', 'CStr', 'CVar', 'CVErr'];
+		const lines = await lineTokens([
+			`    x = ${conversions.map((name) => `${name}(v)`).join(' + ')}`,
+			'    For i = LBound(a) To UBound(a): Next',
+			'    Debug.Print s: Debug.Assert ok',
+			'    Open p For Random As #1 Len = 10',
+			'    n = Len(s) + CDec(v) + Abs(v) + Int(v)',
+			'    x = VBA.CStr(v) + o.UBound',
+			'Private Type Flags',
+			'    CStr As Long',
+			'    Debug(1 To 2) As Long',
+			'End Type',
+		]);
+		assert.deepEqual(lines[0].filter((word) => word.endsWith(OTHER)).map((word) => word.split(' ')[0]), conversions);
+		assert.deepEqual(lines[1].filter((word) => /^[LU]Bound /.test(word)), [`LBound ${OTHER}`, `UBound ${OTHER}`]);
+		assert.deepEqual(lines[2].filter((word) => word.startsWith('Debug')), [`Debug ${OTHER}`, `Debug ${OTHER}`]);
+		assert.deepEqual(lines[3].filter((word) => word.startsWith('Len')), [`Len ${KEYWORD}`]);
+		assert.deepEqual(lines[4].filter((word) => /^(Len|CDec|Abs|Int) /.test(word)), [`Len ${BUILTIN}`, `CDec ${BUILTIN}`, `Abs ${BUILTIN}`, `Int ${BUILTIN}`]);
+		assert.deepEqual(lines[5].filter((word) => /^(CStr|UBound) /.test(word)), [`CStr ${MEMBER}`, `UBound ${MEMBER}`]);
+		assert.deepEqual(lines[7][0], `CStr ${NAME}`);
+		assert.deepEqual(lines[8][0], `Debug ${NAME}`);
+	});
+
 	// Oracle issue231_01/07/09/12/13_runtime and issue231_60/61_compile
 	// cover one-line If, colon, label, line number and continued Rem comments.
 	test('colors statement-following Rem and its continuation as comments', async () => {
