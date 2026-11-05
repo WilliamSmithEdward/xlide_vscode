@@ -33,6 +33,7 @@ import {
     registerVbaAutoBlock,
     registerVbaLoopIteratorSync,
 } from './vbaTypingAutomation';
+import { registerWithAutoDotCleanup } from './vbaWithAutoDot';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 import { DocMetadataLoader } from './vbaDocMetadata';
@@ -67,6 +68,7 @@ export function registerVbaLanguageProviders(
 
     registerVbaDiagnostics(context, projectIndexService, workerClient, errorWorker);
     registerVbaAutoBlock(context);
+    registerWithAutoDotCleanup(context);
     registerVbaLoopIteratorSync(context);
     const docMetadata = new DocMetadataLoader();
     void docMetadata.start(context);

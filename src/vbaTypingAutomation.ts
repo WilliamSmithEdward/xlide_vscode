@@ -16,6 +16,7 @@ import {
     loopIteratorSyncMayApply,
     smartBlockInsertion,
     vbaIndentUnit,
+    WITH_MEMBER_LINE_RE,
     withMemberContinuationText,
 } from './vbaSmartEnter';
 import {
@@ -23,6 +24,7 @@ import {
     xlideEditorContinueCommentOnNewlineFromConfig,
     xlideEditorMirrorCommentSpacingFromConfig,
 } from './globalSettings';
+import { trackWithAutoDot } from './vbaWithAutoDot';
 
 /** The one change of an edit to a VBA document, or undefined for any other event. */
 function soleVbaChange(e: vscode.TextDocumentChangeEvent): vscode.TextDocumentContentChangeEvent | undefined {
@@ -118,6 +120,10 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             applying.delete(doc);
             if (!applied) { caretOwnership.dispose(); }
         }
+        // The block runs from the opener to the closer, two lines below the body
+        // line at most (a spacer line, then End With).
+        const dotLineIndex = bodyLineIndex + smartBlock.bodyLineOffset;
+        trackWithAutoDot(doc, dotLineIndex, smartBlock.bodyText, openerLineIndex, dotLineIndex + 2);
 
         // Keep the caret on the indented body line, above the inserted End. The
         // delayed pass wins same-Enter listener races such as canonical casing.
@@ -245,11 +251,13 @@ async function maybeContinueWithMemberLine(
 
     // Ordinary Enter cannot continue a With member. Inspect the one line
     // before materializing and scanning the whole module for an open With.
-    if (!/^[ \t]*\./.test(lexerStrippedLine(doc.lineAt(previousLineIndex).text))) { return; }
+    if (!WITH_MEMBER_LINE_RE.test(lexerStrippedLine(doc.lineAt(previousLineIndex).text))) { return; }
     const lineText = withMemberContinuationText(doc.getText(), previousLineIndex);
     if (!lineText) { return; }
 
-    await replaceBodyLine(doc, bodyLineIndex, bodyLine, lineText);
+    if (await replaceBodyLine(doc, bodyLineIndex, bodyLine, lineText)) {
+        trackWithAutoDot(doc, bodyLineIndex, lineText, previousLineIndex, bodyLineIndex);
+    }
 }
 
 /**
