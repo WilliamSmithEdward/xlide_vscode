@@ -2065,10 +2065,13 @@ function applyDefaultMemberReturnType(
 	if (!typeName || !hasArguments) {
 		return typeName;
 	}
-	// `ws(1)` reaches a referenced class's default member, whose type is not
-	// followed, so what it gives is unjudged. Not the class's own members.
+	// `ws(1)` reaches a referenced class's default member: the class it returns
+	// where the member takes the index itself (issue #1623), and otherwise
+	// unjudged. Never the class's own members.
 	if (typeName.startsWith(REFERENCED_CLASS_PREFIX)) {
-		return referencedClassOfKey(typeName, ctx)?.module.defaultMember ? undefined : typeName;
+		const found = referencedClassOfKey(typeName, ctx);
+		if (!found?.module.defaultMember) { return typeName; }
+		return found.module.defaultMemberClass ? referencedClassKey(found.project, found.module.defaultMemberClass) : undefined;
 	}
 	const union = parseUnionTypeKey(typeName);
 	if (union) {

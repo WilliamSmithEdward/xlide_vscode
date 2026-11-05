@@ -393,6 +393,11 @@
           }
         },
         {
+          "comment": "Len in an Open statement's Len = clause (MS-VBAL 5.4.5.1), which the VBE shows as a keyword. Len is a reserved name, so no variable takes Len =; as a call, Len(s), it is a built-in function",
+          "match": "(?i)\\b(Len)\\b(?=\\s*=)",
+          "captures": { "1": { "name": "keyword.control.vba" } }
+        },
+        {
           "comment": "The Input # statement (MS-VBAL 5.4.5.10, which requires the #) and the Seek statement where a statement can start, with or without # (5.4.5.3). As calls, Seek(1) and Input(4, #1), the VBE shows them as names",
           "match": "(?i)\\b(Input)\\b(?=\\s*#)|(?:^\\s*|(?<=[0-9][ \\t])|:\\s*|\\b(Then|Else)\\s+)(Seek)\\b(?!\\s*(?:[=:.!,]|As\\b|$))",
           "captures": {
@@ -426,18 +431,19 @@
       ]
     },
     "reserved-names": {
-      "comment": "reserved-name identifiers (section 3.3.5.2 MS-VBAL): Me, Debug, conversion functions etc.",
+      "comment": "reserved-name identifiers (section 3.3.5.2 MS-VBAL) that the VBE shows as keywords",
       "patterns": [
         {
-          "name": "support.variable.vba",
-          "match": "(?i)\\bDebug\\b"
+          "comment": "The conversions, LBound, UBound and Debug, which the VBE shows as keywords in every host, though MS-VBAL 3.3.5.2 lists them with Abs, Int and Len, which it shows as names. Not as a Type field's name (CStr As Long), nor as a label (CStr:), whose colour was not measured",
+          "name": "keyword.other.vba",
+          "match": "(?i)\\b(CBool|CByte|CCur|CDate|CDbl|CInt|CLng|CLngLng|CLngPtr|CSng|CStr|CVar|CVErr|LBound|UBound|Debug)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b|\\s*:(?!=))"
         }
       ]
     },
     "builtin-functions": {
       "comment": "VBA Standard Library built-in functions (reserved-name + special-form from section 3.3.5.2 MS-VBAL, plus VBA runtime)",
       "name": "support.function.builtin.vba",
-      "match": "(?i)\\b(Abs|Array|Asc|AscB|AscW|Atn|CBool|CByte|CCur|CDate|CDbl|CDec|Choose|Chr|ChrB|ChrW|CInt|CLng|CLngLng|CLngPtr|Cos|CreateObject|CSng|CStr|CurDir|CVar|CVErr|DateAdd|DateDiff|DatePart|DateSerial|DateValue|Day|DDB|Dir|DoEvents|Environ|EOF|Err|Exp|FileAttr|FileCopy|FileDateTime|FileLen|Filter|Fix|Format|FormatCurrency|FormatDateTime|FormatNumber|FormatPercent|FreeFile|FV|GetAttr|GetObject|GetSetting|Hex|Hour|IIf|IMEStatus|InputBox|InStr|InStrB|InStrRev|Int|IPmt|IRR|IsArray|IsDate|IsEmpty|IsError|IsMissing|IsNull|IsNumeric|IsObject|Join|LBound|LCase|Left|LeftB|Len|LenB|Loc|LOF|Log|LTrim|Mid|MidB|Minute|MIRR|Month|MonthName|MsgBox|Now|NPer|NPV|Oct|Partition|Pmt|PPmt|PSet|PV|QBColor|Randomize|Rate|Replace|RGB|Right|RightB|Rnd|Round|RTrim|Scale|Second|Sgn|Shell|Sin|SLN|Space|Split|Sqr|Str|StrComp|StrConv|StrReverse|Switch|SYD|Tan|Time|Timer|TimeSerial|TimeValue|Trim|TypeName|UBound|UCase|Val|VarType|Weekday|WeekdayName|Year)\\b(?=\\s*[\\(\\s]|$)"
+      "match": "(?i)\\b(Abs|Array|Asc|AscB|AscW|Atn|CDec|Choose|Chr|ChrB|ChrW|Cos|CreateObject|CurDir|DateAdd|DateDiff|DatePart|DateSerial|DateValue|Day|DDB|Dir|DoEvents|Environ|EOF|Err|Exp|FileAttr|FileCopy|FileDateTime|FileLen|Filter|Fix|Format|FormatCurrency|FormatDateTime|FormatNumber|FormatPercent|FreeFile|FV|GetAttr|GetObject|GetSetting|Hex|Hour|IIf|IMEStatus|InputBox|InStr|InStrB|InStrRev|Int|IPmt|IRR|IsArray|IsDate|IsEmpty|IsError|IsMissing|IsNull|IsNumeric|IsObject|Join|LCase|Left|LeftB|Len|LenB|Loc|LOF|Log|LTrim|Mid|MidB|Minute|MIRR|Month|MonthName|MsgBox|Now|NPer|NPV|Oct|Partition|Pmt|PPmt|PSet|PV|QBColor|Randomize|Rate|Replace|RGB|Right|RightB|Rnd|Round|RTrim|Scale|Second|Sgn|Shell|Sin|SLN|Space|Split|Sqr|Str|StrComp|StrConv|StrReverse|Switch|SYD|Tan|Time|Timer|TimeSerial|TimeValue|Trim|TypeName|UCase|Val|VarType|Weekday|WeekdayName|Year)\\b(?=\\s*[\\(\\s]|$)"
     },
     "identifiers": {
       "patterns": [

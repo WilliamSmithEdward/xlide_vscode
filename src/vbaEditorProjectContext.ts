@@ -81,6 +81,13 @@ export interface EditorProjectContext {
 	/** Procedure-name strings also need callables declared in the current standard module. */
 	macroProcedures?: readonly VbaProcedureSignature[];
 	projectSymbols?: IdentifierCompletionContext['projectSymbols'];
+	/**
+	 * What each referenced VBA project XLIDE read offers, and the order names
+	 * are looked up in, so `w.` on a referenced class lists its members as the
+	 * diagnostics judge them (issue #1622). Absent until the project is read.
+	 */
+	referencedProjectSurfaces?: MemberCompletionContext['referencedProjectSurfaces'];
+	referencedLookupOrder?: MemberCompletionContext['referencedLookupOrder'];
 }
 
 interface CachedEditorProjectContext {
@@ -223,6 +230,23 @@ function localDocumentTypeFromModuleName(
 	return undefined;
 }
 
+/**
+ * The referenced projects the project index already read, with the order the
+ * diagnostics look names up in: the references' names, and the host's
+ * library name. Nothing is read here; a project not read yet adds nothing.
+ */
+function referencedProjectContext(
+	projectContext: VbaProjectContext,
+	host: VbaHostToken | undefined,
+): Pick<EditorProjectContext, 'referencedProjectSurfaces' | 'referencedLookupOrder'> {
+	const surfaces = projectContext.referencedProjects;
+	if (!surfaces?.length) { return {}; }
+	const libraries = projectContext.references.length > 0 ? projectContext.references.map((reference) => reference.name) : undefined;
+	// Excel's model is the default, which the registry answers as none.
+	const hostModel = hostObjectModelForTokens(hostTokensForProject(host, projectContext.references));
+	return { referencedProjectSurfaces: surfaces, referencedLookupOrder: { libraries, hostName: hostModel?.hostName ?? 'Excel' } };
+}
+
 export function toMemberCompletionContext(ctx: EditorProjectContext): MemberCompletionContext {
 	return {
 		codeNames: ctx.codeNameMap,
@@ -232,6 +256,10 @@ export function toMemberCompletionContext(ctx: EditorProjectContext): MemberComp
 		projectSymbols: ctx.projectSymbols,
 		implicitMembers: ctx.implicitMembers,
 		model: ctx.hostModel,
+		...(ctx.referencedProjectSurfaces?.length ? {
+			referencedProjectSurfaces: ctx.referencedProjectSurfaces,
+			referencedLookupOrder: ctx.referencedLookupOrder,
+		} : {}),
 	};
 }
 
@@ -512,6 +540,7 @@ export class VbaEditorProjectContextService implements vscode.Disposable {
 			projectProcedures: context.externalProjectProcedures,
 			macroProcedures: moduleKind === 'standard' ? projectContext.project.visibleProcedureSignatures(moduleName) : context.externalProjectProcedures,
 			projectSymbols: context.externalProjectSymbols,
+			...referencedProjectContext(projectContext, host),
 		}, documentVersion);
 	}
 
