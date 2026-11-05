@@ -315,7 +315,10 @@ suite('VBA grammar', () => {
 	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/73ef1ac2-4da7-4cda-b2a3-5984a8649ded
 	// and the Name statement of the Office VBA reference.
 	// https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/name-statement
-	test('colors Line Input, Width #, Name ... As and Reset as statements where a statement can start', async () => {
+	// The VBE colors Line and Input of Line Input, and Name and As of Name ... As, as
+	// keywords, but leaves Width (in `Width #1, 80`) and Reset as names, in Excel, Word,
+	// PowerPoint and Access alike, so the grammar does too.
+	test('colors Line Input and Name ... As as statements, and Width # and Reset as names', async () => {
 		const lines = await lineTokens([
 			'Sub Test()',
 			'    Reset',
@@ -336,12 +339,21 @@ suite('VBA grammar', () => {
 		]);
 		const keywords = lines.map((line) => line.filter((word) => word.endsWith(KEYWORD)).map((word) => word.split(' ')[0]));
 		assert.deepEqual(keywords.slice(1, 7), [
-			['Reset'],
-			['Line', 'Input', 'Width', 'Width', 'Width'],
+			[],
+			['Line', 'Input'],
 			['Name'],
 			['Name'],
-			['If', 'Then', 'Reset', 'Name', 'Else', 'Reset'],
-			['Reset'],
+			['If', 'Then', 'Name', 'Else'],
+			[],
+		]);
+		const widthAndReset = lines.slice(1, 7).map((line) => line.filter((word) => /^(Width|Reset) /.test(word)));
+		assert.deepEqual(widthAndReset, [
+			[`Reset ${NAME}`],
+			[`Width ${NAME}`, `Width ${NAME}`, `Width ${NAME}`],
+			[],
+			[],
+			[`Reset ${NAME}`, `Reset ${NAME}`],
+			[`Reset ${NAME}`],
 		]);
 		assert.deepEqual(lines[7], [
 			`Name ${NAME}`, `ws ${NAME}`, `Name ${MEMBER}`, `w ${NAME}`, `ws ${NAME}`, `Width ${MEMBER}`,
