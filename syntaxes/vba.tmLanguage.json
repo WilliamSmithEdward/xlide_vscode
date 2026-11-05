@@ -125,6 +125,22 @@
     "numbers": {
       "patterns": [
         {
+          "comment": "A number with Rem glued to it, as the VBE stores a Rem after a statement in a single-line If (b = 1Rem n): no word boundary separates the number from Rem, so the Rem comment rule cannot start there",
+          "begin": "(?i)(?<![\\p{L}\\p{M}0-9_])(?:(&H[0-9A-F]+)|(&O[0-7]+)|([0-9]+\\.[0-9]+(?:[de][+-]?[0-9]+)?|\\.[0-9]+(?:[de][+-]?[0-9]+)?|[0-9]+[de][+-]?[0-9]+)|([0-9]+))(Rem)\\b",
+          "beginCaptures": {
+            "1": { "name": "constant.numeric.hex.vba" },
+            "2": { "name": "constant.numeric.octal.vba" },
+            "3": { "name": "constant.numeric.float.vba" },
+            "4": { "name": "constant.numeric.integer.vba" },
+            "5": { "name": "comment.line.rem.vba" }
+          },
+          "end": "(?=\\n)",
+          "contentName": "comment.line.rem.vba",
+          "patterns": [
+            { "include": "#comment-continuation" }
+          ]
+        },
+        {
           "name": "constant.numeric.hex.vba",
           "match": "(?i)&H[0-9A-F]+[%&^]?"
         },
