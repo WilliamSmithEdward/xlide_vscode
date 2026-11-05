@@ -91,12 +91,14 @@ describe('a reference name as a qualifier (issue #1495)', () => {
 		expect(errors(['Option Explicit', 'Sub Main()', '    Dim c As Nowhere _', '        .Thing', 'End Sub', ''].join('\r\n'), 'excel', known).map((e) => e.split(':')[0])).toEqual(['missing-library-reference']);
 	});
 
-	it('keeps another VBA project\'s name reported until that project is read', () => {
-		// Its module may be Option Private, which makes the call "Method or
-		// data member not found"; accepting the name would hide that.
+	it('accepts another VBA project\'s name as a qualifier, read or not (issue #1621)', () => {
+		// The VBE compiles this (oracle issue1503_qualified_compile). Unread,
+		// what follows the dot is left unjudged, and a bare name too.
 		const known = { referencedLibraries: ['stdole', 'Office', 'ProbeLibrary'], referencedProjects: ['ProbeLibrary'], projectName: 'VBAProject' };
-		expect(errors(module('x = ProbeLibrary.Service.Value()'), 'excel', known)).toEqual([
-			"undeclared-variable: Variable not defined: 'ProbeLibrary'. Declare it before using it, or remove Option Explicit.",
-		]);
+		expect(errors(module('x = ProbeLibrary.Service.Value()'), 'excel', known)).toEqual([]);
+		expect(errors(module('x = Nonexistent'), 'excel', known)).toEqual([]);
+		// With every reference known, a name nothing supplies is still reported.
+		const typeLibrariesOnly = { referencedLibraries: ['stdole', 'Office'], projectName: 'VBAProject' };
+		expect(errors(module('x = Nonexistent'), 'excel', typeLibrariesOnly).map((e) => e.split(':')[0])).toEqual(['undeclared-variable']);
 	});
 });

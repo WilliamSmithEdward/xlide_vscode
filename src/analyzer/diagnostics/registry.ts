@@ -88,6 +88,7 @@ import {
 	checkBuiltinsReadBare,
 	checkUndeclaredVariables,
 	checkUnknownCallStatement,
+	hasUnreadProjectReference,
 } from './rules/undeclared';
 import { checkReferencedProjectNames } from './rules/referencedProjects';
 import {
@@ -1244,6 +1245,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				push,
 				ctx.opts.projectClassMembers,
 				ownObjectMemberNames(ctx.opts),
+				hasUnreadProjectReference(ctx.opts),
 			);
 		},
 	},
