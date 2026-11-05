@@ -237,6 +237,28 @@ export function referencedProjectReached(
 	return undefined;
 }
 
+/**
+ * Whether a declared type names a read referenced project's Public Enum:
+ * `ProbeLibrary.WidgetColor`, or a bare `WidgetColor` the lookup reaches. A
+ * variable of it is a Long, so a member on it is "Invalid qualifier" (issue
+ * #1623). A name the project itself declares is the caller's to rule out.
+ */
+export function declaredTypeIsReferencedEnum(
+	asType: string,
+	surfaces: readonly ReferencedProjectSurface[] | undefined,
+	order: ReferencedLookupOrder | undefined,
+): boolean {
+	const parts = asType.split('.').map((part) => part.trim().toLowerCase());
+	if (!surfaces?.length || parts.length > 2 || parts.some((part) => !/^[\p{L}_][\p{L}\p{M}0-9_]*$/u.test(part))) {
+		return false;
+	}
+	const name = parts[parts.length - 1];
+	const project = parts.length === 2
+		? surfaces.find((surface) => surface.name.toLowerCase() === parts[0])
+		: order && referencedProjectReached(name, surfaces, order, (offered) => offered.types.has(name));
+	return !!project && referencedProjectNames(project).enums.has(name);
+}
+
 /** What decides which library a bare name reaches. */
 export interface ReferencedLookupOrder {
 	/** The project's references, in order; undefined where they are not known. */

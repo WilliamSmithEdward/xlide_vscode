@@ -33,13 +33,13 @@ const byId = (id: string): OracleCase => measured.find((oracleCase) => oracleCas
  * guessed. Reached through a function of the referenced project, the class's
  * members are not checked: XLIDE does not carry the function's return type
  * over. Nor are they through a default member, `ws(1).Nope`, which it does
- * not follow, nor is a member of an Enum variable, `c.Value` being "Invalid
- * qualifier". And these Word cases also reference Normal, before
+ * not follow. A member of a referenced Enum's variable, `c.Value`, is
+ * "Invalid qualifier" (issue #1623). And these Word cases also reference Normal, before
  * ProbeLibrary, as a project XLIDE has not read: a bare `Thing`, `Widget` or
  * `Solo` could be Normal's. The engine reads Normal where it can; see the
  * tests below.
  */
-const UNCHECKED = /_(function_chain_missing|default_member_missing|enum_variable_member)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing|bare_missing_member)_compile$/;
+const UNCHECKED = /_(function_chain_missing|default_member_missing)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing|bare_missing_member)_compile$/;
 
 type References = ReturnType<typeof oracleProjectReferences>;
 
