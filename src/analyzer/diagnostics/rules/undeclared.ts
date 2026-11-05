@@ -407,6 +407,7 @@ export function checkUnknownCallStatement(
 	push: PushFn,
 	projectTypes?: readonly VbaProjectClassMembers[],
 	ownMembers: ReadonlySet<string> = new Set(),
+	unreadProject = false,
 ): ProcedureStatementVisitor {
 	// The host injects Application's members into the global scope, so a bare
 	// call may legitimately bind to one of them (Calculate, Volatile, ...).
@@ -447,7 +448,9 @@ export function checkUnknownCallStatement(
 			resolveHostGlobalMember(name, hostModel) !== undefined ||
 			resolveHostEnum(name, hostModel) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
-			resolveRuntimeFunction(name) !== undefined
+			resolveRuntimeFunction(name) !== undefined ||
+			// A referenced project XLIDE did not read may hold it (issue #1621).
+			unreadProject
 		);
 	};
 
@@ -709,6 +712,9 @@ export function checkUndeclaredVariables(
 	const libraryQualifiers = libraryQualifierNames(hostModel, referencedHosts, project);
 	const isLibraryName = (lower: string): boolean => lower === 'vba' || libraryQualifiers.has(lower);
 	const referencedNames = referencedProjectNames(project.referencedProjectSurfaces);
+	// Behind a referenced project XLIDE did not read, a name it cannot place is
+	// left unjudged: the project may supply it (issue #1621).
+	const unreadProject = hasUnreadProjectReference(project);
 	const standsBeforeDot = (span: Span): boolean => BEFORE_DOT.test(source.slice(span.end, span.end + 256));
 	// A form's controls are declared by its DESIGNER, not its text, and the seed
 	// has three states, not two: a list, a vouched-for-empty list, and no answer
@@ -778,7 +784,8 @@ export function checkUndeclaredVariables(
 			// `VbMsgBoxResult.vbYes`, `ColorConstants.vbRed`, `Strings.Left`.
 			resolveVbaLibraryQualifier(name) !== undefined ||
 			// A read referenced project's modules and members (issue #1503).
-			referencedNames.has(lower)
+			referencedNames.has(lower) ||
+			unreadProject
 		);
 	};
 
@@ -1066,19 +1073,26 @@ function libraryQualifierNames(
 			out.add(name.toLowerCase());
 		}
 	}
-	// A type library's recorded name vouches for what follows it. Another
-	// VBA project's does once XLIDE has read it, and the referenced-project
-	// rule then judges what follows its dot. Unread, its module may be
-	// Option Private, and the call then "Method or data member not found",
-	// so it stays reported rather than turned silent (issue #1503).
-	const read = new Set((project.referencedProjectSurfaces ?? []).map((surface) => surface.name.toLowerCase()));
-	const projects = new Set((project.referencedProjects ?? []).map((name) => name.toLowerCase()));
+	// A reference's recorded name vouches for what follows it: a type
+	// library's, and another VBA project's, read or not. Read, the
+	// referenced-project rule judges what follows its dot. Unread, the VBE
+	// accepts `ProbeLibrary.WidgetColor` as it does for a read one, so the
+	// name is no undeclared variable (issue #1621).
 	for (const name of project.referencedLibraries ?? []) {
-		if (!projects.has(name.toLowerCase()) || read.has(name.toLowerCase())) {
-			out.add(name.toLowerCase());
-		}
+		out.add(name.toLowerCase());
 	}
 	return out;
+}
+
+/**
+ * Whether the project references a VBA project XLIDE did not read: one on a
+ * network path, missing, locked or protected. Its names are unknown, so a bare
+ * name or call XLIDE cannot place may be one of them, and the VBE accepts it
+ * as such in every host (issue #1621).
+ */
+export function hasUnreadProjectReference(project: Pick<ProjectQualifiers, 'referencedProjects' | 'referencedProjectSurfaces'>): boolean {
+	const read = new Set((project.referencedProjectSurfaces ?? []).map((surface) => surface.name.toLowerCase()));
+	return (project.referencedProjects ?? []).some((name) => !read.has(name.toLowerCase()));
 }
 
 function hasOptionExplicit(

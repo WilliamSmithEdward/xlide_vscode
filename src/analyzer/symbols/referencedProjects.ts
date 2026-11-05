@@ -41,8 +41,16 @@ export interface ReferencedProjectModule {
 	predeclared?: boolean;
 	/** What an object of an exposed class offers another project. */
 	objectMembers?: ReferencedObjectMember[];
+	/** A visible standard module's Public members, with the exposed class each returns (issue #1623). */
+	moduleMembers?: ReferencedObjectMember[];
 	/** Whether the class has a default member, which an index into an object reaches. */
 	defaultMember?: boolean;
+	/**
+	 * The exposed class of the same project the default member returns, where
+	 * it takes the index's arguments itself: `ws(1)` on a Widgets whose
+	 * default `Item(ByVal i As Long) As Widget` is a Widget (issue #1623).
+	 */
+	defaultMemberClass?: string;
 }
 
 /** A Public member of an exposed class of a referenced project. */
@@ -106,6 +114,9 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 					members: own.filter((symbol) => symbol.kind !== 'type' && symbol.kind !== 'enum').map((symbol) => symbol.name),
 					enums: publicEnums(own),
 					types: own.filter((symbol) => symbol.kind === 'type' || symbol.kind === 'enum').map((symbol) => symbol.name),
+					// What its Public procedures and variables give, so a chain through
+					// one reaches the class it returns: `ProbeLibrary.NewWidget().Nope`.
+					...(visible ? { moduleMembers: objectMembersOf(index.getModule(mod.name)?.root.children ?? [], name, exposedClasses) } : {}),
 				};
 			}
 			const exposed = EXPOSED.test(mod.source);
@@ -128,6 +139,7 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 					predeclared: PREDECLARED.test(mod.source),
 					objectMembers: objectMembersOf(symbols, name, exposedClasses),
 					defaultMember: symbols.some(isDefaultProjectObjectMember),
+					...defaultMemberClassOf(symbols, name, exposedClasses),
 				} : {}),
 			};
 		}),
@@ -237,11 +249,48 @@ export function referencedProjectReached(
 	return undefined;
 }
 
+/**
+ * Whether a declared type names a read referenced project's Public Enum:
+ * `ProbeLibrary.WidgetColor`, or a bare `WidgetColor` the lookup reaches. A
+ * variable of it is a Long, so a member on it is "Invalid qualifier" (issue
+ * #1623). A name the project itself declares is the caller's to rule out.
+ */
+export function declaredTypeIsReferencedEnum(
+	asType: string,
+	surfaces: readonly ReferencedProjectSurface[] | undefined,
+	order: ReferencedLookupOrder | undefined,
+): boolean {
+	const parts = asType.split('.').map((part) => part.trim().toLowerCase());
+	if (!surfaces?.length || parts.length > 2 || parts.some((part) => !/^[\p{L}_][\p{L}\p{M}0-9_]*$/u.test(part))) {
+		return false;
+	}
+	const name = parts[parts.length - 1];
+	const project = parts.length === 2
+		? surfaces.find((surface) => surface.name.toLowerCase() === parts[0])
+		: order && referencedProjectReached(name, surfaces, order, (offered) => offered.types.has(name));
+	return !!project && referencedProjectNames(project).enums.has(name);
+}
+
 /** What decides which library a bare name reaches. */
 export interface ReferencedLookupOrder {
 	/** The project's references, in order; undefined where they are not known. */
 	libraries: readonly string[] | undefined;
 	hostName: string;
+}
+
+/**
+ * The class a default member gives, when an index goes to it: a Public
+ * function or Property Get that declares parameters and returns an exposed
+ * class of the project. A default member taking none passes the index on to
+ * what it returns, which is not followed.
+ */
+function defaultMemberClassOf(symbols: readonly VbaSymbol[], projectName: string, exposedClasses: ReadonlyMap<string, string>): { defaultMemberClass?: string } {
+	const member = symbols.find((symbol) => isDefaultProjectObjectMember(symbol) && symbol.kind !== 'propertyLet' && symbol.kind !== 'propertySet');
+	if (!member || !objectMemberKind(member) || (procedureSignatureFromSymbol(member)?.params.length ?? 0) === 0) {
+		return {};
+	}
+	const returned = exposedClassNamed(member.asType, projectName, exposedClasses);
+	return returned ? { defaultMemberClass: returned } : {};
 }
 
 /** What an object of a class offers another project: Public procedures and variables. Friend, Private and events are none. */
