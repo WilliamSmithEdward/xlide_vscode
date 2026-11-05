@@ -394,6 +394,34 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[14], [`Reset ${NAME}`, 'As keyword.other.vba', 'Long support.type.vba']);
 	});
 
+	// Issue #1617. The VBE shows Me, the vb and xl constants, Date and Object as values and
+	// String, Seek and Input as calls as names, in Excel, Word, PowerPoint and Access. Date,
+	// String and Object stay types after As, and Seek and Input stay keywords in their
+	// statements: Seek with or without # (MS-VBAL 5.4.5.3), Input # (5.4.5.10).
+	test('colors Me, the constants and the calls the VBE shows as names as names', async () => {
+		const TYPE = 'support.type.vba';
+		const lines = await lineTokens([
+			'    Set ws = Me.Worksheets(1)',
+			'    s = "a" & vbCrLf & vbNullString: d = xlUp',
+			'    x = Date: Set o = Object: y = Date$',
+			'    s = String(2, "a") & String$(2, "b")',
+			'    p = Seek(1): t = Input(4, #1) & Input$(4, #1)',
+			'    Dim a As String, b As Date, c As Object, n As Long',
+			'    Seek #1, 1: Seek 1, 1',
+			'    Input #1, x',
+			'    If p Then Seek 1, 2 Else Seek #1, 3',
+		]);
+		assert.deepEqual(lines[0], [`Set keyword.other.vba`, `ws ${NAME}`, `Me ${NAME}`, `Worksheets ${MEMBER}`]);
+		assert.deepEqual(lines[1].slice(1), [`vbCrLf ${NAME}`, `vbNullString ${NAME}`, `d ${NAME}`, `xlUp ${NAME}`]);
+		assert.deepEqual(lines[2].filter((word) => /^(Date|Object)\b/.test(word)), [`Date ${NAME}`, `Object ${NAME}`, `Date ${NAME}`]);
+		assert.deepEqual(lines[3].filter((word) => word.startsWith('String')), [`String ${NAME}`, `String ${NAME}`]);
+		assert.deepEqual(lines[4].filter((word) => /^(Seek|Input)\b/.test(word)), [`Seek ${NAME}`, `Input ${NAME}`, `Input ${NAME}`]);
+		assert.deepEqual(lines[5].filter((word) => word.endsWith(TYPE)), [`String ${TYPE}`, `Date ${TYPE}`, `Object ${TYPE}`, `Long ${TYPE}`]);
+		assert.deepEqual(lines[6].filter((word) => word.startsWith('Seek')), [`Seek ${KEYWORD}`, `Seek ${KEYWORD}`]);
+		assert.deepEqual(lines[7][0], `Input ${KEYWORD}`);
+		assert.deepEqual(lines[8].filter((word) => word.startsWith('Seek')), [`Seek ${KEYWORD}`, `Seek ${KEYWORD}`]);
+	});
+
 	// Oracle issue231_01/07/09/12/13_runtime and issue231_60/61_compile
 	// cover one-line If, colon, label, line number and continued Rem comments.
 	test('colors statement-following Rem and its continuation as comments', async () => {
@@ -504,8 +532,9 @@ suite('VBA grammar', () => {
 		]);
 		const literals = lines.map((line) => line.filter((word) => word.endsWith(` ${LITERAL}`)).map((word) => word.split(' ')[0]));
 		assert.deepEqual(literals.slice(0, 4), [['True', 'Empty'], ['False', 'Nothing', 'Null'], ['Nothing', 'Null', 'TRUE'], ['false']]);
+		// The constants are names since issue #1617.
 		assert.deepEqual(lines[4].filter((word) => /^(vbCrLf|vbNullString|xlUp) /.test(word)), [
-			'vbCrLf constant.language.vba', 'vbNullString constant.language.vba', 'xlUp constant.language.vba',
+			`vbCrLf ${NAME}`, `vbNullString ${NAME}`, `xlUp ${NAME}`,
 		]);
 		assert.deepEqual(lines[5], [`x ${NAME}`, `a ${NAME}`, `True ${MEMBER}`, `a ${NAME}`, `Nothing ${MEMBER}`, `Truex ${NAME}`, `xNull ${NAME}`]);
 		assert.deepEqual(lines[6], [`x ${NAME}`]);
