@@ -176,8 +176,8 @@
           }
         },
         {
-          "comment": "End Sub / End Function / End Property / End If / End With / End Select / End Type / End Enum",
-          "match": "(?i)^\\s*(End)\\s+(Sub|Function|Property|If|With|Select|Type|Enum)\\b",
+          "comment": "End Sub / End Function / End Property / End If / End With / End Select / End Type / End Enum, at the start of a line or after a colon, where one-line forms close (Sub A(): End Sub); the VBE shows both words as keywords",
+          "match": "(?i)(?:^\\s*|(?<=:)\\s*)(End)\\s+(Sub|Function|Property|If|With|Select|Type|Enum)\\b",
           "captures": {
             "1": { "name": "keyword.control.end.vba" },
             "2": { "name": "keyword.control.end.vba" }
