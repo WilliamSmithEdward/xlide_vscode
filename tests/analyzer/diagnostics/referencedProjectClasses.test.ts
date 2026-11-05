@@ -62,7 +62,7 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
  * in `With ProbeLibrary.Solo`; and an `Implements ProbeLibrary.Widget` that
  * defines none of Widget's members. Their valid neighbours agree.
  */
-const PENDING = /_(bracket_private_type|with_qualified_predeclared_missing|implements_missing)_compile$/;
+const PENDING = /_(with_qualified_predeclared_missing)_compile$/;
 const unchecked = (id: string): boolean => UNCHECKED.test(id) || PENDING.test(id);
 
 describe('the classes of a referenced VBA project', () => {
@@ -80,10 +80,15 @@ describe('the classes of a referenced VBA project', () => {
 		} else {
 			expect(found).toHaveLength(1);
 			// Each says what the VBE says, but `WithEvents ... As New`, which
-			// the WithEvents rule words as it does for any class.
+			// the WithEvents rule words as it does for any class, and an
+			// Implements, which says what the VBE says and then what to add.
 			const vbe = /Compile error: (.+?)\. Measured/.exec(oracleCase.description)?.[1];
 			if (/_withevents_new_compile$/.test(oracleCase.id)) {
 				expect(found[0]).toMatch(/^withevents-declaration: WithEvents variable 'mW' cannot be declared As New\./);
+				return;
+			}
+			if (/_implements_missing_compile$/.test(oracleCase.id)) {
+				expect(found[0]).toBe(`implements-member-missing: ${vbe}: add a Property 'Widget_Value', and 'Widget_Child', 'Widget_Size', 'Widget_Twice', 'Widget_Poke'.`);
 				return;
 			}
 			expect(found[0]).toContain(vbe === 'Variable not defined' || vbe === 'Method or data member not found' ? `${vbe}: ` : `VBE compile error: ${vbe}.`);
