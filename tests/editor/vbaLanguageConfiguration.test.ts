@@ -280,6 +280,34 @@ describe('VBA language configuration', () => {
 		}
 	});
 
+	it('reads a Type field named like a block word as a field, not a block line (issue #1619)', () => {
+		// Oracle reserved_member_name_every_reserved_word_type_fields_compile: Excel compiles
+		// a Type field named after most keywords, and the VBE shows each as a name. A real
+		// block line is never followed by As, so the guard hides none.
+		const config = loadConfig();
+		for (const word of ['Sub', 'Function', 'While', 'With', 'Next', 'Loop', 'Wend', 'Else', 'ElseIf', 'Case', 'EndIf']) {
+			for (const field of [`${word} As Long`, `${word}(1 To 2) As Long`, `${word.toLowerCase()}   As tPointer`]) {
+				expect(lineRules(config, `    ${field}`), field).toEqual({ increase: false, decrease: false, enter: false });
+				// Smart Enter inserts no closer after one either.
+				expect(detectSmartBlockOpener(field), field).toBeUndefined();
+			}
+		}
+		for (const field of ['Type As Long', 'Enum As Long', 'Property As Long', 'Select As Long', 'Do As Long']) {
+			expect(detectSmartBlockOpener(field), field).toBeUndefined();
+		}
+		// stdVBA's src/WIP/stdDictionary/trick/stdDictionary.cls, line 121 at 7e063cf.
+		const source = ['Private Type tPointer', '    Next            As tPointer', '    Sub As Long', '    While As Long', 'End Type'].join('\r\n');
+		expect(reindent(config, source)).toBe(source);
+		// The block lines these words start still work.
+		for (const line of ['Sub Main()', 'Function F() As Long', 'While n < 3', 'With ws']) {
+			expect(lineRules(config, `    ${line}`), line).toMatchObject({ increase: true, enter: true });
+			expect(detectSmartBlockOpener(line), line).toBeDefined();
+		}
+		for (const line of ['Next', 'Next i', 'Loop', 'Loop Until n > 3', 'Wend', 'EndIf', 'Case 1', 'Else']) {
+			expect(lineRules(config, `    ${line}`).decrease, line).toBe(true);
+		}
+	});
+
 	it('outdents #Else and #ElseIf and indents after them, as after #If', () => {
 		const config = loadConfig();
 		for (const line of ['#Else', '#ElseIf Win64 Then', '# Else \' 32-bit', '#ElseIf #12:00:00 PM# = 0.5 Then', '#ElseIf True Then: \' note']) {
