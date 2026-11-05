@@ -231,9 +231,18 @@
       "match": "(?i)\\b(Boolean|Byte|Integer|Long|LongLong|LongPtr|Single|Double|Currency|Date|String|Variant|Object)\\b"
     },
     "constants": {
-      "comment": "Language literal-identifiers and common VBA/Excel intrinsic constants",
-      "name": "constant.language.vba",
-      "match": "(?i)\\b(True|False|Nothing|Null|Empty|vbCrLf|vbCr|vbLf|vbNewLine|vbTab|vbNullString|vbNullChar|vbBack|vbFormFeed|vbVerticalTab|vbBlack|vbRed|vbGreen|vbYellow|vbBlue|vbMagenta|vbCyan|vbWhite|vbOKOnly|vbOKCancel|vbAbortRetryIgnore|vbYesNoCancel|vbYesNo|vbRetryCancel|vbCritical|vbQuestion|vbExclamation|vbInformation|vbDefaultButton1|vbDefaultButton2|vbDefaultButton3|vbApplicationModal|vbSystemModal|vbOK|vbCancel|vbAbort|vbRetry|vbIgnore|vbYes|vbNo|vbString|vbBinaryCompare|vbTextCompare|xlUp|xlDown|xlToLeft|xlToRight|xlValues|xlFormulas|xlComments|xlWhole|xlPart|xlByRows|xlByColumns|xlNext|xlPrevious|xlCellTypeLastCell|xlCellTypeBlanks|xlShiftUp|xlShiftToLeft|xlShiftDown|xlShiftToRight)\\b"
+      "patterns": [
+        {
+          "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords (MS-VBAL 3.3.5.2), except as a Type field's name (True As Long), where it shows a name",
+          "name": "keyword.other.literal.vba",
+          "match": "(?i)\\b(True|False|Nothing|Null|Empty)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b)"
+        },
+        {
+          "comment": "Common VBA/Excel intrinsic constants",
+          "name": "constant.language.vba",
+          "match": "(?i)\\b(vbCrLf|vbCr|vbLf|vbNewLine|vbTab|vbNullString|vbNullChar|vbBack|vbFormFeed|vbVerticalTab|vbBlack|vbRed|vbGreen|vbYellow|vbBlue|vbMagenta|vbCyan|vbWhite|vbOKOnly|vbOKCancel|vbAbortRetryIgnore|vbYesNoCancel|vbYesNo|vbRetryCancel|vbCritical|vbQuestion|vbExclamation|vbInformation|vbDefaultButton1|vbDefaultButton2|vbDefaultButton3|vbApplicationModal|vbSystemModal|vbOK|vbCancel|vbAbort|vbRetry|vbIgnore|vbYes|vbNo|vbString|vbBinaryCompare|vbTextCompare|xlUp|xlDown|xlToLeft|xlToRight|xlValues|xlFormulas|xlComments|xlWhole|xlPart|xlByRows|xlByColumns|xlNext|xlPrevious|xlCellTypeLastCell|xlCellTypeBlanks|xlShiftUp|xlShiftToLeft|xlShiftDown|xlShiftToRight)\\b"
+        }
+      ]
     },
     "keywords": {
       "patterns": [
