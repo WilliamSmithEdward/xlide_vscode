@@ -232,8 +232,20 @@
     },
     "types": {
       "comment": "Built-in type names: reserved-type-identifier + Object (section 3.3.5.2 MS-VBAL)",
-      "name": "support.type.vba",
-      "match": "(?i)\\b(Boolean|Byte|Integer|Long|LongLong|LongPtr|Single|Double|Currency|Date|String|Variant|Object)\\b"
+      "patterns": [
+        {
+          "comment": "Date, String and Object are types only after As; as a value or a call (x = Date, String(2, \"a\")) the VBE shows them as names",
+          "match": "(?i)\\b(As)\\s+(Date|String|Object)\\b",
+          "captures": {
+            "1": { "name": "keyword.other.vba" },
+            "2": { "name": "support.type.vba" }
+          }
+        },
+        {
+          "name": "support.type.vba",
+          "match": "(?i)\\b(Boolean|Byte|Integer|Long|LongLong|LongPtr|Single|Double|Currency|Variant)\\b"
+        }
+      ]
     },
     "constants": {
       "patterns": [
@@ -241,11 +253,6 @@
           "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords (MS-VBAL 3.3.5.2), except as a Type field's name (True As Long), where it shows a name",
           "name": "keyword.other.literal.vba",
           "match": "(?i)\\b(True|False|Nothing|Null|Empty)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b)"
-        },
-        {
-          "comment": "Common VBA/Excel intrinsic constants",
-          "name": "constant.language.vba",
-          "match": "(?i)\\b(vbCrLf|vbCr|vbLf|vbNewLine|vbTab|vbNullString|vbNullChar|vbBack|vbFormFeed|vbVerticalTab|vbBlack|vbRed|vbGreen|vbYellow|vbBlue|vbMagenta|vbCyan|vbWhite|vbOKOnly|vbOKCancel|vbAbortRetryIgnore|vbYesNoCancel|vbYesNo|vbRetryCancel|vbCritical|vbQuestion|vbExclamation|vbInformation|vbDefaultButton1|vbDefaultButton2|vbDefaultButton3|vbApplicationModal|vbSystemModal|vbOK|vbCancel|vbAbort|vbRetry|vbIgnore|vbYes|vbNo|vbString|vbBinaryCompare|vbTextCompare|xlUp|xlDown|xlToLeft|xlToRight|xlValues|xlFormulas|xlComments|xlWhole|xlPart|xlByRows|xlByColumns|xlNext|xlPrevious|xlCellTypeLastCell|xlCellTypeBlanks|xlShiftUp|xlShiftToLeft|xlShiftDown|xlShiftToRight)\\b"
         }
       ]
     },
@@ -288,7 +295,7 @@
         {
           "comment": "Control flow - statement-keywords and marker-keywords (section 3.3.5.2 MS-VBAL)",
           "name": "keyword.control.vba",
-          "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Seek|Print|Input|LSet|RSet|Erase|Write)\\b"
+          "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Print|LSet|RSet|Erase|Write)\\b"
         },
         {
           "comment": "Logical operators: operator-identifier (section 3.3.5.2 MS-VBAL)",
@@ -361,6 +368,15 @@
           }
         },
         {
+          "comment": "The Input # statement (MS-VBAL 5.4.5.10, which requires the #) and the Seek statement where a statement can start, with or without # (5.4.5.3). As calls, Seek(1) and Input(4, #1), the VBE shows them as names",
+          "match": "(?i)\\b(Input)\\b(?=\\s*#)|(?:^\\s*|(?<=[0-9][ \\t])|:\\s*|\\b(Then|Else)\\s+)(Seek)\\b(?!\\s*(?:[=:.!,]|As\\b|$))",
+          "captures": {
+            "1": { "name": "keyword.control.vba" },
+            "2": { "name": "keyword.control.vba" },
+            "3": { "name": "keyword.control.vba" }
+          }
+        },
+        {
           "comment": "Step at the start of a line a For header is continued on",
           "match": "(?i)^\\s*(Step)\\b(?!\\s*(?:[=:.!,(]|As\\b|$))",
           "captures": { "1": { "name": "keyword.control.vba" } }
@@ -387,10 +403,6 @@
     "reserved-names": {
       "comment": "reserved-name identifiers (section 3.3.5.2 MS-VBAL): Me, Debug, conversion functions etc.",
       "patterns": [
-        {
-          "name": "variable.language.self.vba",
-          "match": "(?i)\\bMe\\b"
-        },
         {
           "name": "support.variable.vba",
           "match": "(?i)\\bDebug\\b"
