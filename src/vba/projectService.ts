@@ -2212,9 +2212,10 @@ export function listSheets(filePath: string): { sheets: SheetSummary[] } {
  * VBA project has for it, once Excel has given it one. Read from the OOXML
  * parts, the binary parts of an .xlsb, or the BIFF8 records of an .xls, so
  * every Excel format the tree lists answers; a file with no VBA project
- * answers too.
+ * answers too. A zip workbook also answers a stamp of its shape parts, so the
+ * tree can tell that a sheet's shapes changed without reading them.
  */
-export function listWorkbookSheets(filePath: string): { sheets: WorkbookSheet[] } {
+export function listWorkbookSheets(filePath: string): { sheets: WorkbookSheet[]; shapePartsStamp?: string } {
 	assertProjectAccess(filePath);
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`${path.basename(filePath)} is a VB6 project; it has no sheets.`);
@@ -2224,7 +2225,7 @@ export function listWorkbookSheets(filePath: string): { sheets: WorkbookSheet[] 
 		throw new Error(`${path.basename(filePath)} is ${container.description}; it has no sheets.`);
 	}
 	if (container.xlsx) {
-		return { sheets: container.xlsx.sheetCatalog() };
+		return { sheets: container.xlsx.sheetCatalog(), shapePartsStamp: container.xlsx.shapePartsStamp() };
 	}
 	if (container.cfb) {
 		return { sheets: sheetsOfBiff(container.cfb) };

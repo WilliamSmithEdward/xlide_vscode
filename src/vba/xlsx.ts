@@ -311,6 +311,19 @@ export class XlsxWorkbook {
 	}
 
 	/**
+	 * One comparable value for the parts a sheet's shapes live in: drawings,
+	 * form controls and ActiveX controls. It changes when a shape does and not
+	 * when code does, and comes from the zip's directory, so it costs no
+	 * drawing parse.
+	 */
+	shapePartsStamp(): string {
+		return this.zip.names()
+			.filter((name) => /^xl\/(?:drawings|ctrlProps|activeX)\//.test(name))
+			.map((name) => `${name}:${this.zip.crc32Of(name)}`)
+			.join('|');
+	}
+
+	/**
 	 * The Office host this OOXML package belongs to, decided by which root
 	 * document part it carries - content, not the file extension. Undefined
 	 * for a zip that is none of the three.

@@ -18,11 +18,12 @@
 // carries sheets with no module - SheetsFixture has three.
 //
 // Both are kept per project until the file changes or the tree refreshes.
-// After a change the sheet list, which is cheap, is read again, and the
-// Sheets folder is drawn again only when a sheet was added, removed, renamed
-// or given a module; the shapes are read again only for a row someone has
-// open. A file that changes on every keystroke's auto-save thus costs the
-// tree no drawing parse while nobody is looking at shapes.
+// After a change the sheet list, which is cheap, is read again with a stamp
+// of the shape parts, and the Sheets folder is drawn again only when a sheet
+// was added, removed, renamed or given a module, or the stamp moved. The
+// shapes are otherwise read again only for a row someone has open. A file
+// that changes on every keystroke's auto-save thus costs the tree no drawing
+// parse while nobody is looking at shapes.
 
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -112,6 +113,8 @@ export class ShapeRows {
 	private readonly failures = new Map<string, string>();
 	/** Each workbook's sheets, by project, while the tree shows them. */
 	private readonly catalogs = new Map<string, WorkbookSheet[]>();
+	/** The stamp of each workbook's shape parts, read with its sheets. */
+	private readonly shapeStamps = new Map<string, string>();
 	private readonly catalogLoads = new Map<string, Promise<WorkbookSheet[] | undefined>>();
 	private readonly catalogFailures = new Set<string>();
 	/** The reason last given for each project whose sheets could not be listed. */
@@ -161,6 +164,7 @@ export class ShapeRows {
 		this.loads.clear();
 		this.failures.clear();
 		this.catalogs.clear();
+		this.shapeStamps.clear();
 		this.catalogLoads.clear();
 		this.catalogFailures.clear();
 		this.sheetsDrawn.clear();
@@ -174,7 +178,8 @@ export class ShapeRows {
 	 * read again when next asked for, and the shape rows someone opened are
 	 * redrawn, which asks. The sheet list, which is cheap, is read again
 	 * now, and the Sheets folder redrawn when it differs from what the
-	 * folder shows: a sheet added, removed, renamed or given a module.
+	 * folder shows: a sheet added, removed, renamed or given a module, or a
+	 * change in the shape parts, which can move a sheet within the folder.
 	 * Nothing else is read, since a file that changes on every keystroke's
 	 * auto-save should cost the tree nothing while its shapes are not on
 	 * screen.
@@ -204,7 +209,7 @@ export class ShapeRows {
 		const generation = this.generation;
 		void this.catalog(filePath).then((catalog) => {
 			if (this.generation === generation && catalog && this.catalogs.get(project) === catalog
-				&& catalogSignature(catalog) !== drawn) {
+				&& this.sheetsSignature(project, catalog) !== drawn) {
 				this.fire(sheets);
 			}
 		});
@@ -625,7 +630,7 @@ export class ShapeRows {
 		if (!load) {
 			const generation = this.generation;
 			const started: Promise<WorkbookSheet[] | undefined> = this.bridge
-				.call<{ sheets?: WorkbookSheet[] }>('listWorkbookSheets', { path: filePath })
+				.call<{ sheets?: WorkbookSheet[]; shapePartsStamp?: string }>('listWorkbookSheets', { path: filePath })
 				.then((result) => {
 					if (this.disposed) { return undefined; }
 					if (!Array.isArray(result?.sheets)) {
@@ -633,6 +638,7 @@ export class ShapeRows {
 					}
 					if (this.generation === generation && this.catalogLoads.get(project) === started) {
 						this.catalogs.set(project, result.sheets);
+						this.shapeStamps.set(project, result.shapePartsStamp ?? '');
 						this.pruneWorkbookRows(project, result.sheets);
 					}
 					return result.sheets;
@@ -657,6 +663,11 @@ export class ShapeRows {
 			this.catalogLoads.set(project, started);
 		}
 		return load;
+	}
+
+	/** What a redraw of a workbook's Sheets folder would change, as one comparable value. */
+	private sheetsSignature(project: string, catalog: readonly WorkbookSheet[]): string {
+		return `${catalogSignature(catalog)}\n${this.shapeStamps.get(project) ?? ''}`;
 	}
 
 	/** The shapes listing, or none: for a format the shape tools do not read, and for a listing that failed. */
@@ -684,7 +695,8 @@ export class ShapeRows {
 		const surfaces = await this.surfacesIfAny(folder.filePath);
 		if (this.disposed) { return []; }
 		if (!current()) { return this.children(folder, modulesOf); }
-		this.sheetsDrawn.set(projectIdentityKey(folder.filePath), catalogSignature(catalog));
+		const project = projectIdentityKey(folder.filePath);
+		this.sheetsDrawn.set(project, this.sheetsSignature(project, catalog));
 		const bySurface = new Map<string, ShapeSurface>();
 		for (const surface of surfaces) {
 			const name = surface.surface;
@@ -954,7 +966,7 @@ function sheetOfModule(surfaces: readonly ShapeSurface[], moduleName: string): S
 	return surfaces.find((s) => s.codeName?.toLowerCase() === wanted);
 }
 
-/** A sheet list as one comparable value: what a redraw of the Sheets folder would change. */
+/** A sheet list as one comparable value. */
 function catalogSignature(catalog: readonly WorkbookSheet[]): string {
 	return catalog.map((sheet) => `${sheet.name}|${sheet.codeName ?? ''}|${sheet.kind}|${sheet.state ?? ''}`).join('\n');
 }

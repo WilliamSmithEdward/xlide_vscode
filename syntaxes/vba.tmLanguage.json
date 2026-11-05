@@ -236,9 +236,18 @@
       "match": "(?i)\\b(Boolean|Byte|Integer|Long|LongLong|LongPtr|Single|Double|Currency|Date|String|Variant|Object)\\b"
     },
     "constants": {
-      "comment": "Language literal-identifiers and common VBA/Excel intrinsic constants",
-      "name": "constant.language.vba",
-      "match": "(?i)\\b(True|False|Nothing|Null|Empty|vbCrLf|vbCr|vbLf|vbNewLine|vbTab|vbNullString|vbNullChar|vbBack|vbFormFeed|vbVerticalTab|vbBlack|vbRed|vbGreen|vbYellow|vbBlue|vbMagenta|vbCyan|vbWhite|vbOKOnly|vbOKCancel|vbAbortRetryIgnore|vbYesNoCancel|vbYesNo|vbRetryCancel|vbCritical|vbQuestion|vbExclamation|vbInformation|vbDefaultButton1|vbDefaultButton2|vbDefaultButton3|vbApplicationModal|vbSystemModal|vbOK|vbCancel|vbAbort|vbRetry|vbIgnore|vbYes|vbNo|vbString|vbBinaryCompare|vbTextCompare|xlUp|xlDown|xlToLeft|xlToRight|xlValues|xlFormulas|xlComments|xlWhole|xlPart|xlByRows|xlByColumns|xlNext|xlPrevious|xlCellTypeLastCell|xlCellTypeBlanks|xlShiftUp|xlShiftToLeft|xlShiftDown|xlShiftToRight)\\b"
+      "patterns": [
+        {
+          "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords (MS-VBAL 3.3.5.2), except as a Type field's name (True As Long), where it shows a name",
+          "name": "keyword.other.literal.vba",
+          "match": "(?i)\\b(True|False|Nothing|Null|Empty)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b)"
+        },
+        {
+          "comment": "Common VBA/Excel intrinsic constants",
+          "name": "constant.language.vba",
+          "match": "(?i)\\b(vbCrLf|vbCr|vbLf|vbNewLine|vbTab|vbNullString|vbNullChar|vbBack|vbFormFeed|vbVerticalTab|vbBlack|vbRed|vbGreen|vbYellow|vbBlue|vbMagenta|vbCyan|vbWhite|vbOKOnly|vbOKCancel|vbAbortRetryIgnore|vbYesNoCancel|vbYesNo|vbRetryCancel|vbCritical|vbQuestion|vbExclamation|vbInformation|vbDefaultButton1|vbDefaultButton2|vbDefaultButton3|vbApplicationModal|vbSystemModal|vbOK|vbCancel|vbAbort|vbRetry|vbIgnore|vbYes|vbNo|vbString|vbBinaryCompare|vbTextCompare|xlUp|xlDown|xlToLeft|xlToRight|xlValues|xlFormulas|xlComments|xlWhole|xlPart|xlByRows|xlByColumns|xlNext|xlPrevious|xlCellTypeLastCell|xlCellTypeBlanks|xlShiftUp|xlShiftToLeft|xlShiftDown|xlShiftToRight)\\b"
+        }
+      ]
     },
     "keywords": {
       "patterns": [
@@ -339,8 +348,8 @@
           "match": "(?i)\\b(?:Error|Circle|InputB)\\b(?=\\s*\\()"
         },
         {
-          "comment": "Line Input #, Width #, Name ... As and Reset where a statement can start (the line's first word, after a line number, a colon, Then or Else), read from the words beside them; the words are names elsewhere. A Reset at the start of a line followed by a colon is a label. MS-VBAL 5.4.5.6, 5.4.5.7 and 5.4.5.2 (Reset is a close-statement); the Name statement is in the Office VBA reference",
-          "match": "(?i)^\\s*(?:(Line)\\s+(Input)(?=\\s*#)|(Width)(?=#[0-9]|\\s+#)|(Name)(?=\\s+(?!As\\b)(?:\"[^\"\\n]*\"|[^\\s=:\"'!,])(?:\"[^\"\\n]*\"|[^:\"'\\n]){0,1023}?\\sAs\\s)|(Reset)\\b(?!\\s*(?:[=.!(,%&#@$^]|As\\b))(?!\\s*:))|(?:(?<=^[ \\t]{0,1023}[0-9]{1,10})[ \\t]+|(?<=:)\\s*|\\b(Then|Else)\\s+)(?:(Line)\\s+(Input)(?=\\s*#)|(Width)(?=#[0-9]|\\s+#)|(Name)(?=\\s+(?!As\\b)(?:\"[^\"\\n]*\"|[^\\s=:\"'!,])(?:\"[^\"\\n]*\"|[^:\"'\\n]){0,1023}?\\sAs\\s)|(Reset)\\b(?!\\s*(?:[=.!(,%&#@$^]|As\\b)))",
+          "comment": "Line Input # and Name ... As where a statement can start (the line's first word, after a line number, a colon, Then or Else), read from the words beside them; the words are names elsewhere. MS-VBAL 5.4.5.6; the Name statement is in the Office VBA reference. Width # and Reset are left as names: the VBE shows them as names in every Office host",
+          "match": "(?i)^\\s*(?:(Line)\\s+(Input)(?=\\s*#)|(Name)(?=\\s+(?!As\\b)(?:\"[^\"\\n]*\"|[^\\s=:\"'!,])(?:\"[^\"\\n]*\"|[^:\"'\\n]){0,1023}?\\sAs\\s))|(?:(?<=^[ \\t]{0,1023}[0-9]{1,10})[ \\t]+|(?<=:)\\s*|\\b(Then|Else)\\s+)(?:(Line)\\s+(Input)(?=\\s*#)|(Name)(?=\\s+(?!As\\b)(?:\"[^\"\\n]*\"|[^\\s=:\"'!,])(?:\"[^\"\\n]*\"|[^:\"'\\n]){0,1023}?\\sAs\\s))",
           "captures": {
             "1": { "name": "keyword.control.vba" },
             "2": { "name": "keyword.control.vba" },
@@ -348,11 +357,7 @@
             "4": { "name": "keyword.control.vba" },
             "5": { "name": "keyword.control.vba" },
             "6": { "name": "keyword.control.vba" },
-            "7": { "name": "keyword.control.vba" },
-            "8": { "name": "keyword.control.vba" },
-            "9": { "name": "keyword.control.vba" },
-            "10": { "name": "keyword.control.vba" },
-            "11": { "name": "keyword.control.vba" }
+            "7": { "name": "keyword.control.vba" }
           }
         },
         {

@@ -271,10 +271,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     /**
      * A file changed, by a shape edit or a save from outside: its shapes are
      * read again when next shown, and the shape rows someone opened are
-     * redrawn. A workbook's Sheets folder is redrawn when its sheets changed,
-     * and after XLIDE's own shape edit (shapesChanged), since a sheet with
-     * its first shape, or without its last, moves within it. Nothing else in
-     * the tree moves.
+     * redrawn. A workbook's Sheets folder is redrawn when its sheets or shape
+     * parts changed, and after XLIDE's own shape edit (shapesChanged), since
+     * a sheet with its first shape, or without its last, moves within it.
+     * Nothing else in the tree moves.
      */
     refreshShapes(filePath: string, options: { shapesChanged?: boolean } = {}): void {
         this._projectRenderLoads.delete(projectNodeKey(filePath));

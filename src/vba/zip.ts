@@ -163,6 +163,12 @@ export class ZipArchive {
 		return this.byName.has(name);
 	}
 
+	/** An entry's stored checksum, which says whether its bytes changed without inflating them. */
+	crc32Of(name: string): number | undefined {
+		const index = this.byName.get(name);
+		return index === undefined ? undefined : this.entries[index].crc32;
+	}
+
 	read(name: string): Buffer {
 		const idx = this.byName.get(name);
 		if (idx === undefined) {

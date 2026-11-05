@@ -300,7 +300,7 @@ suite('VBA grammar', () => {
 		]);
 		assert.deepEqual(lines[3].slice(0, 2), [`With ${KEYWORD}`, `rs ${NAME}`]);
 		assert.deepEqual(lines[6], [`x ${NAME}`, `y ${NAME}`, 'Len support.function.builtin.vba', `s ${NAME}`]);
-		assert.deepEqual(lines[7], [`If ${KEYWORD}`, 'True constant.language.vba', `Then ${KEYWORD}`, `Exit ${KEYWORD}`, `Sub ${KEYWORD}`, `Else ${KEYWORD}`, `End ${KEYWORD}`]);
+		assert.deepEqual(lines[7], [`If ${KEYWORD}`, 'True keyword.other.literal.vba', `Then ${KEYWORD}`, `Exit ${KEYWORD}`, `Sub ${KEYWORD}`, `Else ${KEYWORD}`, `End ${KEYWORD}`]);
 	});
 
 	// Excel accepts these: oracle issue262_70_runtime (`Reset` then `Line Input #7, s`),
@@ -315,7 +315,10 @@ suite('VBA grammar', () => {
 	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/73ef1ac2-4da7-4cda-b2a3-5984a8649ded
 	// and the Name statement of the Office VBA reference.
 	// https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/name-statement
-	test('colors Line Input, Width #, Name ... As and Reset as statements where a statement can start', async () => {
+	// The VBE colors Line and Input of Line Input, and Name and As of Name ... As, as
+	// keywords, but leaves Width (in `Width #1, 80`) and Reset as names, in Excel, Word,
+	// PowerPoint and Access alike, so the grammar does too.
+	test('colors Line Input and Name ... As as statements, and Width # and Reset as names', async () => {
 		const lines = await lineTokens([
 			'Sub Test()',
 			'    Reset',
@@ -336,12 +339,21 @@ suite('VBA grammar', () => {
 		]);
 		const keywords = lines.map((line) => line.filter((word) => word.endsWith(KEYWORD)).map((word) => word.split(' ')[0]));
 		assert.deepEqual(keywords.slice(1, 7), [
-			['Reset'],
-			['Line', 'Input', 'Width', 'Width', 'Width'],
+			[],
+			['Line', 'Input'],
 			['Name'],
 			['Name'],
-			['If', 'Then', 'Reset', 'Name', 'Else', 'Reset'],
-			['Reset'],
+			['If', 'Then', 'Name', 'Else'],
+			[],
+		]);
+		const widthAndReset = lines.slice(1, 7).map((line) => line.filter((word) => /^(Width|Reset) /.test(word)));
+		assert.deepEqual(widthAndReset, [
+			[`Reset ${NAME}`],
+			[`Width ${NAME}`, `Width ${NAME}`, `Width ${NAME}`],
+			[],
+			[],
+			[`Reset ${NAME}`, `Reset ${NAME}`],
+			[`Reset ${NAME}`],
 		]);
 		assert.deepEqual(lines[7], [
 			`Name ${NAME}`, `ws ${NAME}`, `Name ${MEMBER}`, `w ${NAME}`, `ws ${NAME}`, `Width ${MEMBER}`,
@@ -438,6 +450,43 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[9].filter((word) => scope(word) === NAME).map(name), ['ค่า', 'IfÉtat', 'cafe\u0301']);
 		assert.deepEqual(lines[10].filter((word) => scope(word) === MEMBER).map(name), ['Größe', 'Länge', 'Значение', 'ค่า']);
 		assert.deepEqual(lines[11], [`If値 ${NAME}`, `値If ${NAME}`]);
+	});
+
+	// The VBE shows True, False, Nothing, Null and Empty as keywords in Excel, Word,
+	// PowerPoint and Access, wherever a value can stand, and as names when they name a
+	// Type field. They are the literal identifiers of MS-VBAL 3.3.5.2.
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/7df907cb-ab6c-40d3-aa81-272742ce00c3
+	test('colors True, False, Nothing, Null and Empty as keywords, and other constants as before', async () => {
+		const LITERAL = 'keyword.other.literal.vba';
+		const lines = await lineTokens([
+			'Sub Test(Optional ByVal b As Boolean = True, Optional v As Variant = Empty)',
+			'    x = False: Set o = Nothing: v = Null',
+			'    If o Is Nothing Or IsNull(Null) Then x = TRUE',
+			'    Const K As Boolean = false',
+			'    s = vbCrLf & vbNullString: d = xlUp',
+			'    x = a.True + a.Nothing + Truex + xNull',
+			'    x = [True] + [Nothing]',
+			'End Sub',
+			'Private Type Flags',
+			'    True As Long',
+			'    Nothing(1 To 2) As Long',
+			'End Type',
+		]);
+		const literals = lines.map((line) => line.filter((word) => word.endsWith(` ${LITERAL}`)).map((word) => word.split(' ')[0]));
+		assert.deepEqual(literals.slice(0, 4), [['True', 'Empty'], ['False', 'Nothing', 'Null'], ['Nothing', 'Null', 'TRUE'], ['false']]);
+		assert.deepEqual(lines[4].filter((word) => /^(vbCrLf|vbNullString|xlUp) /.test(word)), [
+			'vbCrLf constant.language.vba', 'vbNullString constant.language.vba', 'xlUp constant.language.vba',
+		]);
+		assert.deepEqual(lines[5], [`x ${NAME}`, `a ${NAME}`, `True ${MEMBER}`, `a ${NAME}`, `Nothing ${MEMBER}`, `Truex ${NAME}`, `xNull ${NAME}`]);
+		assert.deepEqual(lines[6], [`x ${NAME}`]);
+		assert.deepEqual(literals.slice(9, 11), [[], []]);
+		assert.deepEqual(lines[9][0], `True ${NAME}`);
+		assert.deepEqual(lines[10][0], `Nothing ${NAME}`);
+		await withProbe(['    x = [True] + [Nothing]'], async (file) => {
+			for (const bracketed of ['[True]', '[Nothing]']) {
+				assert.equal((await scopesOfToken(file, bracketed)).split(' ').at(-1), 'variable.other.foreign.vba', bracketed);
+			}
+		});
 	});
 
 	// The VBE shows True, False, Nothing, Null and Empty as keywords inside #If, #ElseIf
