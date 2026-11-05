@@ -43,6 +43,7 @@ import './wordPattern.test';
 
 import './completion.test';
 import './editorSurfaces.test';
+import './referencedClassCompletion.test';
 
 import './nativeBackspaceRouting.test';
 
