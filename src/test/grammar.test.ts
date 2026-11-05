@@ -508,6 +508,28 @@ suite('VBA grammar', () => {
 		});
 	});
 
+	// Issue #1616. The VBE shows Then, And, Or, Not and Is as keywords in #If, #ElseIf and
+	// #Const lines, in Excel, Word, PowerPoint and Access, and names as names. The other
+	// operators of MS-VBAL 5.6.16.2 were not measured there and keep the directive scope.
+	test('colors Then, And, Or, Not and Is in a directive with their scopes outside one', async () => {
+		const DIRECTIVE = 'meta.preprocessor.vba';
+		const LOGICAL = 'keyword.operator.logical.vba';
+		const lines = await lineTokens([
+			'#If Win64 And VBA7 Then',
+			'#ElseIf Not Mac Or A = 1 Then',
+			'#ElseIf Nothing Is Nothing then',
+			'#Const X = a AND b Or NOT c',
+			'#If a Xor b Then',
+			'#Const Andy = Thence',
+		]);
+		assert.deepEqual(lines[0], [`Win64 ${DIRECTIVE}`, `And ${LOGICAL}`, `VBA7 ${DIRECTIVE}`, `Then ${KEYWORD}`]);
+		assert.deepEqual(lines[1], [`Not ${LOGICAL}`, `Mac ${DIRECTIVE}`, `Or ${LOGICAL}`, `A = ${DIRECTIVE}`, `Then ${KEYWORD}`]);
+		assert.deepEqual(lines[2].slice(1), ['Is keyword.operator.word.vba', 'Nothing keyword.other.literal.vba', `then ${KEYWORD}`]);
+		assert.deepEqual(lines[3].map((word) => word.split(' ').at(-1)), [DIRECTIVE, LOGICAL, DIRECTIVE, LOGICAL, LOGICAL, DIRECTIVE]);
+		assert.deepEqual(lines[4], [`a Xor b ${DIRECTIVE}`, `Then ${KEYWORD}`]);
+		assert.deepEqual(lines[5], [`Andy = Thence ${DIRECTIVE}`]);
+	});
+
 	// Every host compiles accented Latin names (oracle nonascii_names_<host>_runtime). The other
 	// scripts follow the lexer, since the test projects' code page holds Latin only.
 	test('colors a name outside ASCII as one name in every rule that reads a name (issue #1604)', async () => {
@@ -601,7 +623,8 @@ suite('VBA grammar', () => {
 		assert.deepEqual(literals, [['True'], ['TRUE', 'false'], ['Nothing', 'Null', 'Empty'], [], [], [], []]);
 		const DIRECTIVE = 'meta.preprocessor.vba';
 		assert.deepEqual(lines[0], [`A = ${DIRECTIVE}`, `True ${LITERAL}`]);
-		assert.deepEqual(lines[1], [`A = ${DIRECTIVE}`, `TRUE ${LITERAL}`, `And B = ${DIRECTIVE}`, `false ${LITERAL}`, `Then ${DIRECTIVE}`]);
+		// And and Then have their own scopes in a directive since issue #1616.
+		assert.deepEqual(lines[1], [`A = ${DIRECTIVE}`, `TRUE ${LITERAL}`, 'And keyword.operator.logical.vba', `B = ${DIRECTIVE}`, `false ${LITERAL}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[5], []);
 		assert.deepEqual(lines[6], [`Truex = ${DIRECTIVE}`]);
 		await withProbe(['#If A Then \' True', '#Const [True] = 1'], async (file) => {
