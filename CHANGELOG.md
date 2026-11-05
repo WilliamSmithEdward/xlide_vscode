@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.8] - 2026-11-05
+
+The XLIDE tree follows a sheet's shapes after a save from outside.
+
+- Redraw the Sheets folder when a save from outside XLIDE changes a sheet's
+  shapes. A sheet with its first shape moves out of Sheets With No Code or
+  Shapes with a row that opens, a sheet's module row gets its Shapes folder,
+  and a sheet that loses its last shape moves back. A save that changes only
+  code still reads no shapes and redraws nothing (#1625, issue #1624).
+
 ## [11.2.7] - 2026-11-04
 
 Referenced VBA projects checked as the VBE checks them, and names outside ASCII
