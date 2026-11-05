@@ -381,6 +381,39 @@ suite('VBA grammar', () => {
 		});
 	});
 
+	// Issue #1615. In a single-line If the VBE stores `b = 1 Rem n` as `b = 1Rem n`, and
+	// shows the Rem as a comment, in Excel, Word, PowerPoint and Access. Oracle
+	// rem_directive_if_after_number_compile: Excel reads `#If 1Rem note Then` as a comment
+	// after 1. MS-VBAL 5.4.1.2.
+	test('colors Rem glued to a number as a comment, with the number before it', async () => {
+		const REM = 'comment.line.rem.vba';
+		const glued = ['1Rem n', '1.5Rem n', '&H1Rem n', '&HFRem n', '&O7Rem n', '1D2Rem n', '.5Rem n'];
+		await withProbe([
+			...glued.map((text) => `If a Then b = ${text}`),
+			'If a Then b = 1Rem note _',
+			'continued',
+			'#Const X = 1Rem n',
+			'x1Rem = 2: y = cRem: z = 1 + Remain',
+		], async (file) => {
+			const tokens = await tokensOf(file);
+			const scopeOf = (text: string): string => {
+				const token = tokens.find((candidate) => candidate.c === text);
+				assert.ok(token, `no token is ${JSON.stringify(text)}`);
+				return token.t.split(' ').at(-1) ?? '';
+			};
+			for (const number of ['1', '1.5', '&H1', '&HF', '&O7', '1D2', '.5']) {
+				assert.match(scopeOf(number), /^constant\.numeric\./, number);
+			}
+			// VS Code joins Rem and the comment after it into one token.
+			assert.equal(tokens.filter((token) => token.c.startsWith('Rem') && token.t.endsWith(REM)).length, glued.length + 2);
+			assert.ok(tokens.filter((token) => token.c.includes(' n') || token.c.includes('note')).every((token) => token.t.includes(REM)));
+			assert.match(scopeOf('continued'), /comment\.line\.rem\.vba/);
+			for (const name of ['x1Rem', 'cRem', 'Remain']) {
+				assert.equal(scopeOf(name), NAME, name);
+			}
+		});
+	});
+
 	// Oracle issue231_59_compile rejects Rem immediately after Then.
 	test('keeps Then Rem as words and Rem members as members', async () => {
 		await withProbe(['If True Then Rem note'], async (file) => {
