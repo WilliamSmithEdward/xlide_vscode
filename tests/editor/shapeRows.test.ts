@@ -253,6 +253,90 @@ describe('a workbook\'s sheets in the explorer', () => {
     });
 });
 
+// Issue #1624. A save from outside XLIDE fires refreshShapes with no
+// shapesChanged, and the sheet list alone looks unchanged when a sheet that
+// already existed gains or loses shapes.
+describe('a save from outside that changes a sheet\'s shapes', () => {
+    /** A copy of the workbook as another program would leave it: edited apart from the file on show. */
+    function savedFromOutside(file: string, edit: (copy: string) => void): void {
+        const copy = path.join(dir, `outside-${path.basename(file)}`);
+        fs.copyFileSync(file, copy);
+        edit(copy);
+        fs.copyFileSync(copy, file);
+    }
+
+    it('moves a module-less sheet out of the bare folder, with its row able to open', async () => {
+        const file = path.join(dir, 'SheetsFixture.xlsm');
+        const project = await projectWithCode('SheetsFixture.xlsm');
+        const { sheets, rows } = await sheetsOf(project);
+        const bare = rows[2];
+        expect((await explorer.getChildren(bare)).map((row) => row.label)).toEqual(['Trend', 'Later', 'Hidden']);
+        vscodeMock.fired = [];
+
+        savedFromOutside(file, (copy) => editShape(copy, 'Later', { action: 'add', type: 'rectangle', name: 'LaterBox', range: 'B2:C3' }));
+        explorer.refreshShapes(file);
+        await settle();
+
+        expect(vscodeMock.fired).toContain(sheets);
+        const again = await explorer.getChildren(sheets);
+        expect(again.map((row) => row.label)).toEqual(['Sheet1 (Budget)', 'Drawn', 'Later', 'Sheets With No Code or Shapes']);
+        const later = again[2];
+        expect(explorer.getTreeItem(later).collapsibleState).toBe(1);
+        const [folder] = await explorer.getChildren(later);
+        expect(say(folder)).toBe('Shapes | shapeFolder-add');
+        expect(explorer.getParent(folder)).toBe(later);
+        expect((await explorer.getChildren(folder)).map((row) => row.label)).toEqual(['LaterBox']);
+    });
+
+    it('gives a sheet\'s module row its Shapes folder', async () => {
+        const file = path.join(dir, 'SheetsFixture.xlsm');
+        const project = await projectWithCode('SheetsFixture.xlsm');
+        const { sheets, rows: [budget] } = await sheetsOf(project);
+        expect((await explorer.getChildren(budget)).some((row) => row.kind === 'shapes')).toBe(false);
+        vscodeMock.fired = [];
+
+        savedFromOutside(file, (copy) => editShape(copy, 'Budget', { action: 'add', type: 'rectangle', name: 'BudgetBox', range: 'B2:C3' }));
+        explorer.refreshShapes(file);
+        await settle();
+
+        expect(vscodeMock.fired).toContain(sheets);
+        const [row] = await explorer.getChildren(sheets);
+        expect(row.moduleName).toBe('Sheet1');
+        expect((await explorer.getChildren(row)).filter((child) => child.kind === 'shapes').map(say)).toEqual(['Shapes | shapeFolder-add']);
+    });
+
+    it('moves a sheet back to the bare folder when its last shape goes', async () => {
+        const file = path.join(dir, 'SheetsFixture.xlsm');
+        const project = await projectWithCode('SheetsFixture.xlsm');
+        const { sheets } = await sheetsOf(project);
+        vscodeMock.fired = [];
+
+        savedFromOutside(file, (copy) => editShape(copy, 'Drawn', { action: 'delete', name: 'DrawnBox' }));
+        explorer.refreshShapes(file);
+        await settle();
+
+        expect(vscodeMock.fired).toContain(sheets);
+        const again = await explorer.getChildren(sheets);
+        expect(again.map((row) => row.label)).toEqual(['Sheet1 (Budget)', 'Sheets With No Code or Shapes']);
+        expect((await explorer.getChildren(again[1])).map((row) => row.label)).toContain('Drawn');
+    });
+
+    it('reads no shapes and draws nothing when a save changed only code', async () => {
+        const file = path.join(dir, 'SheetsFixture.xlsm');
+        const project = await projectWithCode('SheetsFixture.xlsm');
+        await sheetsOf(project);
+        const call = vi.spyOn(engine, 'call');
+        vscodeMock.fired = [];
+
+        writeModule(file, 'Sheet1', 'Sub Pong()\nEnd Sub\n');
+        explorer.refreshShapes(file);
+        await settle();
+
+        expect(call.mock.calls.filter(([method]) => method === 'listShapes')).toHaveLength(0);
+        expect(vscodeMock.fired).toEqual([]);
+    });
+});
+
 describe('shapes in the explorer', () => {
     it('hangs a document\'s shapes under ThisDocument, by story', async () => {
         const project = await projectOf('ShapesArrangedFixture.docm');
