@@ -10,14 +10,27 @@
 //    "Procedure declaration does not match description of event or procedure
 //    having the same name".
 //
-// The interface is read from the project index, so only a class module of
-// this project is judged; an interface from a type library is not.
+// The interface is read from the project index, or from a read referenced
+// project's exposed class (issue #1623, measured in Excel, Word, PowerPoint
+// and Access 16.0: `Implements ProbeLibrary.Widget` with none of Widget's
+// members is "Object module needs to implement 'Value' for interface
+// 'Widget'"). A referenced class's surface keeps its members' names, not
+// their signatures, so only that each one is implemented is judged. An
+// interface from a type library is not judged.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { ModuleNode } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { isProcedureKind, procedureParamsFromSymbol, type VbaProjectClassMember, type VbaProjectClassMembers, type VbaSymbol } from '../../symbols/symbolModel';
 import type { ModuleSymbolKind } from '../../symbols/symbolModel';
+import type { VbaToken } from '../../lexer/tokenKinds';
+import {
+	referencedProjectNames,
+	referencedProjectReached,
+	type ReferencedLookupOrder,
+	type ReferencedObjectMember,
+	type ReferencedProjectSurface,
+} from '../../symbols/referencedProjects';
 import { isObjectModuleKind, type PushFn } from '../analysisContext';
 import { isKnownScalarType, normalizeType } from '../typeInference';
 import {
@@ -36,8 +49,9 @@ export function checkImplementsMembers(
 	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	referenced: { surfaces?: readonly ReferencedProjectSurface[]; order?: ReferencedLookupOrder } = {},
 ): void {
-	if (!isObjectModuleKind(moduleKind) || !projectClassMembers || projectClassMembers.length === 0) {
+	if (!isObjectModuleKind(moduleKind) || ((!projectClassMembers || projectClassMembers.length === 0) && !referenced.surfaces?.length)) {
 		return;
 	}
 	const procedures = new Map<string, VbaSymbol[]>();
@@ -61,10 +75,29 @@ export function checkImplementsMembers(
 		if (!interfaceName || !nameToken) {
 			continue;
 		}
-		const contract = projectClassMembers.find(
+		// `Implements ProbeLibrary.Widget` names a referenced project's class;
+		// otherwise the project's own class of the name comes first.
+		const qualifier = qualifierOf(toks, nameToken);
+		const referencedQualifier = qualifier !== undefined
+			&& !!referenced.surfaces?.some((surface) => surface.name.toLowerCase() === qualifier.toLowerCase());
+		const contract = referencedQualifier ? undefined : (projectClassMembers ?? []).find(
 			(type) => type.kind === 'class' && type.exhaustive === true && type.name.toLowerCase() === interfaceName.toLowerCase(),
 		);
 		if (!contract) {
+			const foreign = referencedQualifier || !(projectClassMembers ?? []).some((type) => type.name.toLowerCase() === interfaceName.toLowerCase())
+				? referencedInterface(interfaceName, referencedQualifier ? qualifier : undefined, referenced)
+				: undefined;
+			// The VBE names the first member missing; the rest are listed with it.
+			const missing = (foreign?.members ?? []).filter((required) => (procedures.get(`${foreign!.name}_${required.name}`.toLowerCase()) ?? []).length === 0);
+			if (foreign && missing.length > 0) {
+				const [first, ...rest] = missing;
+				push(
+					'implementsMemberMissing',
+					`Object module needs to implement '${first.name}' for interface '${foreign.name}': add a ${first.kind === 'property' ? 'Property' : 'Sub or Function'} '${foreign.name}_${first.name}'`
+						+ (rest.length > 0 ? `, and ${rest.map((required) => `'${foreign.name}_${required.name}'`).join(', ')}.` : '.'),
+					absoluteSpan(member.span, nameToken),
+				);
+			}
 			continue;
 		}
 		for (const required of contract.members) {
@@ -117,6 +150,34 @@ export function checkImplementsMembers(
 			}
 		}
 	}
+}
+
+/** The name before the interface's in `Implements Lib.IFoo`, or undefined for a bare name. */
+function qualifierOf(toks: readonly VbaToken[], nameToken: VbaToken): string | undefined {
+	const at = toks.indexOf(nameToken);
+	return at >= 2 && toks[at - 1]?.rawText === '.' ? tokenName(toks[at - 2]) : undefined;
+}
+
+/**
+ * A read referenced project's exposed class an Implements names, with the
+ * members an implementing class must define: its Public procedures and
+ * variables. Qualified, the named project's; bare, the first the lookup
+ * reaches. Undefined for anything else, which is not judged.
+ */
+function referencedInterface(
+	interfaceName: string,
+	qualifier: string | undefined,
+	referenced: { surfaces?: readonly ReferencedProjectSurface[]; order?: ReferencedLookupOrder },
+): { name: string; members: readonly ReferencedObjectMember[] } | undefined {
+	const lower = interfaceName.toLowerCase();
+	const surfaces = referenced.surfaces;
+	if (!surfaces?.length) { return undefined; }
+	const project = qualifier !== undefined
+		? surfaces.find((surface) => surface.name.toLowerCase() === qualifier.toLowerCase())
+		: referenced.order && referencedProjectReached(lower, surfaces, referenced.order, (offered) => offered.types.has(lower));
+	const module = project ? referencedProjectNames(project).modules.get(lower) : undefined;
+	if (!module || module.kind !== 'class' || !module.visible || !module.objectMembers) { return undefined; }
+	return { name: module.name, members: module.objectMembers };
 }
 
 /**

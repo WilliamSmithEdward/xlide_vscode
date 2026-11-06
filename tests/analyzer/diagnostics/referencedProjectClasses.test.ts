@@ -55,15 +55,6 @@ function errors(oracleCase: OracleCase, change: (references: References) => Refe
 	}).diagnostics.filter((diagnostic) => diagnostic.severity === 'error').map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`));
 }
 
-/**
- * Issue #1623's forms measured in every host: XLIDE does not yet report
- * these three. A private class named in brackets after the project,
- * `ProbeLibrary.[Thing]`; a member a qualified default instance lacks, read
- * in `With ProbeLibrary.Solo`; and an `Implements ProbeLibrary.Widget` that
- * defines none of Widget's members. Their valid neighbours agree.
- */
-const PENDING = /_(bracket_private_type|with_qualified_predeclared_missing|implements_missing)_compile$/;
-const unchecked = (id: string): boolean => UNCHECKED.test(id) || PENDING.test(id);
 
 describe('the classes of a referenced VBA project', () => {
 	it('has every measured case, in all four hosts', () => {
@@ -73,24 +64,29 @@ describe('the classes of a referenced VBA project', () => {
 		}
 	});
 
-	it.each(measured.filter((oracleCase) => !unchecked(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s agrees with the VBE', (_id, oracleCase) => {
+	it.each(measured.filter((oracleCase) => !UNCHECKED.test(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s agrees with the VBE', (_id, oracleCase) => {
 		const found = errors(oracleCase);
 		if (oracleCase.expected === 'accepted') {
 			expect(found).toEqual([]);
 		} else {
 			expect(found).toHaveLength(1);
 			// Each says what the VBE says, but `WithEvents ... As New`, which
-			// the WithEvents rule words as it does for any class.
+			// the WithEvents rule words as it does for any class, and an
+			// Implements, which says what the VBE says and then what to add.
 			const vbe = /Compile error: (.+?)\. Measured/.exec(oracleCase.description)?.[1];
 			if (/_withevents_new_compile$/.test(oracleCase.id)) {
 				expect(found[0]).toMatch(/^withevents-declaration: WithEvents variable 'mW' cannot be declared As New\./);
+				return;
+			}
+			if (/_implements_missing_compile$/.test(oracleCase.id)) {
+				expect(found[0]).toBe(`implements-member-missing: ${vbe}: add a Property 'Widget_Value', and 'Widget_Child', 'Widget_Size', 'Widget_Twice', 'Widget_Poke'.`);
 				return;
 			}
 			expect(found[0]).toContain(vbe === 'Variable not defined' || vbe === 'Method or data member not found' ? `${vbe}: ` : `VBE compile error: ${vbe}.`);
 		}
 	});
 
-	it.each(measured.filter((oracleCase) => unchecked(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s is left unreported', (_id, oracleCase) => {
+	it.each(measured.filter((oracleCase) => UNCHECKED.test(oracleCase.id)).map((oracleCase) => [oracleCase.id, oracleCase] as const))('%s is left unreported', (_id, oracleCase) => {
 		expect(errors(oracleCase)).toEqual([]);
 	});
 

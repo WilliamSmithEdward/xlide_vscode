@@ -111,7 +111,9 @@ function qualifiedNamesIn(source: string, bindings?: SourceQualifierBindings): A
 		// not `Collection.Add`.
 		while (nextNewline < newlines.length && newlines[nextNewline] < toks[i].end) { nextNewline++; }
 		if (nextNewline < newlines.length && newlines[nextNewline] < toks[i + 1].start) { continue; }
-		if (toks[i + 2].kind !== 'identifier' && toks[i + 2].kind !== 'keyword') { continue; }
+		// A bracketed member is the name inside the brackets: `ProbeLibrary.[Thing]`
+		// names the class Thing, as the VBE reads it (issue #1623).
+		if (toks[i + 2].kind !== 'identifier' && toks[i + 2].kind !== 'keyword' && toks[i + 2].kind !== 'bracketedIdentifier') { continue; }
 		// A member access further along a chain (`a.b.c`) is not a library
 		// qualifier: `b` there is a member of whatever `a` is.
 		if (i > 0 && toks[i - 1].rawText === '.') { continue; }

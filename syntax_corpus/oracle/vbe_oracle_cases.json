@@ -239203,7 +239203,7 @@
     },
     {
       "id": "referenced_class_bracket_private_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]`: is a compile error, User-defined type not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239250,7 +239250,7 @@
     },
     {
       "id": "referenced_class_bracket_exposed_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]`: compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]` is accepted. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239297,7 +239297,7 @@
     },
     {
       "id": "referenced_class_with_qualified_predeclared_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope`: is a compile error, Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope` is rejected: Compile error: Method or data member not found. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239344,7 +239344,7 @@
     },
     {
       "id": "referenced_class_with_qualified_predeclared_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value`: compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value` is accepted. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239391,7 +239391,7 @@
     },
     {
       "id": "referenced_class_implements_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members: is a compile error, Object module needs to implement 'Value' for interface 'Widget'. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members is rejected: Compile error: Object module needs to implement 'Value' for interface 'Widget'. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239443,7 +239443,7 @@
     },
     {
       "id": "referenced_class_implements_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke: compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke is accepted. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239495,7 +239495,7 @@
     },
     {
       "id": "referenced_class_word_bracket_private_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]`: is a compile error, User-defined type not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239543,7 +239543,7 @@
     },
     {
       "id": "referenced_class_word_bracket_exposed_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]`: compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]` is accepted. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239591,7 +239591,7 @@
     },
     {
       "id": "referenced_class_word_with_qualified_predeclared_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope`: is a compile error, Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope` is rejected: Compile error: Method or data member not found. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239639,7 +239639,7 @@
     },
     {
       "id": "referenced_class_word_with_qualified_predeclared_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value`: compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value` is accepted. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239687,7 +239687,7 @@
     },
     {
       "id": "referenced_class_word_implements_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members: is a compile error, Object module needs to implement 'Value' for interface 'Widget'. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members is rejected: Compile error: Object module needs to implement 'Value' for interface 'Widget'. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239740,7 +239740,7 @@
     },
     {
       "id": "referenced_class_word_implements_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke: compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke is accepted. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239793,7 +239793,7 @@
     },
     {
       "id": "referenced_class_powerpoint_bracket_private_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]`: is a compile error, User-defined type not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239841,7 +239841,7 @@
     },
     {
       "id": "referenced_class_powerpoint_bracket_exposed_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]`: compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]` is accepted. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239889,7 +239889,7 @@
     },
     {
       "id": "referenced_class_powerpoint_with_qualified_predeclared_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope`: is a compile error, Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope` is rejected: Compile error: Method or data member not found. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -239937,7 +239937,7 @@
     },
     {
       "id": "referenced_class_powerpoint_with_qualified_predeclared_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value`: compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value` is accepted. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -239985,7 +239985,7 @@
     },
     {
       "id": "referenced_class_powerpoint_implements_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members: is a compile error, Object module needs to implement 'Value' for interface 'Widget'. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members is rejected: Compile error: Object module needs to implement 'Value' for interface 'Widget'. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -240038,7 +240038,7 @@
     },
     {
       "id": "referenced_class_powerpoint_implements_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke: compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke is accepted. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -240091,7 +240091,7 @@
     },
     {
       "id": "referenced_class_access_bracket_private_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]`: is a compile error, User-defined type not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -240139,7 +240139,7 @@
     },
     {
       "id": "referenced_class_access_bracket_exposed_type_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]`: compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class named in brackets after the project, `Dim t As ProbeLibrary.[Widget]` is accepted. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -240187,7 +240187,7 @@
     },
     {
       "id": "referenced_class_access_with_qualified_predeclared_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope`: is a compile error, Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member the default instance lacks, read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Nope` is rejected: Compile error: Method or data member not found. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -240235,7 +240235,7 @@
     },
     {
       "id": "referenced_class_access_with_qualified_predeclared_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value`: compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a member of the default instance read in a With block on the qualified class, `With ProbeLibrary.Solo` and `.Value` is accepted. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -240283,7 +240283,7 @@
     },
     {
       "id": "referenced_class_access_implements_missing_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members: is a compile error, Object module needs to implement 'Value' for interface 'Widget'. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines none of its members is rejected: Compile error: Object module needs to implement 'Value' for interface 'Widget'. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
@@ -240336,7 +240336,7 @@
     },
     {
       "id": "referenced_class_access_implements_compile",
-      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke: compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a class that implements the exposed Widget and defines every Public member: Value, Child, Size, Twice and Poke is accepted. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",

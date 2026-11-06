@@ -2215,15 +2215,21 @@ function referencedModuleOfKey(typeName: string, ctx: MemberCompletionContext): 
 	const project = ctx.referencedProjectSurfaces?.find((surface) => surface.name.toLowerCase() === projectName);
 	if (!project) { return undefined; }
 	if (!moduleKey) { return { project }; }
-	const module = project.modules.find((candidate) => candidate.kind === 'standard' && candidate.visible && candidate.name.toLowerCase() === moduleName);
-	return module ? { project, module } : undefined;
+	// The surface's name index, built once per surface, rather than a scan of its modules per lookup.
+	const module = referencedProjectNames(project).modules.get(moduleName);
+	return module && module.kind === 'standard' && module.visible ? { project, module } : undefined;
+}
+
+/** A project's visible modules of one kind, from its name index. */
+function referencedModulesOf(project: ReferencedProjectSurface, keep: (module: ReferencedProjectModule) => boolean): ReferencedProjectModule[] {
+	return [...referencedProjectNames(project).modules.values()].filter((module) => module.visible && keep(module));
 }
 
 /** The Public members a project key's visible standard modules, or a module key's one module, offer. */
 function referencedModuleMembers(typeName: string, ctx: MemberCompletionContext): readonly ReferencedObjectMember[] {
 	const found = referencedModuleOfKey(typeName, ctx);
 	if (!found) { return []; }
-	const modules = found.module ? [found.module] : found.project.modules.filter((module) => module.kind === 'standard' && module.visible);
+	const modules = found.module ? [found.module] : referencedModulesOf(found.project, (module) => module.kind === 'standard');
 	return modules.flatMap((module) => module.moduleMembers ?? []);
 }
 
@@ -2237,12 +2243,16 @@ function referencedModuleMembers(typeName: string, ctx: MemberCompletionContext)
 function referencedModuleSurface(typeName: string, ctx: MemberCompletionContext): MemberSurface | undefined {
 	const found = referencedModuleOfKey(typeName, ctx);
 	if (!found) { return undefined; }
-	const modules = found.module ? [] : found.project.modules.filter((module) => module.kind === 'standard' && module.visible);
+	const modules = found.module ? [] : referencedModulesOf(found.project, (module) => module.kind === 'standard');
 	const lowerProject = found.project.name.toLowerCase();
 	return {
 		owner: found.module ? `${found.project.name}.${found.module.name}` : found.project.name,
 		members: [
 			...modules.map((module) => ({ name: module.name, kind: 'property' as const, returns: `${REFERENCED_MODULE_PREFIX}${lowerProject}:${module.name.toLowerCase()}` })),
+			// An exposed class with a default instance is that instance by its
+			// qualified name: `With ProbeLibrary.Solo` (issue #1623).
+			...(found.module ? [] : referencedModulesOf(found.project, (module) => module.kind === 'class' && !!module.predeclared)
+				.map((module) => ({ name: module.name, kind: 'property' as const, returns: referencedClassKey(found.project, module.name) }))),
 			...referencedModuleMembers(typeName, ctx).map((member) => ({
 				name: member.name,
 				kind: member.kind,

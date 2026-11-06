@@ -550,6 +550,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		name: 'implementsMembers',
 		run: (ctx, push) => checkImplementsMembers(
 			ctx.source, ctx.mod, ctx.symbols, ctx.moduleKind, ctx.opts.projectClassMembers, ctx.activity, push,
+			{ surfaces: ctx.memberCtx.referencedProjectSurfaces, order: ctx.memberCtx.referencedLookupOrder },
 		),
 	},
 	{
