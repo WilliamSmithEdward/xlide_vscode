@@ -30,16 +30,16 @@ const byId = (id: string): OracleCase => measured.find((oracleCase) => oracleCas
 
 /**
  * Where XLIDE cannot tell, the VBE's error is left unreported rather than
- * guessed. Reached through a function of the referenced project, the class's
- * members are not checked: XLIDE does not carry the function's return type
- * over. A default member is followed where it takes the index and returns an
- * exposed class, `ws(1).Nope`, and a member of a referenced Enum's variable,
+ * guessed. Reached through a function of the referenced project's standard
+ * module, `ProbeLibrary.NewWidget().Nope`, the class's members are checked, a
+ * default member is followed where it takes the index and returns an exposed
+ * class, `ws(1).Nope`, and a member of a referenced Enum's variable,
  * `c.Value`, is "Invalid qualifier" (issue #1623). And these Word cases also reference Normal, before
  * ProbeLibrary, as a project XLIDE has not read: a bare `Thing`, `Widget` or
  * `Solo` could be Normal's. The engine reads Normal where it can; see the
  * tests below.
  */
-const UNCHECKED = /_(function_chain_missing)_compile$|^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing|bare_missing_member)_compile$/;
+const UNCHECKED = /^referenced_class_word_(private_bare_type|new_bare|predeclared_missing|enum_bare_missing|module_enum_bare_missing|bare_missing_member)_compile$/;
 
 type References = ReturnType<typeof oracleProjectReferences>;
 

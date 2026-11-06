@@ -41,6 +41,8 @@ export interface ReferencedProjectModule {
 	predeclared?: boolean;
 	/** What an object of an exposed class offers another project. */
 	objectMembers?: ReferencedObjectMember[];
+	/** A visible standard module's Public members, with the exposed class each returns (issue #1623). */
+	moduleMembers?: ReferencedObjectMember[];
 	/** Whether the class has a default member, which an index into an object reaches. */
 	defaultMember?: boolean;
 	/**
@@ -112,6 +114,9 @@ export function referencedProjectSurface(name: string, modules: readonly Referen
 					members: own.filter((symbol) => symbol.kind !== 'type' && symbol.kind !== 'enum').map((symbol) => symbol.name),
 					enums: publicEnums(own),
 					types: own.filter((symbol) => symbol.kind === 'type' || symbol.kind === 'enum').map((symbol) => symbol.name),
+					// What its Public procedures and variables give, so a chain through
+					// one reaches the class it returns: `ProbeLibrary.NewWidget().Nope`.
+					...(visible ? { moduleMembers: objectMembersOf(index.getModule(mod.name)?.root.children ?? [], name, exposedClasses) } : {}),
 				};
 			}
 			const exposed = EXPOSED.test(mod.source);
