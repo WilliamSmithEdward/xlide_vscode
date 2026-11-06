@@ -2,6 +2,43 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.9] - 2026-11-05
+
+Colours that match the VBE's, referenced VBA projects checked further and
+offered in completion, and two editor fixes. Sam (@swsammy) contributed or
+measured all of it.
+
+- Colour as the VBE does, in every host:
+  - `Width #` and `Reset` as names (#1611, issue #1610).
+  - `True`, `False`, `Nothing`, `Null` and `Empty` as keywords, in code and in
+    `#If`, `#ElseIf` and `#Const` lines (#1612, #1613).
+  - `End Sub`, `End Function`, `End Property`, `End Type` and `End Enum` after a
+    colon as closers (#1627, issue #1614).
+  - `Rem` glued to a number, as the VBE stores `b = 1 Rem n`, as a comment
+    (#1628, issue #1615).
+  - `Then`, `And`, `Or`, `Not` and `Is` in a directive as keywords (#1629, issue
+    #1616).
+  - `Me`, the `vb` and `xl` constants, and `Date`, `Object`, `String`, `Seek`
+    and `Input` as values or calls as names; `As String`, `Seek #1, 1` and
+    `Input #1, x` keep their keyword colours (#1630, issue #1617).
+  - The conversions (`CStr`, `CLng` and the rest), `LBound`, `UBound`, `Debug`,
+    and `Len` in `Open ... Len =` as keywords (#1633, issue #1618).
+- A Type field named like a block word, `Next As Long`, no longer moves the
+  indentation, and Smart Enter inserts no closer after one (#1631, issue
+  #1619).
+- The `.` Smart Enter and the With snippet put on a With body line goes when
+  the line is left with nothing after it (#1632, issue #1620).
+- Behind a referenced project XLIDE could not read, a bare name or call is left
+  unjudged, and the project's own name is accepted before a dot (#1634, issue
+  #1621).
+- Completion and hover offer a referenced project's exposed class members:
+  `w.`, `w.Child.` and a default instance's `Solo.` (#1635, issue #1622).
+- Referenced classes are checked further (issue #1623): through a default
+  member, `ws(1).Nope` (#1636); through a function, `ProbeLibrary.NewWidget().
+  Nope` (#1637); a member of a referenced Enum's variable (#1638); a private
+  class in brackets, a qualified default instance in a With block, and an
+  `Implements` missing members (#1639, #1640).
+
 ## [11.2.8] - 2026-11-05
 
 The XLIDE tree follows a sheet's shapes after a save from outside.
