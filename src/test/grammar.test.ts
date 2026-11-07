@@ -131,7 +131,7 @@ suite('VBA grammar', () => {
 			'End Sub',
 		], async (file) => {
 			const dates = (await tokensOf(file))
-				.filter((token) => /\bconstant\.other\.date\.vba\b/.test(token.t))
+				.filter((token) => /\bconstant\.numeric\.date\.vba\b/.test(token.t))
 				.map((token) => token.c);
 			assert.deepEqual(dates, [
 				'#12/30/9999#', '#1/1/2026#', '#Jan 1, 2000#', '#2000-02-28#', '#1/1/2000 12:00:00 AM#',
@@ -203,7 +203,7 @@ suite('VBA grammar', () => {
 		], async (file) => {
 			assert.match(await scopesOfToken(file, '1'), /\bmeta\.preprocessor\.vba constant\.numeric\.integer\.vba\b/);
 			assert.match(await scopesOfToken(file, '2.5'), /\bmeta\.preprocessor\.vba constant\.numeric\.float\.vba\b/);
-			assert.match(await scopesOfToken(file, '#1/2/2000#'), /\bmeta\.preprocessor\.vba constant\.other\.date\.vba\b/);
+			assert.match(await scopesOfToken(file, '#1/2/2000#'), /\bmeta\.preprocessor\.vba constant.numeric.date.vba\b/);
 			assert.match(await scopesOf(file, 'x'), /\bmeta\.preprocessor\.vba string\.quoted\.double\.vba\b/);
 		});
 	});
@@ -390,8 +390,8 @@ suite('VBA grammar', () => {
 			`GoTo ${KEYWORD}`, `Width ${NAME}`, `GoTo ${KEYWORD}`, `Reset ${NAME}`,
 		]);
 		assert.deepEqual(keywords.slice(8, 11), [[], [], []]);
-		assert.deepEqual(lines[13], [`Name ${NAME}`, 'As keyword.other.vba', 'String support.type.vba']);
-		assert.deepEqual(lines[14], [`Reset ${NAME}`, 'As keyword.other.vba', 'Long support.type.vba']);
+		assert.deepEqual(lines[13], [`Name ${NAME}`, 'As keyword.other.vba', 'String storage.type.primitive.vba']);
+		assert.deepEqual(lines[14], [`Reset ${NAME}`, 'As keyword.other.vba', 'Long storage.type.primitive.vba']);
 	});
 
 	// Issue #1617. The VBE shows Me, the vb and xl constants, Date and Object as values and
@@ -399,7 +399,7 @@ suite('VBA grammar', () => {
 	// String and Object stay types after As, and Seek and Input stay keywords in their
 	// statements: Seek with or without # (MS-VBAL 5.4.5.3), Input # (5.4.5.10).
 	test('colors Me, the constants and the calls the VBE shows as names as names', async () => {
-		const TYPE = 'support.type.vba';
+		const TYPE = 'storage.type.primitive.vba';
 		const lines = await lineTokens([
 			'    Set ws = Me.Worksheets(1)',
 			'    s = "a" & vbCrLf & vbNullString: d = xlUp',
@@ -530,11 +530,35 @@ suite('VBA grammar', () => {
 		// Existing date/string coloring must survive the directive boundary.
 		await withProbe(['#If #12:00:00 PM# = 0.5 Then', '#Const A = "a:b"',
 			'#Const [Rem] = 1', '#Const [a:b] = 2'], async (file) => {
-			assert.match(await scopesOfToken(file, '#12:00:00 PM#'), /constant\.other\.date\.vba/);
+			assert.match(await scopesOfToken(file, '#12:00:00 PM#'), /constant.numeric.date.vba/);
 			assert.match(await scopesOf(file, 'Then'), /meta\.preprocessor/);
 			assert.match(await scopesOf(file, 'a:b'), /string\.quoted/);
 			assert.match(await scopesOf(file, '[Rem]'), /meta\.preprocessor/);
 			assert.match(await scopesOf(file, '[a:b]'), /meta\.preprocessor/);
+		});
+	});
+
+	// Issue #1643. The VBE shows the types, New and the operator words as keywords. Their
+	// scopes are ones all 40 themes measured there colour: support.type,
+	// keyword.operator.logical and keyword.operator.word were plain in some, Dark+ and
+	// Light+ among them. Dates are coloured like numbers, though the VBE shows them plain.
+	test('gives the types, New, the operator words and dates scopes every theme colours', async () => {
+		const lines = await lineTokens([
+			'    Dim n As Long, s As String, v As Variant, c As Collection',
+			'    Set c = New Collection',
+			'    If a And Not b Or c Is Nothing Then x = 7 Mod 2',
+			'    If TypeOf o Is Collection Or s Like "a*" Then p = AddressOf Proc',
+			'    x = a.New + a.Mod + a.Long',
+		]);
+		const OPERATOR = 'keyword.other.operator.vba';
+		const TYPE = 'storage.type.primitive.vba';
+		assert.deepEqual(lines[0].filter((word) => /^(Long|String|Variant|Collection) /.test(word)), [`Long ${TYPE}`, `String ${TYPE}`, `Variant ${TYPE}`, `Collection ${NAME}`]);
+		assert.deepEqual(lines[1].slice(-2), ['New keyword.other.new.vba', `Collection ${NAME}`]);
+		assert.deepEqual(lines[2].filter((word) => word.endsWith(OPERATOR)).map((word) => word.split(' ')[0]), ['And', 'Not', 'Or', 'Is', 'Mod']);
+		assert.deepEqual(lines[3].filter((word) => word.endsWith(OPERATOR)).map((word) => word.split(' ')[0]), ['TypeOf', 'Is', 'Or', 'Like', 'AddressOf']);
+		assert.deepEqual(lines[4].filter((word) => word.endsWith(MEMBER)).map((word) => word.split(' ')[0]), ['New', 'Mod', 'Long']);
+		await withProbe(['    d = #1/1/2026#'], async (file) => {
+			assert.equal((await scopesOfToken(file, '#1/1/2026#')).split(' ').at(-1), 'constant.numeric.date.vba');
 		});
 	});
 
@@ -543,7 +567,7 @@ suite('VBA grammar', () => {
 	// operators of MS-VBAL 5.6.16.2 were not measured there and keep the directive scope.
 	test('colors Then, And, Or, Not and Is in a directive with their scopes outside one', async () => {
 		const DIRECTIVE = 'meta.preprocessor.vba';
-		const LOGICAL = 'keyword.operator.logical.vba';
+		const LOGICAL = 'keyword.other.operator.vba';
 		const lines = await lineTokens([
 			'#If Win64 And VBA7 Then',
 			'#ElseIf Not Mac Or A = 1 Then',
@@ -554,7 +578,7 @@ suite('VBA grammar', () => {
 		]);
 		assert.deepEqual(lines[0], [`Win64 ${DIRECTIVE}`, `And ${LOGICAL}`, `VBA7 ${DIRECTIVE}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[1], [`Not ${LOGICAL}`, `Mac ${DIRECTIVE}`, `Or ${LOGICAL}`, `A = ${DIRECTIVE}`, `Then ${KEYWORD}`]);
-		assert.deepEqual(lines[2].slice(1), ['Is keyword.operator.word.vba', 'Nothing keyword.other.literal.vba', `then ${KEYWORD}`]);
+		assert.deepEqual(lines[2].slice(1), ['Is keyword.other.operator.vba', 'Nothing keyword.other.literal.vba', `then ${KEYWORD}`]);
 		assert.deepEqual(lines[3].map((word) => word.split(' ').at(-1)), [DIRECTIVE, LOGICAL, DIRECTIVE, LOGICAL, LOGICAL, DIRECTIVE]);
 		assert.deepEqual(lines[4], [`a Xor b ${DIRECTIVE}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[5], [`Andy = Thence ${DIRECTIVE}`]);
@@ -654,7 +678,7 @@ suite('VBA grammar', () => {
 		const DIRECTIVE = 'meta.preprocessor.vba';
 		assert.deepEqual(lines[0], [`A = ${DIRECTIVE}`, `True ${LITERAL}`]);
 		// And and Then have their own scopes in a directive since issue #1616.
-		assert.deepEqual(lines[1], [`A = ${DIRECTIVE}`, `TRUE ${LITERAL}`, 'And keyword.operator.logical.vba', `B = ${DIRECTIVE}`, `false ${LITERAL}`, `Then ${KEYWORD}`]);
+		assert.deepEqual(lines[1], [`A = ${DIRECTIVE}`, `TRUE ${LITERAL}`, 'And keyword.other.operator.vba', `B = ${DIRECTIVE}`, `false ${LITERAL}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[5], []);
 		assert.deepEqual(lines[6], [`Truex = ${DIRECTIVE}`]);
 		await withProbe(['#If A Then \' True', '#Const [True] = 1'], async (file) => {

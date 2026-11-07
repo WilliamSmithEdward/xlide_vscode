@@ -87,8 +87,8 @@
               "match": "(?i)\\b(?:(Then)|(And|Or|Not)|(Is))\\b",
               "captures": {
                 "1": { "name": "keyword.control.vba" },
-                "2": { "name": "keyword.operator.logical.vba" },
-                "3": { "name": "keyword.operator.word.vba" }
+                "2": { "name": "keyword.other.operator.vba" },
+                "3": { "name": "keyword.other.operator.vba" }
               }
             },
             { "match": "\\[[^\\]\\r\\n]*\\]?" }
@@ -166,7 +166,7 @@
           "match": "\\b[0-9]+[%&^]?"
         },
         {
-          "name": "constant.other.date.vba",
+          "name": "constant.numeric.date.vba",
           "comment": "Date literal: #1/1/2024#, #Jan 1, 2024# or #2024-01-01 08:30:00 AM#. The text between the # signs must be a date-or-time (MS-VBAL 3.3.3), so the # of a file number (Close #1, #2) is not one",
           "match": "(?i)#[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*(?:(?:(?:[0-9]+|(?:jan(?:u(?:a(?:r(?:y)?)?)?)?|feb(?:r(?:u(?:a(?:r(?:y)?)?)?)?)?|mar(?:c(?:h)?)?|apr(?:i(?:l)?)?|may|jun(?:e)?|jul(?:y)?|aug(?:u(?:s(?:t)?)?)?|sep(?:t(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)?|oct(?:o(?:b(?:e(?:r)?)?)?)?|nov(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?|dec(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)(?![a-z])\\.?)(?:(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[-/,][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*|[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]+)(?:[0-9]+|(?:jan(?:u(?:a(?:r(?:y)?)?)?)?|feb(?:r(?:u(?:a(?:r(?:y)?)?)?)?)?|mar(?:c(?:h)?)?|apr(?:i(?:l)?)?|may|jun(?:e)?|jul(?:y)?|aug(?:u(?:s(?:t)?)?)?|sep(?:t(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)?|oct(?:o(?:b(?:e(?:r)?)?)?)?|nov(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?|dec(?:e(?:m(?:b(?:e(?:r)?)?)?)?)?)(?![a-z])\\.?)){1,2}(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]+[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?|[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+)?(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?)?))?|[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?|[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[:.][\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[0-9]+)?(?:[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*[ap]m?)?))[\\t\\x{19} \\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]*)?#"
         }
@@ -263,11 +263,11 @@
           "match": "(?i)\\b(As)\\s+(Date|String|Object)\\b",
           "captures": {
             "1": { "name": "keyword.other.vba" },
-            "2": { "name": "support.type.vba" }
+            "2": { "name": "storage.type.primitive.vba" }
           }
         },
         {
-          "name": "support.type.vba",
+          "name": "storage.type.primitive.vba",
           "match": "(?i)\\b(Boolean|Byte|Integer|Long|LongLong|LongPtr|Single|Double|Currency|Variant)\\b"
         }
       ]
@@ -323,14 +323,14 @@
           "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Print|LSet|RSet|Erase|Write)\\b"
         },
         {
-          "comment": "Logical operators: operator-identifier (section 3.3.5.2 MS-VBAL)",
-          "name": "keyword.operator.logical.vba",
-          "match": "(?i)\\b(And|Or|Not|Xor|Eqv|Imp)\\b"
+          "comment": "Logical and word operators: operator-identifier (section 3.3.5.2 MS-VBAL) and marker keywords used as operators. keyword.other.operator, as every theme measured in issue #1643 colours it, where keyword.operator.logical and keyword.operator.word are plain in some",
+          "name": "keyword.other.operator.vba",
+          "match": "(?i)\\b(And|Or|Not|Xor|Eqv|Imp|Is|Like|Mod|TypeOf|AddressOf)\\b"
         },
         {
-          "comment": "Word operators: operator-identifier + marker-keywords used as operators",
-          "name": "keyword.operator.word.vba",
-          "match": "(?i)\\b(Is|Like|Mod|TypeOf|AddressOf|New)\\b"
+          "comment": "New, which the VBE shows as a keyword (issue #1643)",
+          "name": "keyword.other.new.vba",
+          "match": "(?i)\\bNew\\b"
         },
         {
           "comment": "Statement / marker keywords not elsewhere classified",
