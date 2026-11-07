@@ -321,7 +321,7 @@ suite('VBA grammar', () => {
 		assert.deepEqual(members, [
 			['Range', 'End', 'Select'],
 			['Close', 'Close', 'Close', 'Close'],
-			['Print', 'Date'],
+			['Date'],
 			['Close', 'Date'],
 			['Replace', 'Left'],
 			['Len', 'xlUp'],
@@ -450,6 +450,24 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[5].filter((word) => /^(CStr|UBound) /.test(word)), [`CStr ${MEMBER}`, `UBound ${MEMBER}`]);
 		assert.deepEqual(lines[7][0], `CStr ${NAME}`);
 		assert.deepEqual(lines[8][0], `Debug ${NAME}`);
+	});
+
+	// Issue #1642. The VBE shows Print and Assert after Debug. as keywords in Excel, Word,
+	// PowerPoint and Access, and x.Assert as a name. x.Print it shows as a keyword too, but
+	// the rule that every name after a dot is a member stands there, by the owner's choice.
+	test('colors Print and Assert after Debug. as keywords', async () => {
+		const lines = await lineTokens([
+			'    Debug.Print s: debug.print: Debug.Assert ok',
+			'    x.Print 1: x.Assert True: o.Debug.Print 1',
+			'    With Debug: .Print 1: End With',
+		]);
+		const named = (line: string[], word: string) => line.filter((token) => token.startsWith(`${word} `));
+		assert.deepEqual(named(lines[0], 'Print'), [`Print ${KEYWORD}`]);
+		assert.deepEqual(named(lines[0], 'print'), [`print ${KEYWORD}`]);
+		assert.deepEqual(named(lines[0], 'Assert'), [`Assert ${KEYWORD}`]);
+		assert.deepEqual(named(lines[1], 'Print'), [`Print ${MEMBER}`, `Print ${MEMBER}`]);
+		assert.deepEqual(named(lines[1], 'Assert'), [`Assert ${MEMBER}`]);
+		assert.deepEqual(named(lines[2], 'Print'), [`Print ${MEMBER}`]);
 	});
 
 	// Oracle issue231_01/07/09/12/13_runtime and issue231_60/61_compile

@@ -173,9 +173,18 @@
       ]
     },
     "members": {
-      "comment": "A name right after . or ! is looked up on what stands before it, whatever it is spelled like: rng.End, wb.Close, Debug.Print, rs!Date. The ! of a type suffix has no name right after it",
-      "name": "variable.other.member.vba",
-      "match": "(?<=[.!])[\\p{L}_][\\p{L}\\p{M}0-9_]*"
+      "patterns": [
+        {
+          "comment": "Print and Assert after Debug. are statements, which the VBE shows as keywords in every host (MS-VBAL 5.4.5.8 and 5.4.2.23). Not after o.Debug., and x.Print and x.Assert stay members (issue #1642)",
+          "name": "keyword.control.vba",
+          "match": "(?i)(?<=\\bDebug\\.)(?<![.!]Debug\\.)(?:Print|Assert)\\b"
+        },
+        {
+          "comment": "A name right after . or ! is looked up on what stands before it, whatever it is spelled like: rng.End, wb.Close, rs!Date. The ! of a type suffix has no name right after it",
+          "name": "variable.other.member.vba",
+          "match": "(?<=[.!])[\\p{L}_][\\p{L}\\p{M}0-9_]*"
+        }
+      ]
     },
     "procedures": {
       "patterns": [
