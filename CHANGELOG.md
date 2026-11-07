@@ -2,6 +2,21 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.10] - 2026-11-07
+
+Three more colour and indentation fixes, all measured by Sam (@swsammy).
+
+- `Print` and `Assert` after `Debug.` are coloured as keywords, as the VBE
+  shows them in every host. Other names after a dot stay members (#1645,
+  issue #1642).
+- The types, `New`, the operator words and dates have scopes every one of 40
+  measured themes colours. `And` and `New` were plain text in Dark+ and
+  Light+, and dates in 15 themes. Dates now take a number's colour (#1646,
+  issue #1643).
+- Enter and Reindent Lines read a line number before a block statement, as
+  in `20 If x Then` and `60 End If`. Format Document already did (#1647,
+  issue #1644).
+
 ## [11.2.9] - 2026-11-05
 
 Colours that match the VBE's, referenced VBA projects checked further and
