@@ -5,8 +5,13 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { changedCases } from '../../syntax_corpus/oracle/oracleChangedCases.mjs';
+
+// Each test starts several git processes in a new repository. Alone they take
+// under a second, but the first on a Windows CI runner timed out at the
+// 5-second default (#1648), and beside the full suite here they took longer.
+vi.setConfig({ testTimeout: 30_000 });
 
 interface Selection { cases?: { id: string }[]; base?: { ref: string; commit: string }; refusal?: string }
 const select = changedCases as (file: string, cases: object[], from?: string) => Selection;
