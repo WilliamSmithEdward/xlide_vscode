@@ -308,6 +308,38 @@ describe('VBA language configuration', () => {
 		}
 	});
 
+	it('reads a line number before a block statement, as Format Document does (issue #1644)', () => {
+		// The VBE stores `    80 If x Then` as `80     If x Then` in every host, so the number
+		// can be followed by several spaces, and `240: If x Then` as added. Each of these
+		// numbered lines compiles in Excel, Word, PowerPoint and Access.
+		const config = loadConfig();
+		const openers = ['If x Then', 'For i = 1 To 3', 'For Each c In cs', 'Do', 'Do While n < 3', 'While n < 3', 'With ws', 'Select Case n'];
+		for (const line of openers) {
+			for (const numbered of [`20 ${line}`, `80     ${line}`, `240: ${line}`, `    30\t${line}`]) {
+				expect(lineRules(config, numbered), numbered).toMatchObject({ increase: true, enter: true });
+			}
+		}
+		for (const line of ['ElseIf y Then', 'Else', 'Case 2', 'Case Else']) {
+			expect(lineRules(config, `50 ${line}`), line).toEqual({ increase: true, decrease: true, enter: true });
+		}
+		for (const line of ['End If', 'EndIf', 'Next', 'Next i', 'Loop', 'Wend', 'End With', 'End Select', 'End Sub', 'End Function']) {
+			expect(lineRules(config, `60 ${line}`).decrease, line).toBe(true);
+			expect(lineRules(config, `60: ${line}`).decrease, line).toBe(true);
+		}
+		// One-line blocks, fields and plain statements stay as they are without a number.
+		for (const line of ['If x Then y = 1', 'For i = 1 To 3: Next', 'Do: Loop', 'With ws: End With', 'Next As Long', 'x = 1', 'GoTo 10', "' 20 If x Then"]) {
+			expect(lineRules(config, `20 ${line}`), line).toEqual(lineRules(config, line));
+		}
+		// A number before a directive is no directive line, and stays unmatched.
+		for (const line of ['#If VBA7 Then', '#Else', '#ElseIf Win64 Then', '#End If']) {
+			expect(lineRules(config, `10 ${line}`), line).toEqual({ increase: false, decrease: false, enter: false });
+		}
+		// Reindent Lines works from the line's own indent, number included, so it gives the
+		// body one level; Format Document keeps the number at the margin and the body two in.
+		const source = ['Sub Main()', '20 If x Then', '    y = 2', '40 Else', '    y = 3', '60 End If', 'End Sub'].join('\r\n');
+		expect(reindent(config, source)).toBe(['Sub Main()', '    20 If x Then', '        y = 2', '    40 Else', '        y = 3', '    60 End If', 'End Sub'].join('\r\n'));
+	});
+
 	it('outdents #Else and #ElseIf and indents after them, as after #If', () => {
 		const config = loadConfig();
 		for (const line of ['#Else', '#ElseIf Win64 Then', '# Else \' 32-bit', '#ElseIf #12:00:00 PM# = 0.5 Then', '#ElseIf True Then: \' note']) {
