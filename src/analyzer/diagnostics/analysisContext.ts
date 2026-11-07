@@ -515,18 +515,21 @@ export function designerClassMemberNames(
 	designerClass: string | undefined,
 	model: HostObjectModel | undefined,
 ): ReadonlySet<string> {
-	if (!designerClass || !model) {
+	if (!designerClass) {
 		return NO_NAMES;
 	}
-	let byType = DESIGNER_CLASS_MEMBER_NAMES.get(model);
+	// No model means Excel's, as the extension analyzes a workbook: an .xlsm
+	// sheet has its class as its designer (#225), and takes its members bare.
+	const resolved = model ?? getExcelObjectModel();
+	let byType = DESIGNER_CLASS_MEMBER_NAMES.get(resolved);
 	if (!byType) {
 		byType = new Map();
-		DESIGNER_CLASS_MEMBER_NAMES.set(model, byType);
+		DESIGNER_CLASS_MEMBER_NAMES.set(resolved, byType);
 	}
 	const key = designerClass.toLowerCase();
 	let names = byType.get(key);
 	if (!names) {
-		names = new Set(getHostMembers(designerClass, model).map((member) => member.name.toLowerCase()));
+		names = new Set(getHostMembers(designerClass, resolved).map((member) => member.name.toLowerCase()));
 		byType.set(key, names);
 	}
 	return names;

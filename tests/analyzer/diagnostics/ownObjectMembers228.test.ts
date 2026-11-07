@@ -1,11 +1,17 @@
 // Diagnostics tests: a module's own object in its code (issue #228). Each
 // case was measured in 64-bit Excel and Word 16.0 (build 20326, 2026-09-30),
-// with the document's code written through VBIDE and a full compile.
+// with the document's code written through VBIDE and a full compile; those
+// of a sheet with a designer class in Excel 16.0 (build 20527), through the
+// VBE oracle.
 
 import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import { AnalysisWorkerState } from '../../../src/analysisWorkerLogic';
 import { analyzeModule } from '../../../src/analyzer';
 import { getExcelObjectModel } from '../../../src/analyzer/host/excelObjectModel';
 import { getWordObjectModel } from '../../../src/analyzer/host/wordObjectModel';
+import { readModulesFromBuffer } from '../../../src/vba/projectService';
 import { byCode, spanText } from '../../helpers/diagnostics';
 import { analyzeProjectModule } from './helpers';
 
@@ -27,6 +33,42 @@ const doc: Options = { moduleName: 'ThisDocument', moduleKind: 'document', hostM
 const form: Options = { moduleName: 'F1', moduleKind: 'userform', implicitMembers: [] };
 
 describe("a document's own members named bare (issue #228)", () => {
+	// An .xlsm sheet has its class as its designer (#225), and the extension
+	// names the host rather than a model. Excel's model is then the default,
+	// and the class's members still count.
+	const described: Options = { moduleName: 'Sheet1', moduleKind: 'document', documentType: 'worksheet', designerClass: 'Excel.Worksheet', host: 'excel' };
+
+	it.each(['Probe = UsedRange.Address', 'Probe = Shapes.Count', 'Probe = Index', 'Activate', 'Unprotect'])('takes them in a sheet whose class the workbook supplied, with or without controls (%s)', (body) => {
+		expect(undeclared(body, { ...described, implicitMembers: [] })).toEqual([]);
+		expect(undeclared(body, { ...described, implicitMembers: [{ name: 'CommandButton1', type: 'Object' }] })).toEqual([]);
+	});
+
+	it.each([['Probe = Nope', 'Nope'], ['Probe = FullName', 'FullName'], ['Nope', 'Nope']])('still reports what such a sheet lacks (%s)', (body, name) => {
+		expect(undeclared(body, { ...described, implicitMembers: [] })).toEqual([name]);
+	});
+
+	it('reaches the extension through the analysis worker, for a sheet of a real .xlsm', () => {
+		const entries = readModulesFromBuffer(fs.readFileSync(path.join(__dirname, '../../fixtures/binaries/ControlsFixture.xlsm')), true);
+		const sheet = entries.find((entry) => entry.name === 'Sheet1')!;
+		expect(sheet.designerClass).toBe('Excel.Worksheet');
+		const reported = (body: string): string[] => {
+			const source = `Option Explicit\r\nPublic Sub Probe()\r\n    ${body}\r\nEnd Sub\r\n`;
+			const state = new AnalysisWorkerState();
+			state.handle({
+				kind: 'seed', projectKey: 'book', generation: 1,
+				modules: entries.map((entry) => ({ moduleName: entry.name, source: entry === sheet ? source : entry.source ?? '', type: entry.type, documentType: entry.documentType, designerClass: entry.designerClass, implicitMembers: entry.implicitMembers })),
+			});
+			const response = state.handle({
+				kind: 'analyze', requestId: 1, docKey: 'sheet', projectKey: 'book', generation: 1, host: 'excel',
+				source, moduleName: sheet.name, moduleType: sheet.type, moduleKind: 'document', documentType: sheet.documentType, designerClass: sheet.designerClass,
+			});
+			return response?.kind === 'result' ? response.diagnostics.map((diagnostic) => diagnostic.code) : ['no result'];
+		};
+		expect(reported('Debug.Print UsedRange.Address')).toEqual([]);
+		expect(reported('Activate')).toEqual([]);
+		expect(reported('Debug.Print Nope')).toEqual(['undeclared-variable']);
+	});
+
 	it.each([
 		[sheet, 'Probe = UsedRange.Address'],
 		[sheet, 'Probe = Index'],
