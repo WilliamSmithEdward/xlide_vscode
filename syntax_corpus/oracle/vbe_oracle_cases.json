@@ -240433,6 +240433,234 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid",
       "source": "Option Explicit\r\nPrivate Type Rec: n As Long: End Type\r\nPrivate Enum Colour: Red = 1: Green: End Enum\r\nPrivate m As Long\r\nPublic Sub Bump(): m = m + 1: End Sub\r\nPrivate Function Twice(ByVal v As Long) As Long: Twice = 2 * v: End Function\r\nPublic Static Property Get Count() As Long: Count = m: End Property\r\nProperty Let Count(ByVal v As Long): m = v: End Property\r\nSub Skip(): End Sub\r\nPublic Sub XlideOracleEntry()\r\n    Dim r As Rec, x As Long, n As Long\r\n    Bump\r\n    Bump\r\n    Skip\r\n    If Count <> 2 Then Err.Raise 5\r\n    Count = Green\r\n    If Twice(Count) <> 4 Then Err.Raise 6\r\n    r.n = Red\r\n    Do: x = x + r.n\r\n        n = n + 1\r\n    Loop Until x >= 3\r\n    If x <> 3 Or n <> 3 Then Err.Raise 7\r\nEnd Sub\r\n"
+    },
+    {
+      "id": "issue1555_sheet_bare_usedrange_compile",
+      "description": "Issue #228: in an .xlsm sheet's module, whose class the workbook supplies, Debug.Print UsedRange.Address compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print UsedRange.Address\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": []
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_sheet_bare_activate_compile",
+      "description": "Issue #228: in such a module, the statement Activate compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Activate\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": []
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_sheet_control_bare_shapes_compile",
+      "description": "Issue #228: in such a module, with CommandButton1 on the sheet, Debug.Print Shapes.Count compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print Shapes.Count\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_sheet_bare_nope_compile",
+      "description": "Issue #228: in such a module, Debug.Print Nope is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print Nope\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": []
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_sheet_bare_fullname_compile",
+      "description": "Issue #228: in such a module, Debug.Print FullName, a Workbook's member, is rejected: Compile error: Variable not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print FullName\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": []
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_word_control_bare_content_compile",
+      "description": "Issue #228: in a document's module with CommandButton1 on the document, Debug.Print Content.Text compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print Content.Text\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_powerpoint_control_bare_slideindex_compile",
+      "description": "Issue #228: in a slide's module with CommandButton1 on the slide, Debug.Print SlideIndex compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print SlideIndex\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_access_form_bare_caption_compile",
+      "description": "Issue #228: in a form's module, Debug.Print Caption compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Frm1",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [],
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print Caption\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
