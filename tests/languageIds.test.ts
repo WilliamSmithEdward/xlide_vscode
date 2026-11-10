@@ -54,14 +54,26 @@ const LANGUAGE_ARGUMENTS: Array<{ name: RegExp; index: number; selector: boolean
     { name: /\bcreateLanguageStatusItem$/, index: 1, selector: true },
 ];
 
-/** The top-level arguments of the call whose `(` is at `open`. */
+const COMMENTS = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+
+/** The top-level arguments of the call whose `(` is at `open`, without comments. */
 function callArguments(source: string, open: number): string[] {
     const args: string[] = [];
     let depth = 0;
     let start = open + 1;
     for (let i = open; i < source.length; i++) {
         const c = source[i];
-        if (c === "'" || c === '"' || c === '`') {
+        if (c === '/' && source[i + 1] === '/') {
+            i = source.indexOf('\n', i);
+            if (i === -1) {
+                break;
+            }
+        } else if (c === '/' && source[i + 1] === '*') {
+            i = source.indexOf('*/', i + 2) + 1;
+            if (i === 0) {
+                break;
+            }
+        } else if (c === "'" || c === '"' || c === '`') {
             for (i++; i < source.length && source[i] !== c; i++) {
                 if (source[i] === '\\') {
                     i++;
@@ -73,7 +85,9 @@ function callArguments(source: string, open: number): string[] {
             depth--;
             if (depth === 0) {
                 args.push(source.slice(start, i));
-                return args.map((arg) => arg.trim()).filter((arg, index, all) => arg !== '' || index < all.length - 1);
+                return args
+                    .map((arg) => arg.replace(COMMENTS, '').trim())
+                    .filter((arg, index, all) => arg !== '' || index < all.length - 1);
             }
         } else if (c === ',' && depth === 1) {
             args.push(source.slice(start, i));
@@ -143,6 +157,8 @@ describe('language ids', () => {
             "md.appendCodeblock(signatureOf(a, b),\n    'vba');",
             "md.appendCodeblock(signature, 'vba',);",
             "md.appendCodeblock(signatureOf('a;b'), 'vba');",
+            "md.appendCodeblock(signature, /* language */ 'vba');",
+            "md.appendCodeblock(signature /* ), */, // (\n    'vba');",
             "await vscode.languages.setTextDocumentLanguage(doc, 'xml');",
             "const doc = '```vba\\nx\\n```';",
             "parts.push(`\\`\\`\\`vba\\n${x}`);",
