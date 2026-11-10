@@ -88,6 +88,7 @@ reference/
 !tests/fixtures/binaries/PowerPointFixture.pps
 !tests/fixtures/binaries/PowerPointFixture.ppsm
 !tests/fixtures/binaries/PowerPointControlsFixture.pptm
+!tests/fixtures/binaries/PowerPointControlsDisabledSaveFixture.pptm
 !tests/fixtures/binaries/XlsFixture.xls
 !tests/fixtures/binaries/PowerPointShapesFixture.pptm
 !tests/fixtures/binaries/PowerPointPlaceholderFixture.pptm
