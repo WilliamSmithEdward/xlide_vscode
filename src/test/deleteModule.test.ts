@@ -6,6 +6,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 import { encodeFormMarkupUri } from '../xlideFileSystem';
+import { XML_LANGUAGE_ID } from '../analyzer/languageIds';
 import { addFormModule, listModules } from '../vba/projectService';
 import { openMacroContainer } from '../vba/macroContainer';
 import { activate, closeAllEditors, until, workbookPath } from './support';
@@ -23,7 +24,7 @@ suite('Deleting a form', () => {
 		addFormModule(workbookPath(), 'DoomedForm');
 		const markup = encodeFormMarkupUri(workbookPath(), 'DoomedForm');
 		const document = await vscode.workspace.openTextDocument(markup);
-		await vscode.languages.setTextDocumentLanguage(document, 'xml');
+		await vscode.languages.setTextDocumentLanguage(document, XML_LANGUAGE_ID);
 		await vscode.window.showTextDocument(markup, { viewColumn: vscode.ViewColumn.One, preview: false });
 		await vscode.commands.executeCommand('vscode.openWith', markup, 'xlideFormDesigner', vscode.ViewColumn.Two);
 		const tabsOnMarkup = () => vscode.window.tabGroups.all

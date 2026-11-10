@@ -11,6 +11,8 @@
 // registry (docRegistry.ts). It carries no `vscode` dependency. See
 // user_guides/vba-doc-comments.md for the full standard and usage paths.
 
+import { VBA_CODE_FENCE } from '../languageIds';
+
 /**
  * Where a {@link VbaDoc} was authored. `derived` marks text XLIDE composed from
  * type-library facts because the reference publishes no description for that
@@ -101,7 +103,7 @@ export function renderDocMarkdown(doc: VbaDoc): string {
 		parts.push(`**Remarks:** ${doc.remarks}`);
 	}
 	if (doc.example) {
-		parts.push(`**Example:**\n\n\`\`\`vba\n${doc.example}\n\`\`\``);
+		parts.push(`**Example:**\n\n${VBA_CODE_FENCE}\n${doc.example}\n\`\`\``);
 	}
 	return parts.join('\n\n');
 }
