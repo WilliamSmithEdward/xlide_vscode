@@ -34,6 +34,7 @@ import { registerXlideCommand } from '../xlideCommandRegistration';
 import type { XlideNode } from '../projectExplorer';
 import { suppressionTargetForProblem } from '../vbaAnalysisSuppression';
 import { errorMessage } from '../util/errors';
+import { VBA_CODE_FENCE } from '../analyzer/languageIds';
 import {
     resolveProjectPath,
     showAnalysisSourceDocument,
@@ -72,7 +73,7 @@ function copilotAnalysisPrompt(
         `Message: ${problem.message}`,
         '',
         'Relevant VBA source:',
-        '```vba',
+        VBA_CODE_FENCE,
         excerpt,
         '```',
         '',

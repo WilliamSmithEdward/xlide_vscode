@@ -6,6 +6,7 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import { encodeFormMarkupUri } from '../xlideFileSystem';
+import { XML_LANGUAGE_ID } from '../analyzer/languageIds';
 import { listModules } from '../vba/projectService';
 import { activate, closeAllEditors, moduleUri, open, until, workbookPath } from './support';
 
@@ -61,7 +62,7 @@ suite('Renaming an open module', () => {
 		const oldMarkup = encodeFormMarkupUri(workbookPath(), form.name);
 		const newMarkup = encodeFormMarkupUri(workbookPath(), 'RenamedPicker');
 		const markup = await vscode.workspace.openTextDocument(oldMarkup);
-		await vscode.languages.setTextDocumentLanguage(markup, 'xml');
+		await vscode.languages.setTextDocumentLanguage(markup, XML_LANGUAGE_ID);
 		await vscode.window.showTextDocument(oldMarkup, { viewColumn: vscode.ViewColumn.One, preview: false });
 		await vscode.commands.executeCommand('vscode.openWith', oldMarkup, 'xlideFormDesigner', vscode.ViewColumn.Two);
 		const tabsAt = (uri: vscode.Uri) => vscode.window.tabGroups.all
@@ -78,7 +79,7 @@ suite('Renaming an open module', () => {
 				8000,
 			);
 			const renamed = vscode.workspace.textDocuments.find((document) => document.uri.toString() === newMarkup.toString());
-			assert.equal(renamed?.languageId, 'xml');
+			assert.equal(renamed?.languageId, XML_LANGUAGE_ID);
 			assert.match(renamed?.getText() ?? '', /RenamedPicker/);
 		} finally {
 			await closeAllEditors();

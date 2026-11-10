@@ -13,13 +13,14 @@ import { buildLiveVbaProjectIndexAsync, moduleKindFromType } from './vbaProjectA
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 import { looseModuleMetadata, type LooseModuleMetadata } from './looseModuleMetadata';
+import { VBA_LANGUAGE_ID } from './analyzer/languageIds';
 
 export { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 
 /** A file on disk that no project claims: analyzed as a module on its own. */
 export function isStandaloneVbaDocument(document: vscode.TextDocument): boolean {
     return document.uri.scheme !== XLIDE_SCHEME
-        && document.languageId === 'vba'
+        && document.languageId === VBA_LANGUAGE_ID
         && moduleLocationOfDocument(document) === undefined;
 }
 

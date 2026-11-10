@@ -5,10 +5,8 @@
 
 import * as vscode from 'vscode';
 import { ProjectEngine } from './projectEngine';
-import {
-    XLIDE_SCHEME,
-    XLIDE_VBA_LANGUAGE_ID,
-} from './xlideFileSystem';
+import { XLIDE_SCHEME } from './xlideFileSystem';
+import { VBA_LANGUAGE_ID, XLIDE_VBA_LANGUAGE_ID } from './analyzer/languageIds';
 import {
     VbaDefinitionProvider,
     VbaDocumentHighlightProvider,
@@ -43,13 +41,13 @@ import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocume
 import { VbaFormattingProvider } from './vbaFormattingProvider';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
-    { scheme: XLIDE_SCHEME, language: 'vba' },
+    { scheme: XLIDE_SCHEME, language: VBA_LANGUAGE_ID },
     { scheme: XLIDE_SCHEME, language: XLIDE_VBA_LANGUAGE_ID },
     // The scheme carries TWO faces: `.bas` code and `.form` markup. The VBA
     // providers serve only the code face - a bare scheme match handed VBA
     // completion and hovers to the markup document.
     { scheme: XLIDE_SCHEME, pattern: '**/*.bas' },
-    { language: 'vba' },
+    { language: VBA_LANGUAGE_ID },
     { language: XLIDE_VBA_LANGUAGE_ID },
 ];
 
