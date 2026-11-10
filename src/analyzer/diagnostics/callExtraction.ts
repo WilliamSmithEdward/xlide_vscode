@@ -9,6 +9,8 @@
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { Span } from '../parser/nodes';
+import { matchParenFrom } from '../lexer/tokenHelpers';
+import { isThenOrElseKeywordAt } from '../parser/parserState';
 import { bareCallStatementTarget as callStatementTarget } from '../call/callContext';
 import { qualifiedProcedureKey } from '../symbols/symbolModel';
 import type { PushFn, VbaDiagnosticData } from './analysisContext';
@@ -157,6 +159,18 @@ function tokensInsideParens(toks: readonly VbaToken[], openIndex: number): VbaTo
 }
 
 /**
+ * A statement's tokens up to its first colon or a one-line If's Else, which
+ * no argument holds: in `If ok Then Beep: Beep Else Beep` the first Beep ends
+ * at the colon, and the second at Else. A member named Else, `d.Else` or
+ * `d!Else`, is a name, but `x! Else` is a Single and then Else, as the
+ * parser reads it.
+ */
+function untilColonOrElse(toks: VbaToken[]): VbaToken[] {
+	const end = toks.findIndex((tok, i) => tok.kind === 'colon' || isThenOrElseKeywordAt(toks, i, 'else'));
+	return end < 0 ? toks : toks.slice(0, end);
+}
+
+/**
  * If the statement spanning `span` is a bare call statement, returns the callee
  * and its top-level argument slots; otherwise undefined. Reuses
  * {@link callStatementTarget} for the safe call-detection gating, then peels off
@@ -194,7 +208,7 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 			argToks = []; // `Call Foo` with no parameter list
 		}
 	} else {
-		argToks = toks.slice(calleeIdx + 1);
+		argToks = untilColonOrElse(toks.slice(calleeIdx + 1));
 	}
 
 	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, sliceStart);
@@ -208,9 +222,18 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 	};
 }
 
+/** Whether only blanks and a line number stand between `offset` and the start of its line, past a CR or an LF. */
+function atLineStart(source: string, offset: number): boolean {
+	let i = offset - 1;
+	while (i >= 0 && source[i] !== '\n' && source[i] !== '\r') {
+		i--;
+	}
+	return /^[ \t]*(?:\d+[ \t]+)?$/.test(source.slice(i + 1, offset));
+}
+
 /**
- * `Kill "a", "b"`: one of the statements the call extractor leaves to rules
- * of their own, read as the call it also is, for its argument count.
+ * `Kill "a", "b"`, `Load c, c`: one of the statements the call extractor does
+ * not read as calls, read as the call it also is, for its argument count.
  */
 export function argumentListStatementCall(
 	source: string,
@@ -218,22 +241,39 @@ export function argumentListStatementCall(
 	names: ReadonlySet<string>,
 ): CallArguments | undefined {
 	const toks = statementTokens(source, span);
-	const at = firstExecutableTokenIndex(toks);
+	let at = firstExecutableTokenIndex(toks);
+	// `Call Load` with no argument list is the statement's call too.
+	const explicitCall = tokenText(toks[at]) === 'call';
+	if (explicitCall) {
+		at++;
+	}
 	const name = tokenName(toks[at]);
 	const next = toks[at + 1]?.rawText;
-	if (!name || !names.has(name.toLowerCase()) || next === '=' || next === '.' || next === '(' || next === ':') {
+	if (!name || !names.has(name.toLowerCase()) || next === '=' || next === '.' || next === ':' || (explicitCall && next !== undefined)) {
 		return undefined;
 	}
-	// `Kill:` is a line label of that name (issue #272); the colon ends the
-	// statement's span, so look past it in the source.
-	if (/^[ \t]*:/.test(source.slice(span.start + toks[at].end, span.start + toks[at].end + 64))) {
+	// `Kill("a")` and `Load (o)` are one parenthesized argument, which the
+	// expression rules read; `Load (o), o` goes on past it, a list of two.
+	if (next === '(') {
+		const close = matchParenFrom(toks, at + 1);
+		if (close < 0 || close === toks.length - 1) {
+			return undefined;
+		}
+	}
+	// `Kill:` at the start of a line is a line label of that name (issue
+	// #272), and the colon ends the statement's span, so look past it in the
+	// source. After another statement and a colon, `Beep: Load: Beep`, it is
+	// the statement.
+	const nameStart = span.start + toks[at].start;
+	if (/^[ \t]*:/.test(source.slice(span.start + toks[at].end, span.start + toks[at].end + 64)) && atLineStart(source, nameStart)) {
 		return undefined;
 	}
-	const argToks = toks.slice(at + 1);
+	const argToks = untilColonOrElse(toks.slice(at + 1));
 	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, span.start);
 	return {
 		name,
-		nameSpan: { start: span.start + toks[at].start, end: span.start + toks[at].end },
+		nameSpan: { start: nameStart, end: span.start + toks[at].end },
+		...(explicitCall ? { explicitCall: true } : {}),
 		slots: split.slots,
 		slotSpans: split.spans,
 		sliceStart: span.start,

@@ -25,11 +25,12 @@ import {
 } from '../callExtraction';
 
 /**
- * The statements the call extractor leaves to the file rules, whose argument
- * count is still checked here (issue #1414, measured in Excel, Word,
- * PowerPoint and Access 16.0).
+ * The statements the call extractor does not read as calls, whose argument
+ * count is still checked here: the file statements the file rules own (issue
+ * #1414), and Load and Unload (measured in Excel, Word, PowerPoint and
+ * Access 16.0).
  */
-const OWN_RULE_STATEMENTS: ReadonlySet<string> = new Set(['chdir', 'chdrive', 'kill', 'mkdir', 'rmdir']);
+const OWN_RULE_STATEMENTS: ReadonlySet<string> = new Set(['chdir', 'chdrive', 'kill', 'mkdir', 'rmdir', 'load', 'unload']);
 import {
 	bareCallableSourceShadowed,
 	callableTypeSignaturesFor,
