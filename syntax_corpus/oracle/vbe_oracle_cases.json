@@ -239202,6 +239202,366 @@
       "host": "access"
     },
     {
+      "id": "date_statement_excel_literal_compile",
+      "description": "Excel: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_word_literal_compile",
+      "description": "Word: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_powerpoint_literal_compile",
+      "description": "PowerPoint: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_access_literal_compile",
+      "description": "Access: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_excel_block_compile",
+      "description": "Excel: Date = d inside an If block compiles, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = d\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_word_block_compile",
+      "description": "Word: Date = d inside an If block compiles, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = d\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_powerpoint_block_compile",
+      "description": "PowerPoint: Date = d inside an If block compiles, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = d\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_access_block_compile",
+      "description": "Access: Date = d inside an If block compiles, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = d\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_excel_let_compile",
+      "description": "Excel: Let Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_word_let_compile",
+      "description": "Word: Let Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_powerpoint_let_compile",
+      "description": "PowerPoint: Let Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_access_let_compile",
+      "description": "Access: Let Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_excel_dollar_compile",
+      "description": "Excel: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_word_dollar_compile",
+      "description": "Word: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_powerpoint_dollar_compile",
+      "description": "PowerPoint: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_access_dollar_compile",
+      "description": "Access: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_excel_let_continued_compile",
+      "description": "Excel: Let _ continued onto Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let _\r\n            Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_word_let_continued_compile",
+      "description": "Word: Let _ continued onto Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let _\r\n            Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_powerpoint_let_continued_compile",
+      "description": "PowerPoint: Let _ continued onto Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let _\r\n            Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "date_statement_access_let_continued_compile",
+      "description": "Access: Let _ continued onto Date = d is rejected: Compile error: Syntax error, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Let _\r\n            Date = d\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_bracket_private_type_compile",
       "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",

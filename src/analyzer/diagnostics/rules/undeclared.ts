@@ -838,7 +838,15 @@ export function checkUndeclaredVariables(
 			const scalarTarget = bareAssignmentTarget(source, span);
 			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, span);
 			const target = scalarTarget ?? objectTarget;
-			if (target) {
+			// `Date = #1/1/2020#` is VBA's Date statement, which sets the
+			// system date, as `Time = t` sets the time. `Date` is a keyword, so
+			// no declaration names it. `Let Date = d` and `Set Date = o` are
+			// Syntax errors and still reach the report (measured in Excel, Word,
+			// PowerPoint and Access 16.0). The tokens, not the text, say whether
+			// a `Let` comes first: `Let _` continues onto the next line.
+			const dateStatement = scalarTarget !== undefined && scalarTarget.name.toLowerCase() === 'date'
+				&& !startsWithLet(statementTokens(source, span));
+			if (target && !dateStatement) {
 				// A THUNK, called past the isKnown guard inside `report`. Typing
 				// the right-hand side costs a bind of the module, and running it
 				// for every assignment made a module whose variables are all
@@ -1002,6 +1010,11 @@ function redimTargetNamesIn(
 	};
 	visit(body);
 	return out;
+}
+
+/** Whether a statement's first executable token, past a line number or label, is `Let`. */
+function startsWithLet(toks: readonly VbaToken[]): boolean {
+	return tokenText(toks[firstExecutableTokenIndex(toks)]) === 'let';
 }
 
 /**
