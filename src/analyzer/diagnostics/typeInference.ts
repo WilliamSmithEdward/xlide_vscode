@@ -2060,11 +2060,14 @@ export function runtimeAritySignature(runtime: VbaRuntimeFunction): CallableType
  * missing argument (Argument not optional), one too many (Wrong number of
  * arguments) and a repeated named one (Named argument already specified) in
  * Excel, Word, PowerPoint and Access 16.0 (issue #1414). Line Input #, Name
- * ... As and Width # have syntax of their own; Beep, Randomize, Reset, Load
- * and Unload were not measured.
+ * ... As and Width # have syntax of their own. Beep, Randomize, Reset, Load
+ * and Unload were measured for their counts only (build 20527): Beep and Reset
+ * take no argument, Randomize one optional, Load and Unload exactly one, as
+ * statements and through Call.
  */
 const ARGUMENT_LIST_STATEMENTS: ReadonlySet<string> = new Set([
 	'appactivate', 'chdir', 'chdrive', 'deletesetting', 'filecopy', 'kill', 'mkdir', 'rmdir', 'savesetting', 'sendkeys', 'setattr',
+	'beep', 'randomize', 'reset', 'load', 'unload',
 ]);
 
 export function parseRuntimeDisplaySignature(

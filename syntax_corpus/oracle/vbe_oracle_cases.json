@@ -240388,6 +240388,2310 @@
       "host": "access"
     },
     {
+      "id": "statement_arguments_excel_beep_one_compile",
+      "description": "Excel: Beep 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_beep_one_compile",
+      "description": "Word: Beep 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_beep_one_compile",
+      "description": "PowerPoint: Beep 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_beep_one_compile",
+      "description": "Access: Beep 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_beep_call_one_compile",
+      "description": "Excel: Call Beep(1), with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Call Beep(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_beep_call_one_compile",
+      "description": "Word: Call Beep(1), with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Call Beep(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_beep_call_one_compile",
+      "description": "PowerPoint: Call Beep(1), with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Call Beep(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_beep_call_one_compile",
+      "description": "Access: Call Beep(1), with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Call Beep(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_beep_ok_compile",
+      "description": "Excel: Beep, with c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_beep_ok_compile",
+      "description": "Word: Beep, with c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_beep_ok_compile",
+      "description": "PowerPoint: Beep, with c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_beep_ok_compile",
+      "description": "Access: Beep, with c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_beep_named_compile",
+      "description": "Excel: Beep x:=1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep x:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_beep_named_compile",
+      "description": "Word: Beep x:=1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep x:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_beep_named_compile",
+      "description": "PowerPoint: Beep x:=1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep x:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_beep_named_compile",
+      "description": "Access: Beep x:=1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Beep x:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_randomize_two_compile",
+      "description": "Excel: Randomize 1, 2, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1, 2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_randomize_two_compile",
+      "description": "Word: Randomize 1, 2, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1, 2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_randomize_two_compile",
+      "description": "PowerPoint: Randomize 1, 2, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1, 2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_randomize_two_compile",
+      "description": "Access: Randomize 1, 2, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1, 2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_randomize_one_compile",
+      "description": "Excel: Randomize 1, with c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_randomize_one_compile",
+      "description": "Word: Randomize 1, with c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_randomize_one_compile",
+      "description": "PowerPoint: Randomize 1, with c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_randomize_one_compile",
+      "description": "Access: Randomize 1, with c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_randomize_named_compile",
+      "description": "Excel: Randomize Number:=1, with c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize Number:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_randomize_named_compile",
+      "description": "Word: Randomize Number:=1, with c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize Number:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_randomize_named_compile",
+      "description": "PowerPoint: Randomize Number:=1, with c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize Number:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_randomize_named_compile",
+      "description": "Access: Randomize Number:=1, with c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Randomize Number:=1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_reset_one_compile",
+      "description": "Excel: Reset 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_reset_one_compile",
+      "description": "Word: Reset 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_reset_one_compile",
+      "description": "PowerPoint: Reset 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_reset_one_compile",
+      "description": "Access: Reset 1, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_reset_ok_compile",
+      "description": "Excel: Reset, with c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_reset_ok_compile",
+      "description": "Word: Reset, with c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_reset_ok_compile",
+      "description": "PowerPoint: Reset, with c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_reset_ok_compile",
+      "description": "Access: Reset, with c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Reset\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_load_none_compile",
+      "description": "Excel: Load, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_load_none_compile",
+      "description": "Word: Load, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_load_none_compile",
+      "description": "PowerPoint: Load, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_load_none_compile",
+      "description": "Access: Load, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_load_one_compile",
+      "description": "Excel: Load c, with c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_load_one_compile",
+      "description": "Word: Load c, with c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_load_one_compile",
+      "description": "PowerPoint: Load c, with c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_load_one_compile",
+      "description": "Access: Load c, with c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_load_two_compile",
+      "description": "Excel: Load c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_load_two_compile",
+      "description": "Word: Load c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_load_two_compile",
+      "description": "PowerPoint: Load c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_load_two_compile",
+      "description": "Access: Load c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Load c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_unload_none_compile",
+      "description": "Excel: Unload, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_unload_none_compile",
+      "description": "Word: Unload, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_unload_none_compile",
+      "description": "PowerPoint: Unload, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_unload_none_compile",
+      "description": "Access: Unload, with no argument, with c As New Collection, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_unload_one_compile",
+      "description": "Excel: Unload c, with c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_unload_one_compile",
+      "description": "Word: Unload c, with c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_unload_one_compile",
+      "description": "PowerPoint: Unload c, with c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_unload_one_compile",
+      "description": "Access: Unload c, with c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_unload_two_compile",
+      "description": "Excel: Unload c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_unload_two_compile",
+      "description": "Word: Unload c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_unload_two_compile",
+      "description": "PowerPoint: Unload c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_unload_two_compile",
+      "description": "Access: Unload c, c, with c As New Collection, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim c As New Collection\r\n    If False Then Unload c, c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_call_load_none_compile",
+      "description": "Excel: Call Load, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_call_load_none_compile",
+      "description": "Word: Call Load, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_call_load_none_compile",
+      "description": "PowerPoint: Call Load, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_call_load_none_compile",
+      "description": "Access: Call Load, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Load\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_call_unload_none_compile",
+      "description": "Excel: Call Unload, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_call_unload_none_compile",
+      "description": "Word: Call Unload, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_call_unload_none_compile",
+      "description": "PowerPoint: Call Unload, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_call_unload_none_compile",
+      "description": "Access: Call Unload, with no argument, with o As Object, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Call Unload\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_load_paren_two_compile",
+      "description": "Excel: Load (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_load_paren_two_compile",
+      "description": "Word: Load (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_load_paren_two_compile",
+      "description": "PowerPoint: Load (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_load_paren_two_compile",
+      "description": "Access: Load (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_unload_paren_two_compile",
+      "description": "Excel: Unload (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Unload (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_unload_paren_two_compile",
+      "description": "Word: Unload (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Unload (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_unload_paren_two_compile",
+      "description": "PowerPoint: Unload (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Unload (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_unload_paren_two_compile",
+      "description": "Access: Unload (o), o, with o As Object, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Unload (o), o\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_colon_load_none_compile",
+      "description": "Excel: Beep: Load: Beep, Load with no argument after a colon, with o As Object, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then\r\n        Beep: Load: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_colon_load_none_compile",
+      "description": "Word: Beep: Load: Beep, Load with no argument after a colon, with o As Object, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then\r\n        Beep: Load: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_colon_load_none_compile",
+      "description": "PowerPoint: Beep: Load: Beep, Load with no argument after a colon, with o As Object, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then\r\n        Beep: Load: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_colon_load_none_compile",
+      "description": "Access: Beep: Load: Beep, Load with no argument after a colon, with o As Object, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then\r\n        Beep: Load: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_load_label_compile",
+      "description": "Excel: GoTo Load, with Load: a line label, with o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Load\r\nLoad:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_load_label_compile",
+      "description": "Word: GoTo Load, with Load: a line label, with o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Load\r\nLoad:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_load_label_compile",
+      "description": "PowerPoint: GoTo Load, with Load: a line label, with o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Load\r\nLoad:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_load_label_compile",
+      "description": "Access: GoTo Load, with Load: a line label, with o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Load\r\nLoad:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_reset_label_compile",
+      "description": "Excel: GoTo Reset, with Reset: a line label, with o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Reset\r\nReset:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_reset_label_compile",
+      "description": "Word: GoTo Reset, with Reset: a line label, with o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Reset\r\nReset:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_reset_label_compile",
+      "description": "PowerPoint: GoTo Reset, with Reset: a line label, with o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Reset\r\nReset:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_reset_label_compile",
+      "description": "Access: GoTo Reset, with Reset: a line label, with o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    GoTo Reset\r\nReset:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_load_paren_one_compile",
+      "description": "Excel: Load (o), with o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_load_paren_one_compile",
+      "description": "Word: Load (o), with o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_load_paren_one_compile",
+      "description": "PowerPoint: Load (o), with o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_load_paren_one_compile",
+      "description": "Access: Load (o), with o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    If False Then Load (o)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_call_kill_none_compile",
+      "description": "Excel: Call Kill, with no argument, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Kill\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_call_kill_none_compile",
+      "description": "Word: Call Kill, with no argument, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Kill\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_call_kill_none_compile",
+      "description": "PowerPoint: Call Kill, with no argument, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Kill\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_call_kill_none_compile",
+      "description": "Access: Call Kill, with no argument, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Call Kill\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_kill_paren_two_compile",
+      "description": "Excel: Kill (\"a\"), \"b\", is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Kill (\"a\"), \"b\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_kill_paren_two_compile",
+      "description": "Word: Kill (\"a\"), \"b\", is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Kill (\"a\"), \"b\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_kill_paren_two_compile",
+      "description": "PowerPoint: Kill (\"a\"), \"b\", is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Kill (\"a\"), \"b\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_kill_paren_two_compile",
+      "description": "Access: Kill (\"a\"), \"b\", is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then Kill (\"a\"), \"b\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_colon_kill_none_compile",
+      "description": "Excel: Beep: Kill: Beep, Kill with no argument after a colon, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then\r\n        Beep: Kill: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_colon_kill_none_compile",
+      "description": "Word: Beep: Kill: Beep, Kill with no argument after a colon, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then\r\n        Beep: Kill: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_colon_kill_none_compile",
+      "description": "PowerPoint: Beep: Kill: Beep, Kill with no argument after a colon, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then\r\n        Beep: Kill: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_colon_kill_none_compile",
+      "description": "Access: Beep: Kill: Beep, Kill with no argument after a colon, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then\r\n        Beep: Kill: Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_if_beep_else_compile",
+      "description": "Excel: If v Then Beep Else MsgBox \"a\", compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else MsgBox \"a\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_if_beep_else_compile",
+      "description": "Word: If v Then Beep Else MsgBox \"a\", compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else MsgBox \"a\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_if_beep_else_compile",
+      "description": "PowerPoint: If v Then Beep Else MsgBox \"a\", compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else MsgBox \"a\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_if_beep_else_compile",
+      "description": "Access: If v Then Beep Else MsgBox \"a\", compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else MsgBox \"a\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_if_reset_else_compile",
+      "description": "Excel: If v Then Reset Else Beep, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Reset Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_if_reset_else_compile",
+      "description": "Word: If v Then Reset Else Beep, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Reset Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_if_reset_else_compile",
+      "description": "PowerPoint: If v Then Reset Else Beep, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Reset Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_if_reset_else_compile",
+      "description": "Access: If v Then Reset Else Beep, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Reset Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_if_beep_colon_else_compile",
+      "description": "Excel: If v Then Beep: Beep Else Beep, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep: Beep Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_if_beep_colon_else_compile",
+      "description": "Word: If v Then Beep: Beep Else Beep, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep: Beep Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_if_beep_colon_else_compile",
+      "description": "PowerPoint: If v Then Beep: Beep Else Beep, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep: Beep Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_if_beep_colon_else_compile",
+      "description": "Access: If v Then Beep: Beep Else Beep, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep: Beep Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_if_user_sub_else_compile",
+      "description": "Excel: If v Then Foo Else Foo, with Sub Foo() of the module, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Foo()\r\nEnd Sub\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Foo Else Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_if_user_sub_else_compile",
+      "description": "Word: If v Then Foo Else Foo, with Sub Foo() of the module, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Foo()\r\nEnd Sub\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Foo Else Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_if_user_sub_else_compile",
+      "description": "PowerPoint: If v Then Foo Else Foo, with Sub Foo() of the module, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Foo()\r\nEnd Sub\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Foo Else Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_if_user_sub_else_compile",
+      "description": "Access: If v Then Foo Else Foo, with Sub Foo() of the module, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Foo()\r\nEnd Sub\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Foo Else Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_numbered_load_label_compile",
+      "description": "Excel: GoTo Load, with 10 Load: Beep a numbered line labelled Load, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    GoTo Load\r\n10 Load: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_numbered_load_label_compile",
+      "description": "Word: GoTo Load, with 10 Load: Beep a numbered line labelled Load, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    GoTo Load\r\n10 Load: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_numbered_load_label_compile",
+      "description": "PowerPoint: GoTo Load, with 10 Load: Beep a numbered line labelled Load, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    GoTo Load\r\n10 Load: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_numbered_load_label_compile",
+      "description": "Access: GoTo Load, with 10 Load: Beep a numbered line labelled Load, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    GoTo Load\r\n10 Load: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_excel_if_beep_else_one_compile",
+      "description": "Excel: If v Then Beep Else Beep 1, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_word_if_beep_else_one_compile",
+      "description": "Word: If v Then Beep Else Beep 1, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_powerpoint_if_beep_else_one_compile",
+      "description": "PowerPoint: If v Then Beep Else Beep 1, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_arguments_access_if_beep_else_one_compile",
+      "description": "Access: If v Then Beep Else Beep 1, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Beep Else Beep 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "one_line_procedures_types_and_do_colon_excel_runtime",
       "description": "Excel: a Type, an Enum, a Sub, a Function and a Property Get and Let, each declared and closed on one line (`Public Sub Bump(): m = m + 1: End Sub`), compile, and the procedures run; a Do loop with a statement after `Do:` on its first line runs that statement on each pass. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
