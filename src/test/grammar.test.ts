@@ -580,10 +580,10 @@ suite('VBA grammar', () => {
 		});
 	});
 
-	// Issue #1616. The VBE shows Then, And, Or, Not and Is as keywords in #If, #ElseIf and
-	// #Const lines, in Excel, Word, PowerPoint and Access, and names as names. The other
-	// operators of MS-VBAL 5.6.16.2 were not measured there and keep the directive scope.
-	test('colors Then, And, Or, Not and Is in a directive with their scopes outside one', async () => {
+	// Issue #1616. The VBE shows Then, And, Or, Not, Is, Xor, Eqv, Imp, Mod and Like as
+	// keywords in #If, #ElseIf and #Const lines, in Excel, Word, PowerPoint and Access, and
+	// names as names. MS-VBAL 5.6.16.2.
+	test('colors Then and the operators in a directive with their scopes outside one', async () => {
 		const DIRECTIVE = 'meta.preprocessor.vba';
 		const LOGICAL = 'keyword.other.operator.vba';
 		const lines = await lineTokens([
@@ -592,14 +592,19 @@ suite('VBA grammar', () => {
 			'#ElseIf Nothing Is Nothing then',
 			'#Const X = a AND b Or NOT c',
 			'#If a Xor b Then',
+			'#ElseIf a Eqv b Or a Imp b Then',
+			'#Const Y = 5 Mod 2 Xor "a" Like "a"',
 			'#Const Andy = Thence',
 		]);
 		assert.deepEqual(lines[0], [`Win64 ${DIRECTIVE}`, `And ${LOGICAL}`, `VBA7 ${DIRECTIVE}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[1], [`Not ${LOGICAL}`, `Mac ${DIRECTIVE}`, `Or ${LOGICAL}`, `A = ${DIRECTIVE}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[2].slice(1), ['Is keyword.other.operator.vba', 'Nothing keyword.other.literal.vba', `then ${KEYWORD}`]);
 		assert.deepEqual(lines[3].map((word) => word.split(' ').at(-1)), [DIRECTIVE, LOGICAL, DIRECTIVE, LOGICAL, LOGICAL, DIRECTIVE]);
-		assert.deepEqual(lines[4], [`a Xor b ${DIRECTIVE}`, `Then ${KEYWORD}`]);
-		assert.deepEqual(lines[5], [`Andy = Thence ${DIRECTIVE}`]);
+		assert.deepEqual(lines[4], [`a ${DIRECTIVE}`, `Xor ${LOGICAL}`, `b ${DIRECTIVE}`, `Then ${KEYWORD}`]);
+		assert.deepEqual(lines[5].map((word) => word.split(' ')[0]), ['a', 'Eqv', 'b', 'Or', 'a', 'Imp', 'b', 'Then']);
+		assert.deepEqual(lines[5].filter((word) => word.endsWith(LOGICAL)), [`Eqv ${LOGICAL}`, `Or ${LOGICAL}`, `Imp ${LOGICAL}`]);
+		assert.deepEqual(lines[6].filter((word) => word.endsWith(LOGICAL)), [`Mod ${LOGICAL}`, `Xor ${LOGICAL}`, `Like ${LOGICAL}`]);
+		assert.deepEqual(lines[7], [`Andy = Thence ${DIRECTIVE}`]);
 	});
 
 	// Every host compiles accented Latin names (oracle nonascii_names_<host>_runtime). The other
