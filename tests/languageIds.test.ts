@@ -31,7 +31,6 @@ const manifest = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'
 // 'plaintext', are not XLIDE's to name.
 const QUOTED = `['"\`](?:vba|xlide-vba|xml)['"\`]`;
 const QUOTED_ONLY = new RegExp(`^${QUOTED}$`);
-const QUOTED_ANYWHERE = new RegExp(QUOTED);
 
 // A document's language id compared or asserted either way round, a document
 // filter's or a scope's key, and a Markdown code fence written plainly or
@@ -54,47 +53,64 @@ const LANGUAGE_ARGUMENTS: Array<{ name: RegExp; index: number; selector: boolean
     { name: /\bcreateLanguageStatusItem$/, index: 1, selector: true },
 ];
 
-const COMMENTS = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
-
-/** The top-level arguments of the call whose `(` is at `open`, without comments. */
-function callArguments(source: string, open: number): string[] {
-    const args: string[] = [];
+/**
+ * The top-level items of the call or array whose `(` or `[` is at `open`,
+ * with comments left out and quoted text kept whole.
+ */
+function topLevelItems(source: string, open: number): string[] {
+    const items: string[] = [];
+    let current = '';
     let depth = 0;
-    let start = open + 1;
     for (let i = open; i < source.length; i++) {
         const c = source[i];
         if (c === '/' && source[i + 1] === '/') {
-            i = source.indexOf('\n', i);
-            if (i === -1) {
-                break;
-            }
+            const end = source.indexOf('\n', i);
+            i = end === -1 ? source.length : end - 1;
         } else if (c === '/' && source[i + 1] === '*') {
-            i = source.indexOf('*/', i + 2) + 1;
-            if (i === 0) {
-                break;
-            }
+            const end = source.indexOf('*/', i + 2);
+            i = end === -1 ? source.length : end + 1;
         } else if (c === "'" || c === '"' || c === '`') {
-            for (i++; i < source.length && source[i] !== c; i++) {
-                if (source[i] === '\\') {
-                    i++;
+            let j = i + 1;
+            for (; j < source.length && source[j] !== c; j++) {
+                if (source[j] === '\\') {
+                    j++;
                 }
             }
+            current += source.slice(i, j + 1);
+            i = j;
         } else if (c === '(' || c === '[' || c === '{') {
+            if (depth > 0) {
+                current += c;
+            }
             depth++;
         } else if (c === ')' || c === ']' || c === '}') {
             depth--;
             if (depth === 0) {
-                args.push(source.slice(start, i));
-                return args
-                    .map((arg) => arg.replace(COMMENTS, '').trim())
-                    .filter((arg, index, all) => arg !== '' || index < all.length - 1);
+                items.push(current.trim());
+                return items.filter((item, index, all) => item !== '' || index < all.length - 1);
             }
+            current += c;
         } else if (c === ',' && depth === 1) {
-            args.push(source.slice(start, i));
-            start = i + 1;
+            items.push(current.trim());
+            current = '';
+        } else {
+            current += c;
         }
     }
-    return args;
+    return items;
+}
+
+/**
+ * Whether a selector argument names one of XLIDE's languages as a bare
+ * string: the selector itself, or an item of a selector array. A filter's
+ * `language:` key is caught by LANGUAGE_PATTERNS; any other string in a
+ * filter, such as a `pattern`, is not a language.
+ */
+function selectorNamesLanguage(arg: string): boolean {
+    if (QUOTED_ONLY.test(arg)) {
+        return true;
+    }
+    return arg.startsWith('[') && topLevelItems(arg, 0).some((item) => QUOTED_ONLY.test(item));
 }
 
 /** Each place in `source` that states one of XLIDE's languages as a bare string. */
@@ -111,8 +127,8 @@ function bareLanguages(source: string): Array<{ index: number; text: string }> {
             continue;
         }
         const open = (call.index ?? 0) + call[0].length - 1;
-        const arg = callArguments(source, open)[rule.index] ?? '';
-        if (rule.selector ? QUOTED_ANYWHERE.test(arg) : QUOTED_ONLY.test(arg)) {
+        const arg = topLevelItems(source, open)[rule.index] ?? '';
+        if (rule.selector ? selectorNamesLanguage(arg) : QUOTED_ONLY.test(arg)) {
             found.push({ index: call.index ?? 0, text: `${call[1]}(… ${arg} …)` });
         }
     }
@@ -159,6 +175,7 @@ describe('language ids', () => {
             "md.appendCodeblock(signatureOf('a;b'), 'vba');",
             "md.appendCodeblock(signature, /* language */ 'vba');",
             "md.appendCodeblock(signature /* ), */, // (\n    'vba');",
+            "registerHoverProvider([{ pattern: 'https://example/**' }, 'vba'], provider);",
             "await vscode.languages.setTextDocumentLanguage(doc, 'xml');",
             "const doc = '```vba\\nx\\n```';",
             "parts.push(`\\`\\`\\`vba\\n${x}`);",
@@ -173,6 +190,9 @@ describe('language ids', () => {
             "vscode.workspace.getConfiguration('xlide', document.uri);",
             "md.appendCodeblock(formatLibrary(name, 'vba'));",
             "vscode.languages.createLanguageStatusItem('vba', VBA_SELECTOR);",
+            "vscode.languages.registerHoverProvider({ language: VBA_LANGUAGE_ID, pattern: 'vba' }, provider);",
+            "vscode.languages.registerHoverProvider(selectorForLibrary('vba'), provider);",
+            "vscode.languages.registerHoverProvider([selectorForLibrary('vba')], provider);",
             "await vscode.languages.setTextDocumentLanguage(doc, 'plaintext');",
             "if (document.languageId === 'plaintext') {}",
             "const fence = '```vba-sample';",
