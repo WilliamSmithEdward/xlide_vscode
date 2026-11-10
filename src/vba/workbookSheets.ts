@@ -97,6 +97,9 @@ const BRT_WS_PROP = 0x0093;
 const BRT_CS_PROP = 0x028b;
 const BRT_BEGIN_SHEET_DATA = 0x0091;
 const BRT_END_SHEET = 0x0082;
+const BRT_BEGIN_ACTIVE_X_CONTROLS = 0x0283;
+const BRT_ACTIVE_X = 0x0284;
+const BRT_END_ACTIVE_X_CONTROLS = 0x0285;
 
 /** Where the sheet's name sits in its properties record: after the flags and the tab color. */
 const WS_PROP_NAME_OFFSET = 19;
@@ -128,6 +131,95 @@ export function sheetsOfXlsb(zip: ZipArchive): WorkbookSheet[] {
 		out.push(sheet);
 	}
 	return out;
+}
+
+/**
+ * The ActiveX controls on each worksheet of a binary workbook, by the
+ * sheet's code name. A worksheet part lists them in one block,
+ * BrtBeginActiveXControls to BrtEndActiveXControls, with a BrtActiveX
+ * record each (MS-XLSB 2.4.4): the shape id, the relationship id of the
+ * control's part, then the control's name. Each control's part is a
+ * control relationship of the sheet, so a sheet with none is listed with
+ * no controls, and its part is not read any further for them. A sheet
+ * with no code name has no module to belong to, and a sheet whose control
+ * block cannot be read whole is left out rather than listed with the
+ * controls that could be read.
+ */
+export function xlsbSheetControls(zip: ZipArchive): Map<string, string[]> {
+	const out = new Map<string, string[]>();
+	const workbook = zip.read('xl/workbook.bin');
+	const rels = relationships(zip, 'xl/_rels/workbook.bin.rels');
+	for (const record of xlsbRecords(workbook)) {
+		if (record.type !== BRT_BUNDLE_SH || record.truncated || record.body.length < 12) {
+			continue;
+		}
+		const relId = xlsbWideString(record.body, 8);
+		const target = relId.text === undefined || relId.next > record.body.length ? undefined : rels.get(relId.text);
+		if (!target || sheetKindOfPath(target) !== 'worksheet') {
+			continue;
+		}
+		try {
+			const path = partPath(target);
+			const codeName = zip.has(path) ? xlsbCodeName(zip, path) : undefined;
+			const names = !codeName ? undefined : hasControlRelationship(zip, path) ? xlsbControlNamesIn(zip.read(path)) : [];
+			if (codeName && names) {
+				out.set(codeName.toLowerCase(), names);
+			}
+		} catch {
+			// A part that cannot be inflated says nothing about its sheet; the others still answer.
+		}
+	}
+	return out;
+}
+
+const CONTROL_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/control';
+
+/**
+ * Whether a sheet part relates to a control's part, which each ActiveX
+ * control on it does. Read from any Relationship element, whatever its
+ * prefix, its quotes or the character references in its Type.
+ */
+function hasControlRelationship(zip: ZipArchive, path: string): boolean {
+	const slash = path.lastIndexOf('/');
+	const rels = `${path.slice(0, slash + 1)}_rels/${path.slice(slash + 1)}.rels`;
+	if (!zip.has(rels)) {
+		return false;
+	}
+	for (const [tag] of zip.read(rels).toString('utf8').matchAll(/<(?:[\w.-]+:)?Relationship\b[^>]*>/g)) {
+		const type = /\sType\s*=\s*(["'])([^"']*)\1/.exec(tag)?.[2];
+		if (type !== undefined && decodeXml(type) === CONTROL_RELATIONSHIP) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** The names in a worksheet part's control block; undefined when the part is cut short or the block is not closed. */
+function xlsbControlNamesIn(data: Buffer): string[] | undefined {
+	const names: string[] = [];
+	let inBlock = false;
+	for (const record of xlsbRecords(data)) {
+		if (record.truncated) {
+			return undefined;
+		}
+		if (record.type === BRT_BEGIN_ACTIVE_X_CONTROLS) {
+			inBlock = true;
+		} else if (record.type === BRT_END_ACTIVE_X_CONTROLS) {
+			inBlock = false;
+		} else if (record.type === BRT_END_SHEET) {
+			return inBlock ? undefined : names;
+		} else if (inBlock && record.type === BRT_ACTIVE_X) {
+			// A control whose name cannot be read leaves the list incomplete.
+			const relId = record.body.length >= 12 ? xlsbWideString(record.body, 4) : undefined;
+			const name = relId && relId.next + 4 <= record.body.length ? xlsbWideString(record.body, relId.next) : undefined;
+			if (!name?.text || name.next > record.body.length) {
+				return undefined;
+			}
+			names.push(name.text);
+		}
+	}
+	// No BrtEndSheet: the part ended early.
+	return undefined;
 }
 
 /**

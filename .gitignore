@@ -158,6 +158,7 @@ reference/
 # Excel's, byte for byte.
 !tests/fixtures/binaries/NoVbaSheetsFixture.xlsb
 !tests/fixtures/binaries/VbaAddedByExcelFixture.xlsb
+!tests/fixtures/binaries/ExcelControlsDisabledSaveFixture.xlsb
 excel_test_workbook/
 .claude/
 
