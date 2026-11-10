@@ -37,8 +37,8 @@ describe('analyzeModule - argument count', () => {
 			'End Sub\n' +
 			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
 		expectDiagnostics(src, analyzeModule(src), 'argument-count', [
-			{ span: 'Greet', message: 'expected 2 arguments' },
-			{ span: 'Greet', message: 'expected 2 arguments' },
+			{ span: 'Greet', message: "'b' is required by 'Greet', which got 1 argument" },
+			{ span: 'Greet', message: "'b' is required by 'Greet', which got 1 argument" },
 		]);
 	});
 
@@ -849,7 +849,7 @@ describe('analyzeModule - argument count', () => {
 		it('still reports a missing argument to one that takes some', () => {
 			const { src, hits } = arityHits('x = t.Pair()');
 			expectDiagnostic(src, hits, 'argument-count', { span: 'Pair' });
-			expect(hits[0].message).toContain('expected 1 argument, but got 0');
+			expect(hits[0].message).toContain("'a' is required by 'Thing.Pair', which got 0 arguments");
 		});
 
 		it('reads a display signature\'s parameter list to its own closing parenthesis', () => {

@@ -121,7 +121,7 @@ describe('multi-project isolation', () => {
 			'Person.TwoName',
 		);
 		expect(diagnostics.find((hit) => hit.code === 'argument-count')?.message).toContain(
-			'expected 2 arguments',
+			'which got 1 argument',
 		);
 
 		const typeTokens = resolveTypeSemanticTokens(caller, {

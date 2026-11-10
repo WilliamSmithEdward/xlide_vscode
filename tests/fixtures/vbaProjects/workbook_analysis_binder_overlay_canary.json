@@ -110,7 +110,7 @@
           "severity": "error",
           "messageContains": [
             "ModuleA.AmbiguousProc",
-            "expected 2 arguments"
+            "which got 1 argument"
           ]
         },
         {
@@ -155,7 +155,7 @@
           "count": 1,
           "messagesContain": [
             "ModuleA.AmbiguousProc",
-            "expected 2 arguments"
+            "which got 1 argument"
           ]
         },
         {

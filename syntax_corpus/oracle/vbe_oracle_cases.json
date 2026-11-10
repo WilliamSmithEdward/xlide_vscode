@@ -240090,6 +240090,2071 @@
       "host": "powerpoint"
     },
     {
+      "id": "too_few_arguments_excel_user_sub_one_compile",
+      "description": "Excel: Two 1, for Sub Two(a, b), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_user_sub_one_compile",
+      "description": "Word: Two 1, for Sub Two(a, b), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_user_sub_one_compile",
+      "description": "PowerPoint: Two 1, for Sub Two(a, b), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_user_sub_one_compile",
+      "description": "Access: Two 1, for Sub Two(a, b), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_user_fn_none_parens_compile",
+      "description": "Excel: v = TwoF(), for Function TwoF(a, b), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = TwoF()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_user_fn_none_parens_compile",
+      "description": "Word: v = TwoF(), for Function TwoF(a, b), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = TwoF()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_user_fn_none_parens_compile",
+      "description": "PowerPoint: v = TwoF(), for Function TwoF(a, b), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = TwoF()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_user_fn_none_parens_compile",
+      "description": "Access: v = TwoF(), for Function TwoF(a, b), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = TwoF()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_user_qualified_one_compile",
+      "description": "Excel: Helpers.Two 1, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Helpers.Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_user_qualified_one_compile",
+      "description": "Word: Helpers.Two 1, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Helpers.Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_user_qualified_one_compile",
+      "description": "PowerPoint: Helpers.Two 1, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Helpers.Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_user_qualified_one_compile",
+      "description": "Access: Helpers.Two 1, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Helpers.Two 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_user_opt_none_compile",
+      "description": "Excel: OneOpt, for Sub OneOpt(a, Optional b), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then OneOpt\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_user_opt_none_compile",
+      "description": "Word: OneOpt, for Sub OneOpt(a, Optional b), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then OneOpt\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_user_opt_none_compile",
+      "description": "PowerPoint: OneOpt, for Sub OneOpt(a, Optional b), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then OneOpt\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_user_opt_none_compile",
+      "description": "Access: OneOpt, for Sub OneOpt(a, Optional b), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then OneOpt\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_user_sub_three_compile",
+      "description": "Excel: Two 1, 2, 3, one too many, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1, 2, 3\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_user_sub_three_compile",
+      "description": "Word: Two 1, 2, 3, one too many, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1, 2, 3\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_user_sub_three_compile",
+      "description": "PowerPoint: Two 1, 2, 3, one too many, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1, 2, 3\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_user_sub_three_compile",
+      "description": "Access: Two 1, 2, 3, one too many, is rejected: Compile error: Wrong number of arguments or invalid property assignment. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Two 1, 2, 3\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_lib_left_one_compile",
+      "description": "Excel: s = Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_lib_left_one_compile",
+      "description": "Word: s = Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_lib_left_one_compile",
+      "description": "PowerPoint: s = Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_lib_left_one_compile",
+      "description": "Access: s = Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_lib_msgbox_none_compile",
+      "description": "Excel: MsgBox, with no argument, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then MsgBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_lib_msgbox_none_compile",
+      "description": "Word: MsgBox, with no argument, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then MsgBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_lib_msgbox_none_compile",
+      "description": "PowerPoint: MsgBox, with no argument, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then MsgBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_lib_msgbox_none_compile",
+      "description": "Access: MsgBox, with no argument, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then MsgBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_lib_vba_left_one_compile",
+      "description": "Excel: s = VBA.Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = VBA.Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_lib_vba_left_one_compile",
+      "description": "Word: s = VBA.Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = VBA.Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_lib_vba_left_one_compile",
+      "description": "PowerPoint: s = VBA.Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = VBA.Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_lib_vba_left_one_compile",
+      "description": "Access: s = VBA.Left(\"a\"), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then s = VBA.Left(\"a\")\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_lib_cdec_none_compile",
+      "description": "Excel: v = CDec(), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CDec()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_lib_cdec_none_compile",
+      "description": "Word: v = CDec(), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CDec()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_lib_cdec_none_compile",
+      "description": "PowerPoint: v = CDec(), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CDec()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_lib_cdec_none_compile",
+      "description": "Access: v = CDec(), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CDec()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_host_coll_add_none_compile",
+      "description": "Excel: c.Add, with no argument, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    Dim c As New Collection\r\n    If False Then c.Add\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_host_coll_add_none_compile",
+      "description": "Word: c.Add, with no argument, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    Dim c As New Collection\r\n    If False Then c.Add\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_host_coll_add_none_compile",
+      "description": "PowerPoint: c.Add, with no argument, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    Dim c As New Collection\r\n    If False Then c.Add\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_host_coll_add_none_compile",
+      "description": "Access: c.Add, with no argument, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    Dim c As New Collection\r\n    If False Then c.Add\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_host_err_raise_none_compile",
+      "description": "Excel: Err.Raise, with no argument, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Err.Raise\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_host_err_raise_none_compile",
+      "description": "Word: Err.Raise, with no argument, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Err.Raise\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_host_err_raise_none_compile",
+      "description": "PowerPoint: Err.Raise, with no argument, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Err.Raise\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_host_err_raise_none_compile",
+      "description": "Access: Err.Raise, with no argument, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Err.Raise\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_kw_cint_none_compile",
+      "description": "Excel: v = CInt(), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CInt()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_kw_cint_none_compile",
+      "description": "Word: v = CInt(), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CInt()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_kw_cint_none_compile",
+      "description": "PowerPoint: v = CInt(), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CInt()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_kw_cint_none_compile",
+      "description": "Access: v = CInt(), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = CInt()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_kw_len_none_compile",
+      "description": "Excel: v = Len(), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Len()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_kw_len_none_compile",
+      "description": "Word: v = Len(), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Len()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_kw_len_none_compile",
+      "description": "PowerPoint: v = Len(), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Len()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_kw_len_none_compile",
+      "description": "Access: v = Len(), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Len()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_kw_lbound_none_compile",
+      "description": "Excel: v = LBound(), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = LBound()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_kw_lbound_none_compile",
+      "description": "Word: v = LBound(), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = LBound()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_kw_lbound_none_compile",
+      "description": "PowerPoint: v = LBound(), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = LBound()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_kw_lbound_none_compile",
+      "description": "Access: v = LBound(), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = LBound()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_kw_abs_none_compile",
+      "description": "Excel: v = Abs(), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Abs()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_kw_abs_none_compile",
+      "description": "Word: v = Abs(), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Abs()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_kw_abs_none_compile",
+      "description": "PowerPoint: v = Abs(), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Abs()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_kw_abs_none_compile",
+      "description": "Access: v = Abs(), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Abs()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_kw_mid_stmt_one_compile",
+      "description": "Excel: Mid(s) = \"x\", the Mid statement, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Mid(s) = \"x\"\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_kw_mid_stmt_one_compile",
+      "description": "Word: Mid(s) = \"x\", the Mid statement, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Mid(s) = \"x\"\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_kw_mid_stmt_one_compile",
+      "description": "PowerPoint: Mid(s) = \"x\", the Mid statement, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Mid(s) = \"x\"\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_kw_mid_stmt_one_compile",
+      "description": "Access: Mid(s) = \"x\", the Mid statement, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Mid(s) = \"x\"\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_kw_debug_assert_none_compile",
+      "description": "Excel: Debug.Assert, with no argument, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Debug.Assert\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_kw_debug_assert_none_compile",
+      "description": "Word: Debug.Assert, with no argument, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Debug.Assert\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_kw_debug_assert_none_compile",
+      "description": "PowerPoint: Debug.Assert, with no argument, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Debug.Assert\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_kw_debug_assert_none_compile",
+      "description": "Access: Debug.Assert, with no argument, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Debug.Assert\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_branch_call_then_compile",
+      "description": "Excel: If v Then Call MsgBox \"hello\", a Call with its argument outside parentheses in a one-line If, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_branch_call_then_compile",
+      "description": "Word: If v Then Call MsgBox \"hello\", a Call with its argument outside parentheses in a one-line If, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_branch_call_then_compile",
+      "description": "PowerPoint: If v Then Call MsgBox \"hello\", a Call with its argument outside parentheses in a one-line If, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_branch_call_then_compile",
+      "description": "Access: If v Then Call MsgBox \"hello\", a Call with its argument outside parentheses in a one-line If, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_branch_call_else_compile",
+      "description": "Excel: If v Then v = 1 Else Call MsgBox \"hello\", the same after Else, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then v = 1 Else Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_branch_call_else_compile",
+      "description": "Word: If v Then v = 1 Else Call MsgBox \"hello\", the same after Else, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then v = 1 Else Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_branch_call_else_compile",
+      "description": "PowerPoint: If v Then v = 1 Else Call MsgBox \"hello\", the same after Else, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then v = 1 Else Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_branch_call_else_compile",
+      "description": "Access: If v Then v = 1 Else Call MsgBox \"hello\", the same after Else, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If v Then v = 1 Else Call MsgBox \"hello\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_strcomp_short_compile",
+      "description": "Excel: v = StrComp(1), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = StrComp(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_strcomp_short_compile",
+      "description": "Word: v = StrComp(1), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = StrComp(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_strcomp_short_compile",
+      "description": "PowerPoint: v = StrComp(1), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = StrComp(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_strcomp_short_compile",
+      "description": "Access: v = StrComp(1), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = StrComp(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_string_d_none_compile",
+      "description": "Excel: v = String$(), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = String$()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_string_d_none_compile",
+      "description": "Word: v = String$(), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = String$()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_string_d_none_compile",
+      "description": "PowerPoint: v = String$(), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = String$()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_string_d_none_compile",
+      "description": "Access: v = String$(), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = String$()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_sqr_none_compile",
+      "description": "Excel: v = Sqr(), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Sqr()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_sqr_none_compile",
+      "description": "Word: v = Sqr(), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Sqr()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_sqr_none_compile",
+      "description": "PowerPoint: v = Sqr(), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Sqr()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_sqr_none_compile",
+      "description": "Access: v = Sqr(), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = Sqr()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_dateserial_short_compile",
+      "description": "Excel: v = DateSerial(1, 1), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = DateSerial(1, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_dateserial_short_compile",
+      "description": "Word: v = DateSerial(1, 1), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = DateSerial(1, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_powerpoint_dateserial_short_compile",
+      "description": "PowerPoint: v = DateSerial(1, 1), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = DateSerial(1, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_access_dateserial_short_compile",
+      "description": "Access: v = DateSerial(1, 1), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    If False Then v = DateSerial(1, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_host_range_none_compile",
+      "description": "Excel: v = Range(), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then v = Range()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_excel_host_workbooks_open_none_compile",
+      "description": "Excel: Workbooks.Open, with no argument, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Workbooks.Open\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "too_few_arguments_word_host_documents_open_none_compile",
+      "description": "Word: Documents.Open, with no argument, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, s As String, n As Long, a(1) As Long\r\n    If False Then Documents.Open\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Helpers",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Two(ByVal a As Long, ByVal b As Long)\r\nEnd Sub\r\nPublic Function TwoF(ByVal a As Long, ByVal b As Long) As Long\r\nEnd Function\r\nPublic Sub OneOpt(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_access_bracket_private_type_compile",
       "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",

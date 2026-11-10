@@ -193,7 +193,7 @@
           {
             "code": "argument-count",
             "count": 1,
-            "messagesContain": ["SharedProc", "expected 2 arguments"]
+            "messagesContain": ["SharedProc", "which got 1 argument"]
           }
         ]
       }
