@@ -50,6 +50,7 @@ describe('language ids', () => {
         expect(isBare("{ scheme: XLIDE_SCHEME, language: 'vba' },")).toBe(true);
         expect(isBare("await vscode.languages.setTextDocumentLanguage(doc, 'xml');")).toBe(true);
         expect(isBare("md.appendCodeblock(info.signature, 'vba');")).toBe(true);
+        expect(isBare("vscode.languages.registerHoverProvider('vba', provider);")).toBe(true);
         expect(isBare("'**Boolean literal**\\n\\n```vba\\nTrue\\n```',")).toBe(true);
         expect(isBare('parts.push(`\\`\\`\\`vba\\n${doc.example}\\n\\`\\`\\``);')).toBe(true);
         expect(isBare("if (tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.') {")).toBe(false);
