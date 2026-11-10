@@ -189,24 +189,26 @@
     "procedures": {
       "patterns": [
         {
-          "comment": "Sub / Function declaration - captures visibility, Static, keyword, and name",
-          "match": "(?i)^\\s*((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+          "comment": "Sub / Function declaration - captures visibility, Static, keyword, and name. Static may come before the visibility too (Static Public Sub), which the VBE accepts and stores as Public Static Sub",
+          "match": "(?i)^\\s*(?:(Static)\\s+(?=(?:Public|Private|Friend|Global)\\s))?((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
-            "1": { "name": "storage.modifier.vba" },
-            "2": { "name": "storage.modifier.static.vba" },
-            "3": { "name": "storage.type.function.vba" },
-            "4": { "name": "entity.name.function.vba" }
+            "1": { "name": "storage.modifier.static.vba" },
+            "2": { "name": "storage.modifier.vba" },
+            "3": { "name": "storage.modifier.static.vba" },
+            "4": { "name": "storage.type.function.vba" },
+            "5": { "name": "entity.name.function.vba" }
           }
         },
         {
-          "comment": "Property Get / Let / Set declaration",
-          "match": "(?i)^\\s*((?:Public|Private|Friend)\\s+)?(?:(Static)\\s+)?(Property)\\s+(Get|Let|Set)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+          "comment": "Property Get / Let / Set declaration, with Static before or after the visibility as for Sub and Function",
+          "match": "(?i)^\\s*(?:(Static)\\s+(?=(?:Public|Private|Friend)\\s))?((?:Public|Private|Friend)\\s+)?(?:(Static)\\s+)?(Property)\\s+(Get|Let|Set)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
-            "1": { "name": "storage.modifier.vba" },
-            "2": { "name": "storage.modifier.static.vba" },
-            "3": { "name": "storage.type.property.vba" },
+            "1": { "name": "storage.modifier.static.vba" },
+            "2": { "name": "storage.modifier.vba" },
+            "3": { "name": "storage.modifier.static.vba" },
             "4": { "name": "storage.type.property.vba" },
-            "5": { "name": "entity.name.function.property.vba" }
+            "5": { "name": "storage.type.property.vba" },
+            "6": { "name": "entity.name.function.property.vba" }
           }
         },
         {
