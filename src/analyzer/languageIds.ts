@@ -1,7 +1,8 @@
 /**
  * The language ids XLIDE gives documents, as `package.json` contributes them.
  * Code that means a language names it through these, so a bare `'vba'`
- * anywhere else is the VBA library (`VBA.Left`), never a language.
+ * anywhere else is the VBA library (`VBA.Left`), or the diagnostic
+ * collection's name, never a language.
  * `tests/languageIds.test.ts` holds both sides to that.
  */
 

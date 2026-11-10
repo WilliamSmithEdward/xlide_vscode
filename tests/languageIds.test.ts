@@ -9,12 +9,13 @@ import {
 } from '../src/analyzer/languageIds';
 
 // Code that means one of the languages XLIDE contributes names it through
-// src/analyzer/languageIds.ts, so a bare 'vba' in the source is always the
-// VBA library (`VBA.Left`). Both are common, so without this a new language
-// check written as a bare string reads exactly like the library name.
+// src/analyzer/languageIds.ts, so a bare 'vba' in the source is the VBA
+// library (`VBA.Left`), or the diagnostic collection's name. Both meanings are
+// common, so without this a new language check written as a bare string reads
+// exactly like the library name.
 //
-// The scan reads the source as text, across lines. A comment that quotes one
-// of these forms is reported too, and is reworded.
+// The scan reads the source as text, across lines, with comments and the
+// bodies of regular expressions blanked out first.
 
 const root = path.join(__dirname, '..');
 
@@ -54,47 +55,87 @@ const LANGUAGE_ARGUMENTS: Array<{ name: RegExp; index: number; selector: boolean
 ];
 
 /**
- * The top-level items of the call or array whose `(` or `[` is at `open`,
- * with comments left out and quoted text kept whole.
+ * The source with comments and the bodies of regular expressions blanked to
+ * spaces, every position kept, so neither can hide or imitate a language.
+ * Strings stay as they are: fences and ids live in them.
  */
-function topLevelItems(source: string, open: number): string[] {
-    const items: string[] = [];
-    let current = '';
-    let depth = 0;
-    for (let i = open; i < source.length; i++) {
+function blankCommentsAndRegexes(source: string): string {
+    const out = source.split('');
+    const blank = (from: number, to: number) => {
+        for (let k = from; k < to; k++) {
+            if (out[k] !== '\n') {
+                out[k] = ' ';
+            }
+        }
+    };
+    let previous = '';
+    for (let i = 0; i < source.length; i++) {
         const c = source[i];
         if (c === '/' && source[i + 1] === '/') {
             const end = source.indexOf('\n', i);
+            blank(i, end === -1 ? source.length : end);
             i = end === -1 ? source.length : end - 1;
         } else if (c === '/' && source[i + 1] === '*') {
             const end = source.indexOf('*/', i + 2);
+            blank(i, end === -1 ? source.length : end + 2);
             i = end === -1 ? source.length : end + 1;
         } else if (c === "'" || c === '"' || c === '`') {
-            let j = i + 1;
-            for (; j < source.length && source[j] !== c; j++) {
-                if (source[j] === '\\') {
-                    j++;
+            for (i++; i < source.length && source[i] !== c; i++) {
+                if (source[i] === '\\') {
+                    i++;
                 }
             }
-            current += source.slice(i, j + 1);
-            i = j;
-        } else if (c === '(' || c === '[' || c === '{') {
-            if (depth > 0) {
-                current += c;
+            previous = c;
+        } else if (c === '/' && (previous === '' || '(,=:[!&|?{};'.includes(previous))) {
+            let j = i + 1;
+            for (let inClass = false; j < source.length && source[j] !== '\n'; j++) {
+                if (source[j] === '\\') {
+                    j++;
+                } else if (source[j] === '[') {
+                    inClass = true;
+                } else if (source[j] === ']') {
+                    inClass = false;
+                } else if (source[j] === '/' && !inClass) {
+                    break;
+                }
             }
+            blank(i + 1, j);
+            i = j;
+            previous = ')';
+        } else if (!/\s/.test(c)) {
+            previous = c;
+        }
+    }
+    return out.join('');
+}
+
+/**
+ * The top-level items of the call or array whose `(` or `[` is at `open`, in
+ * source that has been through blankCommentsAndRegexes.
+ */
+function topLevelItems(source: string, open: number): string[] {
+    const items: string[] = [];
+    let start = open + 1;
+    let depth = 0;
+    for (let i = open; i < source.length; i++) {
+        const c = source[i];
+        if (c === "'" || c === '"' || c === '`') {
+            for (i++; i < source.length && source[i] !== c; i++) {
+                if (source[i] === '\\') {
+                    i++;
+                }
+            }
+        } else if (c === '(' || c === '[' || c === '{') {
             depth++;
         } else if (c === ')' || c === ']' || c === '}') {
             depth--;
             if (depth === 0) {
-                items.push(current.trim());
+                items.push(source.slice(start, i).trim());
                 return items.filter((item, index, all) => item !== '' || index < all.length - 1);
             }
-            current += c;
         } else if (c === ',' && depth === 1) {
-            items.push(current.trim());
-            current = '';
-        } else {
-            current += c;
+            items.push(source.slice(start, i).trim());
+            start = i + 1;
         }
     }
     return items;
@@ -113,8 +154,9 @@ function selectorNamesLanguage(arg: string): boolean {
     return arg.startsWith('[') && topLevelItems(arg, 0).some((item) => QUOTED_ONLY.test(item));
 }
 
-/** Each place in `source` that states one of XLIDE's languages as a bare string. */
-function bareLanguages(source: string): Array<{ index: number; text: string }> {
+/** Each place in `original` that states one of XLIDE's languages as a bare string. */
+function bareLanguages(original: string): Array<{ index: number; text: string }> {
+    const source = blankCommentsAndRegexes(original);
     const found: Array<{ index: number; text: string }> = [];
     for (const pattern of LANGUAGE_PATTERNS) {
         for (const match of source.matchAll(pattern)) {
@@ -176,6 +218,9 @@ describe('language ids', () => {
             "md.appendCodeblock(signature, /* language */ 'vba');",
             "md.appendCodeblock(signature /* ), */, // (\n    'vba');",
             "registerHoverProvider([{ pattern: 'https://example/**' }, 'vba'], provider);",
+            "registerHoverProvider({ language: /* VBA */ 'vba' }, provider);",
+            "if (document.languageId === /* VBA */ 'vba') {}",
+            "md.appendCodeblock(signature.replace(/\\)/g, ''), 'vba');",
             "await vscode.languages.setTextDocumentLanguage(doc, 'xml');",
             "const doc = '```vba\\nx\\n```';",
             "parts.push(`\\`\\`\\`vba\\n${x}`);",
@@ -197,6 +242,8 @@ describe('language ids', () => {
             "if (document.languageId === 'plaintext') {}",
             "const fence = '```vba-sample';",
             "const fence = '```json';",
+            "// document.languageId === 'vba' in a comment",
+            "const pattern = /languageId === 'vba'/;",
         ];
         for (const source of notLanguages) {
             expect(bareLanguages(source), source).toEqual([]);
