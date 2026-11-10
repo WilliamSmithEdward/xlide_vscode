@@ -239494,6 +239494,1590 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "stdole_name_excel_loadpicture_compile",
+      "description": "Excel: Set p = LoadPicture(\"\"), stdole's function, compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_loadpicture_compile",
+      "description": "Word: Set p = LoadPicture(\"\"), stdole's function, compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_loadpicture_compile",
+      "description": "PowerPoint: Set p = LoadPicture(\"\"), stdole's function, compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_loadpicture_compile",
+      "description": "Access: Set p = LoadPicture(\"\"), which in Access is Access's own Application.LoadPicture, compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_savepicture_compile",
+      "description": "Excel: SavePicture p, \"x\", stdole's other function, compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_savepicture_compile",
+      "description": "Word: SavePicture p, \"x\", stdole's other function, compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_savepicture_compile",
+      "description": "PowerPoint: SavePicture p, \"x\", stdole's other function, compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_savepicture_compile",
+      "description": "Access: SavePicture p, \"x\", stdole's other function, compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_tristate_compile",
+      "description": "Excel: v = Checked + Unchecked + Gray, stdole's OLE_TRISTATE members, compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Checked + Unchecked + Gray\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_tristate_compile",
+      "description": "Word: v = Checked + Unchecked + Gray, stdole's OLE_TRISTATE members, compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Checked + Unchecked + Gray\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_tristate_compile",
+      "description": "PowerPoint: v = Checked + Unchecked + Gray, stdole's OLE_TRISTATE members, compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Checked + Unchecked + Gray\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_tristate_compile",
+      "description": "Access: v = Checked + Unchecked + Gray, stdole's OLE_TRISTATE members, compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Checked + Unchecked + Gray\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_picture_constants_compile",
+      "description": "Excel: v = Default + Monochrome + VgaColor + Color, stdole's LoadPictureConstants members, compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Default + Monochrome + VgaColor + Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_picture_constants_compile",
+      "description": "Word: v = Default + Monochrome + VgaColor + Color, stdole's LoadPictureConstants members, compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Default + Monochrome + VgaColor + Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_picture_constants_compile",
+      "description": "PowerPoint: v = Default + Monochrome + VgaColor + Color, stdole's LoadPictureConstants members, compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Default + Monochrome + VgaColor + Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_picture_constants_compile",
+      "description": "Access: v = Default + Monochrome + VgaColor + Color, stdole's LoadPictureConstants members, compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = Default + Monochrome + VgaColor + Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_stdfunctions_qualified_compile",
+      "description": "Excel: Set p = StdFunctions.LoadPicture(\"\") compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = StdFunctions.LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_stdfunctions_qualified_compile",
+      "description": "Word: Set p = StdFunctions.LoadPicture(\"\") compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = StdFunctions.LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_stdfunctions_qualified_compile",
+      "description": "PowerPoint: Set p = StdFunctions.LoadPicture(\"\") compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = StdFunctions.LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_stdfunctions_qualified_compile",
+      "description": "Access: Set p = StdFunctions.LoadPicture(\"\") compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = StdFunctions.LoadPicture(\"\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_local_shadow_compile",
+      "description": "Excel: a local named LoadPicture, which hides stdole's, compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Dim LoadPicture As Long\r\n    LoadPicture = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_local_shadow_compile",
+      "description": "Word: a local named LoadPicture, which hides stdole's, compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Dim LoadPicture As Long\r\n    LoadPicture = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_local_shadow_compile",
+      "description": "PowerPoint: a local named LoadPicture, which hides stdole's, compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Dim LoadPicture As Long\r\n    LoadPicture = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_local_shadow_compile",
+      "description": "Access: a local named LoadPicture, which hides stdole's, compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Dim LoadPicture As Long\r\n    LoadPicture = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_stdfunctions_bare_compile",
+      "description": "Excel: v = StdFunctions is rejected: Compile error: Expected variable or procedure, not module, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_stdfunctions_bare_compile",
+      "description": "Word: v = StdFunctions is rejected: Compile error: Expected variable or procedure, not module, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_stdfunctions_bare_compile",
+      "description": "PowerPoint: v = StdFunctions is rejected: Compile error: Expected variable or procedure, not module, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_stdfunctions_bare_compile",
+      "description": "Access: v = StdFunctions is rejected: Compile error: Expected variable or procedure, not module, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_stdfunctions_nope_compile",
+      "description": "Excel: v = StdFunctions.Nope is rejected: Compile error: Method or data member not found, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions.Nope\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_stdfunctions_nope_compile",
+      "description": "Word: v = StdFunctions.Nope is rejected: Compile error: Method or data member not found, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions.Nope\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_stdfunctions_nope_compile",
+      "description": "PowerPoint: v = StdFunctions.Nope is rejected: Compile error: Method or data member not found, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions.Nope\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_stdfunctions_nope_compile",
+      "description": "Access: v = StdFunctions.Nope is rejected: Compile error: Method or data member not found, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = StdFunctions.Nope\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_savepicture_one_compile",
+      "description": "Excel: SavePicture p, with one argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_savepicture_one_compile",
+      "description": "Word: SavePicture p, with one argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_savepicture_one_compile",
+      "description": "PowerPoint: SavePicture p, with one argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_savepicture_one_compile",
+      "description": "Access: SavePicture p, with one argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_savepicture_three_compile",
+      "description": "Excel: SavePicture p, \"x\", 1, with three arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\", 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_savepicture_three_compile",
+      "description": "Word: SavePicture p, \"x\", 1, with three arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\", 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_savepicture_three_compile",
+      "description": "PowerPoint: SavePicture p, \"x\", 1, with three arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\", 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_savepicture_three_compile",
+      "description": "Access: SavePicture p, \"x\", 1, with three arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture p, \"x\", 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_savepicture_value_compile",
+      "description": "Excel: v = SavePicture is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_savepicture_value_compile",
+      "description": "Word: v = SavePicture is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_savepicture_value_compile",
+      "description": "PowerPoint: v = SavePicture is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_savepicture_value_compile",
+      "description": "Access: v = SavePicture is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    v = SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_checked_assign_compile",
+      "description": "Excel: Checked = 1 is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Checked = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_checked_assign_compile",
+      "description": "Word: Checked = 1 is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Checked = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_checked_assign_compile",
+      "description": "PowerPoint: Checked = 1 is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Checked = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_checked_assign_compile",
+      "description": "Access: Checked = 1 is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Checked = 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_color_assign_compile",
+      "description": "Excel: Color = RGB(1, 2, 3) is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Color = RGB(1, 2, 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_color_assign_compile",
+      "description": "Word: Color = RGB(1, 2, 3) is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Color = RGB(1, 2, 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_color_assign_compile",
+      "description": "PowerPoint: Color = RGB(1, 2, 3) is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Color = RGB(1, 2, 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_color_assign_compile",
+      "description": "Access: Color = RGB(1, 2, 3) is rejected: Compile error: Assignment to constant not permitted, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Color = RGB(1, 2, 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_for_gray_compile",
+      "description": "Excel: For Gray = 1 To 3 is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    For Gray = 1 To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_for_gray_compile",
+      "description": "Word: For Gray = 1 To 3 is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    For Gray = 1 To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_for_gray_compile",
+      "description": "PowerPoint: For Gray = 1 To 3 is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    For Gray = 1 To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_for_gray_compile",
+      "description": "Access: For Gray = 1 To 3 is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    For Gray = 1 To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_input_color_compile",
+      "description": "Excel: Input #1, Color is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If False Then Input #1, Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_input_color_compile",
+      "description": "Word: Input #1, Color is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If False Then Input #1, Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_input_color_compile",
+      "description": "PowerPoint: Input #1, Color is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If False Then Input #1, Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_input_color_compile",
+      "description": "Access: Input #1, Color is rejected: Compile error: Variable required - can't assign to this expression, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If False Then Input #1, Color\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_savepicture_none_compile",
+      "description": "Excel: SavePicture, with no argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_savepicture_none_compile",
+      "description": "Word: SavePicture, with no argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_savepicture_none_compile",
+      "description": "PowerPoint: SavePicture, with no argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_savepicture_none_compile",
+      "description": "Access: SavePicture, with no argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    SavePicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_if_savepicture_compile",
+      "description": "Excel: If v Then SavePicture p, \"x\" compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If v Then SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_if_savepicture_compile",
+      "description": "Word: If v Then SavePicture p, \"x\" compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If v Then SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_if_savepicture_compile",
+      "description": "PowerPoint: If v Then SavePicture p, \"x\" compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If v Then SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_if_savepicture_compile",
+      "description": "Access: If v Then SavePicture p, \"x\" compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    If v Then SavePicture p, \"x\"\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_loadpicture_five_compile",
+      "description": "Excel: Set p = LoadPicture(\"\", 1, 1, 0, 0), with five arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_loadpicture_five_compile",
+      "description": "Word: Set p = LoadPicture(\"\", 1, 1, 0, 0), with five arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_loadpicture_five_compile",
+      "description": "PowerPoint: Set p = LoadPicture(\"\", 1, 1, 0, 0), with five arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_loadpicture_five_compile",
+      "description": "Access: Set p = LoadPicture(\"\", 1, 1, 0, 0), with five arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_loadpicture_noarg_compile",
+      "description": "Excel: Set p = LoadPicture, with no argument, compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_loadpicture_noarg_compile",
+      "description": "Word: Set p = LoadPicture, with no argument, compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_loadpicture_noarg_compile",
+      "description": "PowerPoint: Set p = LoadPicture, with no argument, compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_loadpicture_noarg_compile",
+      "description": "Access: Set p = LoadPicture, with no argument, is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_loadpicture_four_compile",
+      "description": "Excel: Set p = LoadPicture(\"\", 1, 1, 0), with four arguments, compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_loadpicture_four_compile",
+      "description": "Word: Set p = LoadPicture(\"\", 1, 1, 0), with four arguments, compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_loadpicture_four_compile",
+      "description": "PowerPoint: Set p = LoadPicture(\"\", 1, 1, 0), with four arguments, compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_loadpicture_four_compile",
+      "description": "Access: Set p = LoadPicture(\"\", 1, 1, 0), with four arguments, is rejected: Compile error: Wrong number of arguments or invalid property assignment, as Access's own Application.LoadPicture takes one argument, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim p As Object, v As Variant\r\n    Set p = LoadPicture(\"\", 1, 1, 0)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_const_loadpicture_compile",
+      "description": "Excel: Const K = LoadPicture is rejected: Compile error: Constant expression required, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = LoadPicture\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_const_loadpicture_compile",
+      "description": "Word: Const K = LoadPicture is rejected: Compile error: Constant expression required, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = LoadPicture\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_const_loadpicture_compile",
+      "description": "PowerPoint: Const K = LoadPicture is rejected: Compile error: Constant expression required, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = LoadPicture\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_const_loadpicture_compile",
+      "description": "Access: Const K = LoadPicture is rejected: Compile error: Argument not optional, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = LoadPicture\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_excel_const_checked_compile",
+      "description": "Excel: Const K = Checked compiles, with Option Explicit and the default references. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = Checked\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_word_const_checked_compile",
+      "description": "Word: Const K = Checked compiles, with Option Explicit and the default references. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = Checked\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_powerpoint_const_checked_compile",
+      "description": "PowerPoint: Const K = Checked compiles, with Option Explicit and the default references. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = Checked\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "stdole_name_access_const_checked_compile",
+      "description": "Access: Const K = Checked compiles, with Option Explicit and the default references. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nConst K = Checked\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_word_bracket_private_type_compile",
       "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",

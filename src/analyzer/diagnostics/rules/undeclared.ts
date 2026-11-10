@@ -12,6 +12,7 @@ import {
 } from '../../../vbaSourceScan';
 import { getExcelObjectModel, type HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
+import { STDOLE_CONSTANT_NAMES, STDOLE_FUNCTION_SIGNATURES } from '../../host/stdoleLibrary';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
 import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, resolveMemberPresenceSurfaceAt, type MemberCompletionContext } from '../../completion/memberAccess';
@@ -25,6 +26,7 @@ import {
 } from '../../host/hostModel';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
 import type { VbaToken } from '../../lexer/tokenKinds';
+import { tokenizeCached } from '../../lexer/tokenize';
 import type {
 	BodyNode,
 	ModuleNode,
@@ -32,6 +34,7 @@ import type {
 	Span,
 } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
+import { isThenOrElseKeywordAt } from '../../parser/parserState';
 import {
 	resolveExpressionType,
 	type ExpressionTypeContext,
@@ -449,6 +452,8 @@ export function checkUnknownCallStatement(
 			resolveHostEnum(name, hostModel) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined ||
+			// stdole's LoadPicture and SavePicture (stdoleLibrary.ts).
+			STDOLE_FUNCTION_SIGNATURES.has(lower) ||
 			// A referenced project XLIDE did not read may hold it (issue #1621).
 			unreadProject
 		);
@@ -716,6 +721,18 @@ export function checkUndeclaredVariables(
 	// left unjudged: the project may supply it (issue #1621).
 	const unreadProject = hasUnreadProjectReference(project);
 	const standsBeforeDot = (span: Span): boolean => BEFORE_DOT.test(source.slice(span.end, span.end + 256));
+	// A stdole constant or LoadPicture read as a value. Written to, it is the
+	// VBE's "Assignment to constant not permitted" or "Variable required"
+	// (`Color = 1`, `For Gray = 1 To 3`, `Input #1, Color`), which main
+	// reported as undeclared and still does; so is a constant called as a
+	// one-line If's branch, `If v Then Checked`. LoadPicture's result is no
+	// constant, so a Const's value, which comes without a span, may not use it.
+	const stdoleValueAt = (lower: string, context: BareIdentifierContext, span: Span | undefined): boolean => {
+		if (context === 'assignmentTarget') { return false; }
+		if (span === undefined) { return lower !== 'loadpicture'; }
+		const use = stdoleNameUse(source, span);
+		return use === 'read' || (use === 'branchCall' && lower === 'loadpicture');
+	};
 	// A form's controls are declared by its DESIGNER, not its text, and the seed
 	// has three states, not two: a list, a vouched-for-empty list, and no answer
 	// at all. Reading no answer as an empty one claimed every control the form's
@@ -785,6 +802,16 @@ export function checkUndeclaredVariables(
 			resolveVbaLibraryQualifier(name) !== undefined ||
 			// A read referenced project's modules and members (issue #1503).
 			referencedNames.has(lower) ||
+			// stdole's own names, which stand bare in the default references of
+			// every host (stdoleLibrary.ts): `Set p = LoadPicture(path)`,
+			// `v = Checked`. SavePicture is a Sub, so it has no value to read, and
+			// is the call rule's, but a call inside a one-line If is read here as
+			// an expression, so its place counts. The StdFunctions module
+			// qualifies LoadPicture, `StdFunctions.LoadPicture(path)`; bare, it is
+			// "Expected variable or procedure, not module".
+			(STDOLE_VALUE_NAMES.has(lower) && stdoleValueAt(lower, context, span)) ||
+			(lower === 'savepicture' && context === 'expression' && span !== undefined && stdoleNameUse(source, span) === 'branchCall') ||
+			(lower === 'stdfunctions' && span !== undefined && STDOLE_FUNCTION_AFTER.test(source.slice(span.end, span.end + 256))) ||
 			unreadProject
 		);
 	};
@@ -1013,6 +1040,89 @@ function redimTargetNamesIn(
 const libraryQualifierModels = new WeakMap<HostObjectModel, {
 	types: HostObjectModel['types']; enums: HostObjectModel['enums']; names: ReadonlySet<string>;
 }>();
+
+/** stdole's names with a value: LoadPicture's result and the enum members. SavePicture is a Sub. */
+const STDOLE_VALUE_NAMES: ReadonlySet<string> = new Set(['loadpicture', ...STDOLE_CONSTANT_NAMES]);
+/**
+ * A one-line If's Then or Else, not a member of that name (`v.Then`,
+ * `v!Else`), as the parser reads it: `x! Then` is a Single and then Then.
+ */
+function isBranchKeyword(toks: readonly VbaToken[], i: number): boolean {
+	return isThenOrElseKeywordAt(toks, i, 'then') || isThenOrElseKeywordAt(toks, i, 'else');
+}
+
+/**
+ * How a stdole name is used where it stands, read from the tokens of its
+ * statement, so strings, nesting and line continuations don't mislead:
+ *
+ * - `write`: an assignment's target, indexed or not (`Color = 1`,
+ *   `Color(1) = 1`, `Set Default = p`), an LSet, RSet or Mid statement's
+ *   target, a For or For Each counter, or a variable Input #, Line Input # or
+ *   Get # reads into;
+ * - `branchCall`: called as a one-line If's branch, `If v Then Checked` or
+ *   `Else Call SavePicture(p, "x")`, which the undeclared walk reads as an
+ *   expression;
+ * - `read`: anything else.
+ */
+function stdoleNameUse(source: string, span: Span): 'read' | 'write' | 'branchCall' {
+	const toks = tokenizeCached(source);
+	let at = -1;
+	for (let low = 0, high = toks.length - 1; low <= high;) {
+		const mid = (low + high) >> 1;
+		if (toks[mid].start < span.start) { low = mid + 1; } else if (toks[mid].start > span.start) { high = mid - 1; } else { at = mid; break; }
+	}
+	if (at < 0) { return 'read'; }
+	// The statement's head: past a newline, a colon, or a one-line If's Then or Else.
+	let head = at;
+	while (head > 0 && toks[head - 1].kind !== 'newline' && toks[head - 1].kind !== 'colon'
+		&& !isBranchKeyword(toks, head - 1)) {
+		head--;
+	}
+	const branch = head > 0 && isBranchKeyword(toks, head - 1);
+	if (head < at && toks[head].kind === 'integerLiteral') { head++; }
+	const before = toks.slice(head, at).map((tok) => tok.rawText.toLowerCase());
+	// Past the name's own argument list, at the same depth.
+	let after = at + 1;
+	if (toks[after]?.rawText === '(') {
+		for (let depth = 0; after < toks.length; after++) {
+			if (toks[after].rawText === '(') { depth++; }
+			if (toks[after].rawText === ')' && --depth === 0) { after++; break; }
+			if (toks[after].kind === 'newline') { break; }
+		}
+	}
+	const next = toks[after]?.rawText;
+	const atHead = before.length === 0 || (before.length === 1 && ['set', 'let'].includes(before[0]));
+	if (atHead && next === '=') { return 'write'; }
+	if ((before.length === 1 && ['lset', 'rset'].includes(before[0]))
+		|| /^midb?\$?\($/.test(before.join(''))
+		|| before[before.length - 1] === 'for' || (before.length >= 2 && before[before.length - 2] === 'for' && before[before.length - 1] === 'each')) {
+		return 'write';
+	}
+	// Input # and Line Input # read into every variable after the file number,
+	// Get # into its third argument; at the statement's own depth only.
+	const io = before[0] === 'line' && before[1] === 'input' ? 'input' : before[0];
+	if ((io === 'input' || io === 'get') && before.includes('#')) {
+		let depth = 0;
+		let commas = 0;
+		for (const text of before) {
+			if (text === '(') { depth++; } else if (text === ')') { depth--; } else if (text === ',' && depth === 0) { commas++; }
+		}
+		if (depth === 0 && commas >= (io === 'input' ? 1 : 2)) {
+			return 'write';
+		}
+	}
+	if (branch && (before.length === 0 || (before.length === 1 && before[0] === 'call')) && next !== '.' && next !== '!') {
+		return 'branchCall';
+	}
+	return 'read';
+}
+
+/**
+ * `.LoadPicture` after StdFunctions, bracketed or not, past spaces and line
+ * continuations. `StdFunctions.SavePicture` stays unknown: a qualified call's
+ * arguments are not checked against stdole's signature.
+ */
+const STDOLE_FUNCTION_AFTER = /^[ \t]*(?:_[ \t]*\r?\n[ \t]*)*\.[ \t]*(?:loadpicture\b|\[loadpicture\])/i;
 
 /** What the project's dir stream says qualifies a name, where it was read. */
 export interface ProjectQualifiers {
