@@ -9,8 +9,8 @@ import {
     activeLocalVbaEditor,
     decodeModuleUri,
     encodeModuleUri,
-    XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
+import { XLIDE_VBA_LANGUAGE_ID } from '../analyzer/languageIds';
 import {
     formatChangeSummaryDetails,
     type XlideChangeSummary,

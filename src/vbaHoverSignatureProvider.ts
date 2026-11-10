@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { XLIDE_SCHEME } from './xlideFileSystem';
+import { VBA_LANGUAGE_ID } from './analyzer/languageIds';
 import {
 	DocRegistry,
 	HoverContext,
@@ -134,7 +135,7 @@ export class VbaHoverSignatureProvider
 		document: vscode.TextDocument,
 	): vscode.Hover {
 		const md = new vscode.MarkdownString();
-		md.appendCodeblock(info.signature, 'vba');
+		md.appendCodeblock(info.signature, VBA_LANGUAGE_ID);
 		if (info.documentation) {
 			md.appendMarkdown('\n\n');
 			md.appendMarkdown(info.documentation);

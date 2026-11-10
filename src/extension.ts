@@ -9,8 +9,8 @@ import {
     isVbaDocument,
     XlideFileSystemProvider,
     XLIDE_SCHEME,
-    XLIDE_VBA_LANGUAGE_ID,
 } from './xlideFileSystem';
+import { XLIDE_VBA_LANGUAGE_ID } from './analyzer/languageIds';
 import { ProjectEngine } from './projectEngine';
 import {
     analysisSourceForDocument,

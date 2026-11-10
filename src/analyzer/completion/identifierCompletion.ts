@@ -14,6 +14,7 @@ import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isTypeSuffixOf, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
 import { completionLineCursorContext } from './cursorContext';
+import { VBA_CODE_FENCE } from '../languageIds';
 import { HostObjectModel } from '../host/excelObjectModel';
 import {
 	bareTypeName,
@@ -145,13 +146,13 @@ const BOOLEAN_LITERAL_COMPLETIONS: readonly IdentifierCompletion[] = [
 		name: 'True',
 		kind: 'value',
 		detail: 'Boolean literal',
-		documentation: '**Boolean literal**\n\n```vba\nTrue\n```',
+		documentation: `**Boolean literal**\n\n${VBA_CODE_FENCE}\nTrue\n\`\`\``,
 	},
 	{
 		name: 'False',
 		kind: 'value',
 		detail: 'Boolean literal',
-		documentation: '**Boolean literal**\n\n```vba\nFalse\n```',
+		documentation: `**Boolean literal**\n\n${VBA_CODE_FENCE}\nFalse\n\`\`\``,
 	},
 ];
 
@@ -537,7 +538,7 @@ function projectProcedureDocumentation(
 	const lines = [
 		`**Project ${kind}**`,
 		'',
-		'```vba',
+		VBA_CODE_FENCE,
 		procedureDeclarationSignature(procedure),
 		'```',
 		'',
@@ -629,7 +630,7 @@ function runtimeDocumentation(fn: VbaRuntimeFunction): string {
 	const lines = [
 		`**VBA runtime ${fn.kind}**`,
 		'',
-		'```vba',
+		VBA_CODE_FENCE,
 		fn.signature,
 		'```',
 	];
@@ -651,7 +652,7 @@ function constantDetail(base: string, type?: string): string {
 }
 
 function runtimeConstantDocumentation(constant: VbaRuntimeConstant): string {
-	const lines = [`**VBA runtime constant**`, '', '```vba', constantSignature(constant), '```'];
+	const lines = [`**VBA runtime constant**`, '', VBA_CODE_FENCE, constantSignature(constant), '```'];
 	lines.push('', 'Source: verified Microsoft VBA runtime metadata.');
 	return lines.join('\n');
 }
@@ -662,7 +663,7 @@ function runtimeObjectDetail(object: VbaRuntimeObject): string {
 
 function runtimeObjectDocumentation(object: VbaRuntimeObject): string {
 	const displayType = object.type.replace(/^VBA\./, '');
-	const lines = [`**VBA runtime object**`, '', '```vba', `${object.name} As ${displayType}`, '```'];
+	const lines = [`**VBA runtime object**`, '', VBA_CODE_FENCE, `${object.name} As ${displayType}`, '```'];
 	lines.push('', 'Source: verified Microsoft VBA runtime metadata.');
 	return lines.join('\n');
 }
@@ -671,7 +672,7 @@ function hostConstantDocumentation(
 	host: string,
 	constant: { name: string; type?: string; value?: string | number },
 ): string {
-	const lines = [`**${host}/Office constant**`, '', '```vba', constantSignature(constant), '```'];
+	const lines = [`**${host}/Office constant**`, '', VBA_CODE_FENCE, constantSignature(constant), '```'];
 	lines.push('', `Source: generated ${host}/Office reference metadata.`);
 	return lines.join('\n');
 }

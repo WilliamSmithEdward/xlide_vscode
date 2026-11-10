@@ -19,6 +19,7 @@ import { macroNameStringMayResolveAt } from './analyzer/completion/macroNames';
 import { isIdentLike, isTypeSuffixOf } from './analyzer/lexer/tokenHelpers';
 import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
 import { isVbaDocument } from './xlideFileSystem';
+import { VBA_LANGUAGE_ID } from './analyzer/languageIds';
 import { leadingWhitespace } from './vbaSourceScan';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
@@ -673,7 +674,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		const item = new vscode.CompletionItem(event.name, vscode.CompletionItemKind.Event);
 		item.detail = event.detail;
 		const documentation = new vscode.MarkdownString();
-		documentation.appendCodeblock(event.signature, 'vba');
+		documentation.appendCodeblock(event.signature, VBA_LANGUAGE_ID);
 		documentation.appendMarkdown('\n\n');
 		documentation.appendMarkdown(event.documentation);
 		item.documentation = documentation;

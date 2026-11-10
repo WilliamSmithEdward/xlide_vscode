@@ -5,8 +5,8 @@ import {
     encodeFormMarkupUri,
     isProjectLockedError,
     reportProjectLocked,
-    XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
+import { XLIDE_VBA_LANGUAGE_ID, XML_LANGUAGE_ID } from '../analyzer/languageIds';
 import type { ProjectEngine } from '../projectEngine';
 import { errorMessage } from '../util/errors';
 import { applyOpenDocumentSources } from '../vbaOpenDocuments';
@@ -146,7 +146,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
             const doc = await vscode.workspace.openTextDocument(
                 encodeFormMarkupUri(node.filePath, opened),
             );
-            await vscode.languages.setTextDocumentLanguage(doc, 'xml');
+            await vscode.languages.setTextDocumentLanguage(doc, XML_LANGUAGE_ID);
             await vscode.window.showTextDocument(doc, { preview: false });
         } catch (err) {
             recordWriteAudit({
@@ -392,7 +392,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                 || !DESIGNABLE_MODULE_TYPES.has(node.moduleType ?? '')) { return; }
             try {
                 const doc = await vscode.workspace.openTextDocument(encodeFormMarkupUri(node.filePath, node.moduleName));
-                await vscode.languages.setTextDocumentLanguage(doc, 'xml');
+                await vscode.languages.setTextDocumentLanguage(doc, XML_LANGUAGE_ID);
                 await vscode.window.showTextDocument(doc, { preview: false });
             } catch (err) {
                 void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);

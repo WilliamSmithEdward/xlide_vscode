@@ -17,6 +17,7 @@ import { lockedFileHolderText } from './fileLockHolders';
 import { projectIdentityKey } from './projectIdentity';
 import { checkProjectFile, onDidChangeProjectFile, watchProjectFile } from './projectFileChanges';
 import { moduleContentToken } from './moduleContentToken';
+import { VBA_LANGUAGE_ID, XLIDE_VBA_LANGUAGE_ID } from './analyzer/languageIds';
 
 export const XLIDE_SCHEME = 'xlide-vba';
 
@@ -24,7 +25,6 @@ const MODULE_URI_RE = new RegExp(
     `^(.*\\.(?:${MACRO_CONTAINER_EXTENSION_PATTERN}))/([^/]+)\\.(bas|form)$`,
     'i',
 );
-export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
 
 export { moduleIdentityKey, sameProjectPath, projectIdentityKey } from './projectIdentity';
 
@@ -38,7 +38,7 @@ export function isVbaDocument(document: vscode.TextDocument): boolean {
     if (document.uri.scheme === XLIDE_SCHEME) {
         return !document.uri.path.toLowerCase().endsWith('.form');
     }
-    return document.languageId === 'vba'
+    return document.languageId === VBA_LANGUAGE_ID
         || document.languageId === XLIDE_VBA_LANGUAGE_ID;
 }
 
