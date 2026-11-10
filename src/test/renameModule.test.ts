@@ -79,7 +79,7 @@ suite('Renaming an open module', () => {
 				8000,
 			);
 			const renamed = vscode.workspace.textDocuments.find((document) => document.uri.toString() === newMarkup.toString());
-			assert.equal(renamed?.languageId, 'xml');
+			assert.equal(renamed?.languageId, XML_LANGUAGE_ID);
 			assert.match(renamed?.getText() ?? '', /RenamedPicker/);
 		} finally {
 			await closeAllEditors();

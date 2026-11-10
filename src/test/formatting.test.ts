@@ -9,6 +9,7 @@ import * as assert from 'node:assert/strict';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { readModules } from '../vba/projectService';
+import { VBA_LANGUAGE_ID } from '../analyzer/languageIds';
 import { activate, applyEdits, closeAllEditors, openHidden, until, workbookPath, workspaceRoot, writeModule } from './support';
 
 const OPTIONS: vscode.FormattingOptions = { tabSize: 4, insertSpaces: true };
@@ -65,7 +66,7 @@ suite('Format Document', () => {
 
 	test('formats a loose .bas file and keeps its Attribute line', async () => {
 		const document = await openHidden(vscode.Uri.file(path.join(workspaceRoot(), 'Loose.bas')));
-		assert.equal(document.languageId, 'vba');
+		assert.equal(document.languageId, VBA_LANGUAGE_ID);
 		const edits = await formatEdits(document);
 		const formatted = applyEdits(document.getText(), edits);
 		assert.equal(formatted, [
