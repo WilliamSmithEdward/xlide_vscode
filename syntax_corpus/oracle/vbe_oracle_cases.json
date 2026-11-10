@@ -238194,6 +238194,650 @@
       "host": "powerpoint"
     },
     {
+      "id": "userform_msforms_excel_textbox_with_form_compile",
+      "description": "Excel: Dim t As MSForms.TextBox in a standard module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_word_textbox_with_form_compile",
+      "description": "Word: Dim t As MSForms.TextBox in a standard module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_powerpoint_textbox_with_form_compile",
+      "description": "PowerPoint: Dim t As MSForms.TextBox in a standard module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_access_textbox_with_form_compile",
+      "description": "Access: Dim t As MSForms.TextBox in a standard module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_excel_textbox_no_form_compile",
+      "description": "Excel: Dim t As MSForms.TextBox in a standard module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_word_textbox_no_form_compile",
+      "description": "Word: Dim t As MSForms.TextBox in a standard module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_powerpoint_textbox_no_form_compile",
+      "description": "PowerPoint: Dim t As MSForms.TextBox in a standard module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_access_textbox_no_form_compile",
+      "description": "Access: Dim t As MSForms.TextBox in a standard module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As MSForms.TextBox\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_excel_bare_textbox_compile",
+      "description": "Excel: Dim t As TextBox, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_word_bare_textbox_compile",
+      "description": "Word: Dim t As TextBox, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_powerpoint_bare_textbox_compile",
+      "description": "PowerPoint: Dim t As TextBox, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_access_bare_textbox_compile",
+      "description": "Access: Dim t As TextBox, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim t As TextBox\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_excel_new_dataobject_compile",
+      "description": "Excel: Dim d As New MSForms.DataObject, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As New MSForms.DataObject\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_word_new_dataobject_compile",
+      "description": "Word: Dim d As New MSForms.DataObject, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As New MSForms.DataObject\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_powerpoint_new_dataobject_compile",
+      "description": "PowerPoint: Dim d As New MSForms.DataObject, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As New MSForms.DataObject\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_access_new_dataobject_compile",
+      "description": "Access: Dim d As New MSForms.DataObject, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As New MSForms.DataObject\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_excel_controls_add_compile",
+      "description": "Excel: Dim c As MSForms.Control and Set c = Me.Controls.Add(\"Forms.TextBox.1\") in the UserForm, compiles. Adding a UserForm adds the MSForms reference. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Initialize()\r\n    Dim c As MSForms.Control\r\n    Set c = Me.Controls.Add(\"Forms.TextBox.1\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_word_controls_add_compile",
+      "description": "Word: Dim c As MSForms.Control and Set c = Me.Controls.Add(\"Forms.TextBox.1\") in the UserForm, compiles. Adding a UserForm adds the MSForms reference. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Initialize()\r\n    Dim c As MSForms.Control\r\n    Set c = Me.Controls.Add(\"Forms.TextBox.1\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_powerpoint_controls_add_compile",
+      "description": "PowerPoint: Dim c As MSForms.Control and Set c = Me.Controls.Add(\"Forms.TextBox.1\") in the UserForm, compiles. Adding a UserForm adds the MSForms reference. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Initialize()\r\n    Dim c As MSForms.Control\r\n    Set c = Me.Controls.Add(\"Forms.TextBox.1\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_access_controls_add_compile",
+      "description": "Access: Dim c As MSForms.Control and Set c = Me.Controls.Add(\"Forms.TextBox.1\") in the UserForm, compiles. Adding a UserForm adds the MSForms reference. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Initialize()\r\n    Dim c As MSForms.Control\r\n    Set c = Me.Controls.Add(\"Forms.TextBox.1\")\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_excel_class_type_with_form_compile",
+      "description": "Excel: Private t As MSForms.TextBox in a class module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_word_class_type_with_form_compile",
+      "description": "Word: Private t As MSForms.TextBox in a class module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_powerpoint_class_type_with_form_compile",
+      "description": "PowerPoint: Private t As MSForms.TextBox in a class module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_access_class_type_with_form_compile",
+      "description": "Access: Private t As MSForms.TextBox in a class module, with a UserForm in the project, compiles. Adding a UserForm adds the MSForms reference. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_excel_class_type_no_form_compile",
+      "description": "Excel: Private t As MSForms.TextBox in a class module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_word_class_type_no_form_compile",
+      "description": "Word: Private t As MSForms.TextBox in a class module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_powerpoint_class_type_no_form_compile",
+      "description": "PowerPoint: Private t As MSForms.TextBox in a class module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        }
+      ]
+    },
+    {
+      "id": "userform_msforms_access_class_type_no_form_compile",
+      "description": "Access: Private t As MSForms.TextBox in a class module, with no UserForm, is rejected: Compile error: User-defined type not defined. Adding a UserForm adds the MSForms reference. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim k As New Class1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate t As MSForms.TextBox\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_access_members_compile",
       "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: its Public members compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
