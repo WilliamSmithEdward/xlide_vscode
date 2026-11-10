@@ -103,6 +103,7 @@ describe('oracle accepted cases - corpus-wide no-false-positive sweep', () => {
 					source: mod.source,
 					moduleName: mod.moduleName,
 					moduleKind: effectiveModuleKind(mod),
+					designerClass: mod.designerClass,
 					...projectAnalysisOptionsForModule(project, mod.moduleName, procedures),
 					...(oracleCase.host && oracleCase.host !== 'excel' ? { host: oracleCase.host } : {}),
 					...oracleReferencedHosts(oracleCase),

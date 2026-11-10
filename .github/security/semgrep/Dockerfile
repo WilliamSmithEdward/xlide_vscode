@@ -2,4 +2,4 @@
 # with every library it runs on. update-images.yml proposes new
 # versions of it. The
 # rules themselves come from the Semgrep registry on each run.
-FROM semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6
+FROM semgrep/semgrep:1.183.0@sha256:2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0
