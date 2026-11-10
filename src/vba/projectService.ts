@@ -1206,11 +1206,13 @@ function withSheetControls(container: MacroContainer, entries: ModuleEntry[]): M
 const CONTROL_HOST_CLASSES: Partial<Record<MacroContainer['kind'], string>> = {
 	word: 'Word.Document',
 	powerpoint: 'PowerPoint.Slide',
+	excel: 'Excel.Worksheet',
 };
 
 /**
- * A Word document's module, or a PowerPoint slide's, with the ActiveX
- * controls on it as its members, typed Object (issue #1481, measured in Word,
+ * A Word document's module, a PowerPoint slide's, or an Excel sheet's that
+ * the sheet's XML part did not describe, with the ActiveX controls on it
+ * as its members, typed Object (issue #1481, measured in Word,
  * Excel and PowerPoint 16.0 with ActiveX enabled): `CommandButton1`,
  * `Me.CommandButton1` and, from another module, `ThisDocument.CommandButton1`
  * or `Slide1.CommandButton1` compile, wherever on the page or in a header the
@@ -1221,18 +1223,27 @@ const CONTROL_HOST_CLASSES: Partial<Record<MacroContainer['kind'], string>> = {
  * `Attribute VB_Control = "CommandButton1, 1, 0, MSForms, CommandButton"`
  * each, in the order it gave them IDs, so a legacy .doc or .ppt has them
  * too. A module with none is left as it was. An Excel sheet's controls come
- * from its workbook instead (withSheetControls).
+ * from the sheet's XML part where there is one (withSheetControls, an
+ * .xlsm, .xlam or .xltm). An .xls, .xla, .xlt or .xlsb sheet takes them
+ * from its header here, as Excel writes them there too (issue #1555,
+ * measured in Excel 16.0 builds 12527 and 20527 with ActiveX enabled).
  */
 function withDocumentControls(container: MacroContainer, project: VbaProject, entries: ModuleEntry[]): ModuleEntry[] {
 	const hostClass = CONTROL_HOST_CLASSES[container.kind];
 	if (!hostClass) {
 		return entries;
 	}
+	const modules = new Map(project.modules.map((module) => [module.name.toLowerCase(), module]));
 	return entries.map((entry) => {
 		if (entry.type !== 'document' || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
 			return entry;
 		}
-		const module = project.modules.find((candidate) => candidate.name.toLowerCase() === entry.name.toLowerCase());
+		// ThisWorkbook and a chart sheet are no Worksheet, and Excel wrote
+		// no VB_Control line for either in any file measured.
+		if (container.kind === 'excel' && entry.documentType !== 'worksheet') {
+			return entry;
+		}
+		const module = modules.get(entry.name.toLowerCase());
 		const names = module ? moduleControlNames(module.sourceHeader) : [];
 		return names.length === 0
 			? entry
