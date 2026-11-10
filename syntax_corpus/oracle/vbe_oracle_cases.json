@@ -235191,6 +235191,2022 @@
       "host": "access"
     },
     {
+      "id": "declaration_line_excel_defdec_top_compile",
+      "description": "Excel: DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defdec_top_compile",
+      "description": "Word: DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defdec_top_compile",
+      "description": "PowerPoint: DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defdec_top_compile",
+      "description": "Access: DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_defdec_letter_compile",
+      "description": "Excel: DefDec A, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defdec_letter_compile",
+      "description": "Word: DefDec A, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defdec_letter_compile",
+      "description": "PowerPoint: DefDec A, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defdec_letter_compile",
+      "description": "Access: DefDec A, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_defdec_after_compile",
+      "description": "Excel: DefDec A-Z (after the procedure), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec A-Z\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defdec_after_compile",
+      "description": "Word: DefDec A-Z (after the procedure), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec A-Z\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defdec_after_compile",
+      "description": "PowerPoint: DefDec A-Z (after the procedure), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec A-Z\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defdec_after_compile",
+      "description": "Access: DefDec A-Z (after the procedure), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec A-Z\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_defdec_in_proc_compile",
+      "description": "Excel: DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defdec_in_proc_compile",
+      "description": "Word: DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defdec_in_proc_compile",
+      "description": "PowerPoint: DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defdec_in_proc_compile",
+      "description": "Access: DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_defdec_lower_compile",
+      "description": "Excel: defdec a-z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\ndefdec a-z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defdec_lower_compile",
+      "description": "Word: defdec a-z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\ndefdec a-z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defdec_lower_compile",
+      "description": "PowerPoint: defdec a-z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\ndefdec a-z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defdec_lower_compile",
+      "description": "Access: defdec a-z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\ndefdec a-z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_defint_top_compile",
+      "description": "Excel: DefInt A-Z, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefInt A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defint_top_compile",
+      "description": "Word: DefInt A-Z, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefInt A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defint_top_compile",
+      "description": "PowerPoint: DefInt A-Z, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefInt A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defint_top_compile",
+      "description": "Access: DefInt A-Z, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefInt A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_deflnglng_top_compile",
+      "description": "Excel: DefLngLng A, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefLngLng A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_deflnglng_top_compile",
+      "description": "Word: DefLngLng A, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefLngLng A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_deflnglng_top_compile",
+      "description": "PowerPoint: DefLngLng A, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefLngLng A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_deflnglng_top_compile",
+      "description": "Access: DefLngLng A, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefLngLng A\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_defcur_top_compile",
+      "description": "Excel: DefCur C, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefCur C\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defcur_top_compile",
+      "description": "Word: DefCur C, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefCur C\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defcur_top_compile",
+      "description": "PowerPoint: DefCur C, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefCur C\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defcur_top_compile",
+      "description": "Access: DefCur C, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefCur C\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_func_no_lib_compile",
+      "description": "Excel: Private Declare PtrSafe Function F () As Long, is rejected: Compile error: Expected: Lib. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_func_no_lib_compile",
+      "description": "Word: Private Declare PtrSafe Function F () As Long, is rejected: Compile error: Expected: Lib. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_func_no_lib_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Function F () As Long, is rejected: Compile error: Expected: Lib. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_func_no_lib_compile",
+      "description": "Access: Private Declare PtrSafe Function F () As Long, is rejected: Compile error: Expected: Lib. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_sub_no_lib_compile",
+      "description": "Excel: Private Declare PtrSafe Sub S (), is rejected: Compile error: Expected: Lib. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_sub_no_lib_compile",
+      "description": "Word: Private Declare PtrSafe Sub S (), is rejected: Compile error: Expected: Lib. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_sub_no_lib_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Sub S (), is rejected: Compile error: Expected: Lib. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_sub_no_lib_compile",
+      "description": "Access: Private Declare PtrSafe Sub S (), is rejected: Compile error: Expected: Lib. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_sub_bare_compile",
+      "description": "Excel: Private Declare PtrSafe Sub S, is rejected: Compile error: Expected: Lib. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_sub_bare_compile",
+      "description": "Word: Private Declare PtrSafe Sub S, is rejected: Compile error: Expected: Lib. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_sub_bare_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Sub S, is rejected: Compile error: Expected: Lib. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_sub_bare_compile",
+      "description": "Access: Private Declare PtrSafe Sub S, is rejected: Compile error: Expected: Lib. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_alias_no_lib_compile",
+      "description": "Excel: Private Declare PtrSafe Function F Alias \"GetTickCount\" () As Long, is rejected: Compile error: Expected: Lib. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_alias_no_lib_compile",
+      "description": "Word: Private Declare PtrSafe Function F Alias \"GetTickCount\" () As Long, is rejected: Compile error: Expected: Lib. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_alias_no_lib_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Function F Alias \"GetTickCount\" () As Long, is rejected: Compile error: Expected: Lib. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_alias_no_lib_compile",
+      "description": "Access: Private Declare PtrSafe Function F Alias \"GetTickCount\" () As Long, is rejected: Compile error: Expected: Lib. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_alias_before_lib_compile",
+      "description": "Excel: Private Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long, is rejected: Compile error: Expected: Lib. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_alias_before_lib_compile",
+      "description": "Word: Private Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long, is rejected: Compile error: Expected: Lib. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_alias_before_lib_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long, is rejected: Compile error: Expected: Lib. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_alias_before_lib_compile",
+      "description": "Access: Private Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long, is rejected: Compile error: Expected: Lib. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Alias \"GetTickCount\" Lib \"kernel32\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_ok_compile",
+      "description": "Excel: Private Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_ok_compile",
+      "description": "Word: Private Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_ok_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_ok_compile",
+      "description": "Access: Private Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_sub_ok_compile",
+      "description": "Excel: Private Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long), compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long)\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_sub_ok_compile",
+      "description": "Word: Private Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long), compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long)\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_sub_ok_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long), compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long)\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_sub_ok_compile",
+      "description": "Access: Private Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long), compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub S Lib \"kernel32\" Alias \"Sleep\" (ByVal ms As Long)\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_continued_lib_compile",
+      "description": "Excel: Private Declare PtrSafe Function F _ / Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F _\r\n    Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_continued_lib_compile",
+      "description": "Word: Private Declare PtrSafe Function F _ / Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F _\r\n    Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_continued_lib_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Function F _ / Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F _\r\n    Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_continued_lib_compile",
+      "description": "Access: Private Declare PtrSafe Function F _ / Lib \"kernel32\" Alias \"GetTickCount\" () As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F _\r\n    Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_declare_suffix_no_lib_compile",
+      "description": "Excel: Private Declare PtrSafe Function F& (), is rejected: Compile error: Expected: Lib. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F& ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_declare_suffix_no_lib_compile",
+      "description": "Word: Private Declare PtrSafe Function F& (), is rejected: Compile error: Expected: Lib. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F& ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_declare_suffix_no_lib_compile",
+      "description": "PowerPoint: Private Declare PtrSafe Function F& (), is rejected: Compile error: Expected: Lib. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F& ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_declare_suffix_no_lib_compile",
+      "description": "Access: Private Declare PtrSafe Function F& (), is rejected: Compile error: Expected: Lib. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function F& ()\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_numbered_defdec_label_compile",
+      "description": "Excel: 10 DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n10 DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_numbered_defdec_label_compile",
+      "description": "Word: 10 DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n10 DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_numbered_defdec_label_compile",
+      "description": "PowerPoint: 10 DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n10 DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_numbered_defdec_label_compile",
+      "description": "Access: 10 DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n10 DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_inline_defdec_compile",
+      "description": "Excel: If False Then DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_inline_defdec_compile",
+      "description": "Word: If False Then DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_inline_defdec_compile",
+      "description": "PowerPoint: If False Then DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_inline_defdec_compile",
+      "description": "Access: If False Then DefDec A-Z (inside a procedure), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If False Then DefDec A-Z\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_inline_else_defdec_compile",
+      "description": "Excel: If True Then Beep Else DefDec A (inside a procedure), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If True Then Beep Else DefDec A\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_inline_else_defdec_compile",
+      "description": "Word: If True Then Beep Else DefDec A (inside a procedure), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If True Then Beep Else DefDec A\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_inline_else_defdec_compile",
+      "description": "PowerPoint: If True Then Beep Else DefDec A (inside a procedure), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If True Then Beep Else DefDec A\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_inline_else_defdec_compile",
+      "description": "Access: If True Then Beep Else DefDec A (inside a procedure), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    If True Then Beep Else DefDec A\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_ifdef_arm_defdec_compile",
+      "description": "Excel: #If False Then / Sub Other() / End Sub / #Else / DefDec A-Z / #End If, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#Else\r\nDefDec A-Z\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_ifdef_arm_defdec_compile",
+      "description": "Word: #If False Then / Sub Other() / End Sub / #Else / DefDec A-Z / #End If, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#Else\r\nDefDec A-Z\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_ifdef_arm_defdec_compile",
+      "description": "PowerPoint: #If False Then / Sub Other() / End Sub / #Else / DefDec A-Z / #End If, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#Else\r\nDefDec A-Z\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_ifdef_arm_defdec_compile",
+      "description": "Access: #If False Then / Sub Other() / End Sub / #Else / DefDec A-Z / #End If, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#Else\r\nDefDec A-Z\r\n#End If\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_defdec_label_compile",
+      "description": "Excel: DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_defdec_label_compile",
+      "description": "Word: DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_defdec_label_compile",
+      "description": "PowerPoint: DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_defdec_label_compile",
+      "description": "Access: DefDec: at the start of its line (inside a procedure), is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_colon_defdec_label_compile",
+      "description": "Excel: Beep: DefDec:, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Beep: DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_colon_defdec_label_compile",
+      "description": "Word: Beep: DefDec:, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Beep: DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_colon_defdec_label_compile",
+      "description": "PowerPoint: Beep: DefDec:, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Beep: DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_colon_defdec_label_compile",
+      "description": "Access: Beep: DefDec:, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Beep: DefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_inactive_proc_defdec_compile",
+      "description": "Excel: #If False Then / Sub Other() / End Sub / #End If / DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#End If\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_inactive_proc_defdec_compile",
+      "description": "Word: #If False Then / Sub Other() / End Sub / #End If / DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#End If\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_inactive_proc_defdec_compile",
+      "description": "PowerPoint: #If False Then / Sub Other() / End Sub / #End If / DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#End If\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_inactive_proc_defdec_compile",
+      "description": "Access: #If False Then / Sub Other() / End Sub / #End If / DefDec A-Z, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n#If False Then\r\nSub Other()\r\nEnd Sub\r\n#End If\r\nDefDec A-Z\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_continued_defdec_colon_compile",
+      "description": "Excel: DefDec _ / :, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    DefDec _\r\n:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_continued_defdec_colon_compile",
+      "description": "Word: DefDec _ / :, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    DefDec _\r\n:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_continued_defdec_colon_compile",
+      "description": "PowerPoint: DefDec _ / :, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    DefDec _\r\n:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_continued_defdec_colon_compile",
+      "description": "Access: DefDec _ / :, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    DefDec _\r\n:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_continuation_before_defdec_label_compile",
+      "description": "Excel: _ / DefDec:, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n _\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_continuation_before_defdec_label_compile",
+      "description": "Word: _ / DefDec:, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n _\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_continuation_before_defdec_label_compile",
+      "description": "PowerPoint: _ / DefDec:, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n _\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_continuation_before_defdec_label_compile",
+      "description": "Access: _ / DefDec:, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n _\r\nDefDec:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_module_defdec_label_top_compile",
+      "description": "Excel: DefDec:, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec:\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_module_defdec_label_top_compile",
+      "description": "Word: DefDec:, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec:\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_module_defdec_label_top_compile",
+      "description": "PowerPoint: DefDec:, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec:\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_module_defdec_label_top_compile",
+      "description": "Access: DefDec:, is rejected: Compile error: Expected: line number or label or statement or end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nDefDec:\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_excel_module_defdec_label_after_compile",
+      "description": "Excel: End Sub / DefDec:, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec:\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_word_module_defdec_label_after_compile",
+      "description": "Word: End Sub / DefDec:, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec:\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_powerpoint_module_defdec_label_after_compile",
+      "description": "PowerPoint: End Sub / DefDec:, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec:\r\n"
+        }
+      ]
+    },
+    {
+      "id": "declaration_line_access_module_defdec_label_after_compile",
+      "description": "Access: End Sub / DefDec:, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\nEnd Sub\r\nDefDec:\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_members_compile",
       "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: its Public members compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
