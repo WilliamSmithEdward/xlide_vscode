@@ -71,7 +71,11 @@ suite('A referenced class in completion and hover (issue #1622)', () => {
 
 	suiteTeardown(async () => {
 		await closeAllEditors();
-		fs.rmSync(dir, { recursive: true, force: true });
+		// On Windows the removal failed with EPERM in 2 of 4 full integration
+		// runs on 2026-11-08, as it does while another process holds a file in
+		// the folder open. rmSync retries that from Node 24.21, which VS Code's
+		// extension host has.
+		fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 	});
 
 	test('offers Widget\'s Public members after w., and hovers one', async function () {
