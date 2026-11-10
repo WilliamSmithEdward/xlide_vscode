@@ -240661,6 +240661,820 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_excel_control_statement_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet, CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_control_call_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet, Call CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Call CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_control_arguments_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet, CommandButton1 1 is rejected: Compile error: Expected procedure, not variable. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    CommandButton1 1\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_control_call_arguments_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet, Call CommandButton1(1) is rejected: Compile error: Expected procedure, not variable. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Call CommandButton1(1)\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_control_statement_implicit_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet and no Option Explicit, CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Public Sub Probe()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_control_member_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet, CommandButton1.Caption = \"x\" compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    CommandButton1.Caption = \"x\"\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_word_control_statement_compile",
+      "description": "Issue #1555: in ThisDocument's module, with CommandButton1 on the document, CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_word_control_call_compile",
+      "description": "Issue #1555: in ThisDocument's module, with CommandButton1 on the document, Call CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisDocument",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Call CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "Word.Document",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_powerpoint_control_statement_compile",
+      "description": "Issue #1555: in Slide1's module, with CommandButton1 on the slide, CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_powerpoint_control_call_compile",
+      "description": "Issue #1555: in Slide1's module, with CommandButton1 on the slide, Call CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Slide1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Call CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "PowerPoint.Slide",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_userform_statement_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, CommandButton1 is rejected: Compile error: Invalid use of property. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_userform_call_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, Call CommandButton1 is rejected: Compile error: Invalid use of property. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Call CommandButton1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_word_userform_statement_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, CommandButton1 is rejected: Compile error: Invalid use of property. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_word_userform_call_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, Call CommandButton1 is rejected: Compile error: Invalid use of property. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Call CommandButton1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_powerpoint_userform_statement_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, CommandButton1 is rejected: Compile error: Invalid use of property. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_powerpoint_userform_call_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, Call CommandButton1 is rejected: Compile error: Invalid use of property. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Call CommandButton1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_userform_combobox_arguments_compile",
+      "description": "Issue #1555: in a UserForm with ComboBox1 on it, ComboBox1 1 is rejected: Compile error: Invalid use of property. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    ComboBox1 1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "ComboBox1",
+              "progId": "Forms.ComboBox.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_userform_member_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, CommandButton1.SetFocus compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    CommandButton1.SetFocus\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_access_form_section_statement_compile",
+      "description": "Issue #1555: in a form's module, Detail is rejected: Compile error: Invalid use of property. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Frm1",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [
+            {
+              "name": "Detail",
+              "type": "Access.Section"
+            }
+          ],
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Detail\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_access_form_section_call_compile",
+      "description": "Issue #1555: in a form's module, Call Detail is rejected: Compile error: Invalid use of property. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Frm1",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [
+            {
+              "name": "Detail",
+              "type": "Access.Section"
+            }
+          ],
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Call Detail\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_access_report_section_statement_compile",
+      "description": "Issue #1555: in a report's module, Detail is rejected: Compile error: Invalid use of property. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Report_Rpt1",
+          "type": "document",
+          "designerClass": "Access.Report",
+          "implicitMembers": [
+            {
+              "name": "PageHeaderSection",
+              "type": "Access.Section"
+            },
+            {
+              "name": "Detail",
+              "type": "Access.Section"
+            },
+            {
+              "name": "PageFooterSection",
+              "type": "Access.Section"
+            }
+          ],
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Detail\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_access_form_section_member_compile",
+      "description": "Issue #1555: in a form's module, Detail.Visible = True compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form_Frm1",
+          "type": "document",
+          "designerClass": "Access.Form",
+          "implicitMembers": [
+            {
+              "name": "Detail",
+              "type": "Access.Section"
+            }
+          ],
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Detail.Visible = True\r\nEnd Sub\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_excel_control_over_project_sub_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet, with a Public Sub CommandButton1 in Module1, CommandButton1 is rejected: Compile error: Expected procedure, not variable. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\nPublic Sub CommandButton1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_control_project_sub_qualified_compile",
+      "description": "Issue #1555: in Sheet1's module, with CommandButton1 on the sheet, with a Public Sub CommandButton1 in Module1, Call Module1.CommandButton1 compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "documentControls": [
+        {
+          "progId": "Forms.CommandButton.1",
+          "name": "CommandButton1"
+        }
+      ],
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\nPublic Sub CommandButton1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Call Module1.CommandButton1\r\nEnd Sub\r\n",
+          "designerClass": "Excel.Worksheet",
+          "implicitMembers": [
+            {
+              "name": "CommandButton1",
+              "type": "Object"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue1555_excel_userform_control_over_project_sub_compile",
+      "description": "Issue #1555: in a UserForm with CommandButton1 on it, with a Public Sub CommandButton1 in Module1, Call CommandButton1 is rejected: Compile error: Invalid use of property. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\nPublic Sub CommandButton1()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Form1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPublic Sub Probe()\r\n    Call CommandButton1\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "CommandButton1",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_userform_control_named_beep_compile",
+      "description": "Issue #1555: in a UserForm with a CommandButton named Beep, which is also VBA's Beep, Beep is rejected: Compile error: Invalid use of property. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Beep\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "Beep",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue1555_excel_userform_control_named_calculate_compile",
+      "description": "Issue #1555: in a UserForm with a CommandButton named Calculate, which is also Excel's Calculate, Calculate is rejected: Compile error: Invalid use of property. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Form1",
+          "type": "userform",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Calculate\r\nEnd Sub\r\n",
+          "designerControls": [
+            {
+              "name": "Calculate",
+              "progId": "Forms.CommandButton.1"
+            }
+          ]
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

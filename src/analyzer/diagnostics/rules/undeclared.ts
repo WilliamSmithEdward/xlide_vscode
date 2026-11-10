@@ -46,6 +46,7 @@ import {
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { referencedProjectNames as indexedReferencedProjectNames, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
+import type { FormControlInfo } from '../../symbols/projectIndex';
 import {
 	type ModuleSymbolKind,
 	type VbaProcedureSignature,
@@ -408,7 +409,11 @@ export function checkUnknownCallStatement(
 	projectTypes?: readonly VbaProjectClassMembers[],
 	ownMembers: ReadonlySet<string> = new Set(),
 	unreadProject = false,
+	controls: readonly FormControlInfo[] = [],
+	moduleKind?: ModuleSymbolKind,
+	host?: string,
 ): ProcedureStatementVisitor {
+	const calledControl = controlCallMessage(controls, moduleKind, designerClass, host);
 	// The host injects Application's members into the global scope, so a bare
 	// call may legitimately bind to one of them (Calculate, Volatile, ...).
 	const appMembers = applicationMemberNames(hostModel);
@@ -454,10 +459,29 @@ export function checkUnknownCallStatement(
 		);
 	};
 
+	// What the module and the procedure declare themselves, which a control
+	// does not override. A procedure elsewhere in the project does not take
+	// the name from a control either: the control is the module's own, so
+	// `CommandButton1` stays the control with a Public Sub CommandButton1 in
+	// Module1 (measured in Excel 16.0, build 20527).
+	const moduleNames = new Set(symbols.all
+		.filter((symbol) => !symbol.containerName || symbol.kind === 'enumMember')
+		.map((symbol) => symbol.name.toLowerCase()));
+
 	return (member) => {
 		const procSym = procedureSymbolFor(symbols, member);
+		const procedureNames = calledControl
+			? new Set([...member.params.map((param) => param.name), ...(procSym?.children ?? []).map((child) => child.name)].map((name) => name.toLowerCase()))
+			: undefined;
 		return (stmt) => {
 			const hit = callStatementTarget(source, stmt.span);
+			const control = hit && procedureNames && !procedureNames.has(hit.name.toLowerCase()) && !moduleNames.has(hit.name.toLowerCase())
+				? calledControl?.(hit.name)
+				: undefined;
+			if (hit && control) {
+				push(control.rule, control.message, hit.span);
+				return;
+			}
 			if (hit && !isKnown(hit.name, procSym)) {
 				const call = extractCall(source, stmt.span);
 				// A module's name alone is not a call: `Foo` with a module named
@@ -478,6 +502,45 @@ export function checkUnknownCallStatement(
 				);
 			}
 		};
+	};
+}
+
+const MEASURED_CONTROL_HOSTS: ReadonlySet<string> = new Set(['excel', 'word', 'powerpoint', 'access']);
+
+/**
+ * What the VBE says when a statement calls one of the module's controls, as
+ * `CommandButton1`, `Call CommandButton1` or `CommandButton1 1`, measured in
+ * Excel, Word, PowerPoint and Access 16.0 (build 20527) through the VBE oracle.
+ * A control on a sheet, document or slide is a variable of the module, so
+ * that is "Expected procedure, not variable". A UserForm's controls, and an
+ * Access form's or report's controls and sections, are properties of it, so
+ * that is "Invalid use of property". Undefined for a module with no controls,
+ * or one of a host not measured, such as VB6. No host means Excel, as it
+ * does throughout the analyzer.
+ */
+function controlCallMessage(
+	controls: readonly FormControlInfo[],
+	moduleKind: ModuleSymbolKind | undefined,
+	designerClass: string | undefined,
+	host: string | undefined,
+): ((name: string) => { rule: 'nonCallableCallStatement' | 'invalidPropertyUse'; message: string } | undefined) | undefined {
+	const office = host === undefined || MEASURED_CONTROL_HOSTS.has(host.toLowerCase());
+	const access = designerClass?.startsWith('Access.') === true;
+	const asVariable = moduleKind === 'document' && !access;
+	const asProperty = access || (moduleKind === 'userform' && designerClass === undefined);
+	if (controls.length === 0 || !office || (!asVariable && !asProperty)) {
+		return undefined;
+	}
+	const byName = new Map(controls.map((control) => [control.name.toLowerCase(), control]));
+	return (name) => {
+		const control = byName.get(name.toLowerCase());
+		if (!control) {
+			return undefined;
+		}
+		const what = control.type === 'Access.Section' ? 'a section' : 'a control';
+		return asVariable
+			? { rule: 'nonCallableCallStatement', message: `Cannot call '${name}' because it is ${what}, not a Sub or Function. This is a VBE compile error: Expected procedure, not variable.` }
+			: { rule: 'invalidPropertyUse', message: `'${name}' is ${what}, and a statement cannot call one. This is a VBE compile error: Invalid use of property.` };
 	};
 }
 
