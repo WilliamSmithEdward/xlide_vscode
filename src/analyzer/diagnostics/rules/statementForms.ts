@@ -21,7 +21,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { createObjectDefaultQueries, argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, typeEnvironmentFor } from '../typeInference';
+import { createObjectDefaultQueries, effectiveDeclaredValueType, argumentlessHostDefault, buildModuleTypeSignatures, isKnownScalarType, normalizeType, objectHoldingDefault, typeEnvironmentFor } from '../typeInference';
 import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveHostAlias } from '../../host/hostModel';
 import {
@@ -33,7 +33,60 @@ import {
 	statementTokens,
 	tokenName,
 	tokenText,
+	topLevelOperatorIndex,
 } from '../walker';
+import { lateBoundReceiver, memberAssignmentTarget } from './assignments';
+import { resolveExactMemberCompletion } from '../typeInference';
+
+/**
+ * Whether the statement assigns to a member or an array element that takes any
+ * value at compile time: a member typed Variant (a host property, a project
+ * or UDT field, a setter's value), a member of a receiver that binds at run
+ * time, or an element of a Variant array, declared so or with no As clause.
+ * A scalar, enum or unknown target is not: those keep the reading they had.
+ */
+function untypedAssignmentTarget(
+	source: string,
+	span: Span,
+	toks: readonly VbaToken[],
+	first: number,
+	env: ReadonlyMap<string, string>,
+	arrays: ReadonlySet<string>,
+	localArrayTypes: ReadonlyMap<string, string | undefined>,
+	memberCtx: MemberCompletionContext,
+): boolean {
+	const member = memberAssignmentTarget(source, span);
+	if (member) {
+		if (lateBoundReceiver(source, member.memberSpan.end, memberCtx)) { return true; }
+		const resolved = resolveExactMemberCompletion(source, member.member, member.memberSpan.end, memberCtx);
+		const type = resolved && !resolved.isArray && !resolved.writeIsArray ? resolved.writeType ?? resolved.declaredType ?? resolved.returns : undefined;
+		return type !== undefined && normalizeType(type) === 'variant';
+	}
+	// `Dim a(1)` with no As clause and no DefType holds Variants too.
+	const element = elementAssignmentTarget(toks, first)?.toLowerCase();
+	const type = element === undefined ? undefined : localArrayTypes.has(element) ? localArrayTypes.get(element) : env.get(element);
+	return element !== undefined && arrays.has(element) && (type === undefined || normalizeType(type) === 'variant');
+}
+
+/**
+ * The array element a statement assigns to, `a(0) = x`: a name, its balanced
+ * argument list and the statement's `=`. Undefined for anything else.
+ */
+function elementAssignmentTarget(toks: readonly VbaToken[], first: number): string | undefined {
+	let i = first;
+	if (tokenText(toks[i]) === 'let') { i++; }
+	const name = tokenName(toks[i]);
+	if (!name || toks[i + 1]?.rawText !== '(') { return undefined; }
+	let depth = 0;
+	for (let j = i + 1; j < toks.length; j++) {
+		const raw = toks[j].rawText;
+		if (raw === '(') { depth++; }
+		if (raw === ')' && --depth === 0) {
+			return toks[j + 1]?.rawText === '=' ? name : undefined;
+		}
+	}
+	return undefined;
+}
 
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
 
@@ -159,10 +212,14 @@ export function checkStatementForms(
 		// Arrays, whose `x(1)` is an element: the procedure's, and the module's
 		// that no local hides.
 		const arrays = new Set<string>();
+		// A local array's own element type, DefType applied; undefined holds
+		// Variants. A local hides the module's name, so env cannot say.
+		const localArrayTypes = new Map<string, string | undefined>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			locals.add(child.name.toLowerCase());
 			if (child.isArray) {
 				arrays.add(child.name.toLowerCase());
+				localArrayTypes.set(child.name.toLowerCase(), effectiveDeclaredValueType(symbols, child));
 			}
 		}
 		for (const child of symbols.root.children ?? []) {
@@ -196,8 +253,27 @@ export function checkStatementForms(
 					&& !locals.has(calleeName) && !ownNames.has(calleeName) && !isLabel(callee)) {
 					push('malformedStatement', `'${toks[callee].rawText}' names a module of this project before any procedure in it, so it cannot be called bare from another module; write ${toks[callee].rawText}.${toks[callee].rawText}. This is a VBE compile error: Expected variable or procedure, not module.`, at(callee));
 				}
-				const assigns = target !== undefined || tokenText(toks[first]) === 'set';
-				const eq = assigns ? toks.findIndex((tok) => tok.rawText === '=') : -1;
+				// `Range("A1").Value = c`, `k.w = c`, `a(0) = c`: an assignment to a
+				// member or an element that holds a Variant, or whose receiver binds
+				// at run time, takes any value, and fails as it runs. Its `=` is
+				// the assignment, no comparison. Measured in Excel, Word,
+				// PowerPoint and Access 16.0: a Collection into a Variant host
+				// property, a class's Variant field, a Variant array's element or
+				// a late-bound receiver compiles; into a scalar target it is
+				// "Argument not optional", which the comparison reading below
+				// still reports.
+				const setStatement = tokenText(toks[first]) === 'set';
+				// Only a statement that reads such an object needs the target read.
+				const readsIndexedOrHoldingObject = (): boolean => toks.some((tok) => {
+					const lower = tokenName(tok)?.toLowerCase();
+					return lower !== undefined && env.has(lower) && (indexed(lower) || objectHoldingDefault(env.get(lower), memberCtx) !== undefined);
+				});
+				const untypedTarget = target === undefined && !setStatement && readsIndexedOrHoldingObject()
+					&& untypedAssignmentTarget(source, span, toks, first, env, arrays, localArrayTypes, memberCtx);
+				const assigns = target !== undefined || setStatement || untypedTarget;
+				const eq = untypedTarget
+					? first + topLevelOperatorIndex(toks.slice(first), '=')
+					: assigns ? toks.findIndex((tok) => tok.rawText === '=') : -1;
 				// A one-line If is judged as its condition here; each branch is its
 				// own span with its own assignment (issue #140: `If c Is Nothing
 				// Then Set c = New Collection`).
