@@ -284,9 +284,9 @@
     "constants": {
       "patterns": [
         {
-          "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords (MS-VBAL 3.3.5.2), except as a Type field's name (True As Long), where it shows a name",
+          "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords (MS-VBAL 3.3.5.2), except as a Type field's name (True As Long), where it shows a name. An array field so named (True(1 To 2) As Long) is an error line, so the rule does not look past parentheses, so that a line of True( is not searched to its end from every True",
           "name": "keyword.other.literal.vba",
-          "match": "(?i)\\b(True|False|Nothing|Null|Empty)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b)"
+          "match": "(?i)\\b(True|False|Nothing|Null|Empty)\\b(?!\\s*As\\b)"
         }
       ]
     },
@@ -443,9 +443,9 @@
       "comment": "reserved-name identifiers (section 3.3.5.2 MS-VBAL) that the VBE shows as keywords",
       "patterns": [
         {
-          "comment": "The conversions, LBound, UBound and Debug, which the VBE shows as keywords in every host, though MS-VBAL 3.3.5.2 lists them with Abs, Int and Len, which it shows as names. Not as a Type field's name (CStr As Long), nor as a label (CStr:), whose colour was not measured",
+          "comment": "The conversions, LBound, UBound and Debug, which the VBE shows as keywords in every host, though MS-VBAL 3.3.5.2 lists them with Abs, Int and Len, which it shows as names. Not as a Type field's name (CStr As Long), nor as a label (CStr:), whose colour was not measured. An array field so named (CStr(1 To 2) As Long) is an error line, so the rule does not look past parentheses, so that a line of CStr( is not searched to its end from every CStr",
           "name": "keyword.other.vba",
-          "match": "(?i)\\b(CBool|CByte|CCur|CDate|CDbl|CInt|CLng|CLngLng|CLngPtr|CSng|CStr|CVar|CVErr|LBound|UBound|Debug)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b|\\s*:(?!=))"
+          "match": "(?i)\\b(CBool|CByte|CCur|CDate|CDbl|CInt|CLng|CLngLng|CLngPtr|CSng|CStr|CVar|CVErr|LBound|UBound|Debug)\\b(?!\\s*As\\b|\\s*:(?!=))"
         }
       ]
     },
