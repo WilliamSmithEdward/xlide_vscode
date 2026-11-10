@@ -433,8 +433,12 @@ export function defTypeOf(symbols: ReturnType<typeof buildModuleSymbols>, name: 
 	return defTypeFor(symbols.defTypes, name);
 }
 
-/** Resolve an implicit value type only in the module that owns its declaration. */
-function effectiveDeclaredValueType(symbols: ReturnType<typeof buildModuleSymbols>, symbol: VbaSymbol): string | undefined {
+/**
+ * A symbol's declared value type, or its module's DefType for one declared
+ * with no type; undefined is Variant. The implicit type is resolved only in
+ * the module that owns the declaration.
+ */
+export function effectiveDeclaredValueType(symbols: ReturnType<typeof buildModuleSymbols>, symbol: VbaSymbol): string | undefined {
 	if (symbol.asType || symbol.paramArray || symbol.moduleName.toLowerCase() !== symbols.moduleName.toLowerCase()) {
 		return symbol.asType;
 	}

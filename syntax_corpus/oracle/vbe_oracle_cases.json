@@ -239792,6 +239792,1006 @@
       "host": "word"
     },
     {
+      "id": "collection_into_excel_class_long_field_compile",
+      "description": "Excel: a New Collection c assigned whole, k.n = c, n a Long field of a class, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.n = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_class_long_field_compile",
+      "description": "Word: a New Collection c assigned whole, k.n = c, n a Long field of a class, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.n = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_class_long_field_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, k.n = c, n a Long field of a class, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.n = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_class_long_field_compile",
+      "description": "Access: a New Collection c assigned whole, k.n = c, n a Long field of a class, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.n = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_class_variant_field_compile",
+      "description": "Excel: a New Collection c assigned whole, k.w = c, w a Variant field of a class, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.w = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_class_variant_field_compile",
+      "description": "Word: a New Collection c assigned whole, k.w = c, w a Variant field of a class, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.w = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_class_variant_field_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, k.w = c, w a Variant field of a class, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.w = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_class_variant_field_compile",
+      "description": "Access: a New Collection c assigned whole, k.w = c, w a Variant field of a class, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.w = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic n As Long\r\nPublic w As Variant\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_class_property_let_compile",
+      "description": "Excel: a New Collection c assigned whole, k.P = c, P a Property Let As Long, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.P = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_class_property_let_compile",
+      "description": "Word: a New Collection c assigned whole, k.P = c, P a Property Let As Long, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.P = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_class_property_let_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, k.P = c, P a Property Let As Long, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.P = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_class_property_let_compile",
+      "description": "Access: a New Collection c assigned whole, k.P = c, P a Property Let As Long, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim k As New Class1\r\n    k.P = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let P(ByVal x As Long)\r\nEnd Property\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_udt_long_compile",
+      "description": "Excel: a New Collection c assigned whole, u.x = c, x a Long field of a UDT, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.x = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_udt_long_compile",
+      "description": "Word: a New Collection c assigned whole, u.x = c, x a Long field of a UDT, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.x = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_udt_long_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, u.x = c, x a Long field of a UDT, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.x = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_udt_long_compile",
+      "description": "Access: a New Collection c assigned whole, u.x = c, x a Long field of a UDT, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.x = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_udt_string_compile",
+      "description": "Excel: a New Collection c assigned whole, u.s = c, s a String field of a UDT, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_udt_string_compile",
+      "description": "Word: a New Collection c assigned whole, u.s = c, s a String field of a UDT, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_udt_string_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, u.s = c, s a String field of a UDT, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_udt_string_compile",
+      "description": "Access: a New Collection c assigned whole, u.s = c, s a String field of a UDT, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim u As TPoint\r\n    u.s = c\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Type TPoint\r\n    x As Long\r\n    s As String\r\nEnd Type\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_array_long_compile",
+      "description": "Excel: a New Collection c assigned whole, a(0) = c, a Long array, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Long\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_array_long_compile",
+      "description": "Word: a New Collection c assigned whole, a(0) = c, a Long array, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Long\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_array_long_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, a(0) = c, a Long array, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Long\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_array_long_compile",
+      "description": "Access: a New Collection c assigned whole, a(0) = c, a Long array, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Long\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_array_variant_compile",
+      "description": "Excel: a New Collection c assigned whole, a(0) = c, a Variant array, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Variant\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_array_variant_compile",
+      "description": "Word: a New Collection c assigned whole, a(0) = c, a Variant array, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Variant\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_array_variant_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, a(0) = c, a Variant array, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Variant\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_array_variant_compile",
+      "description": "Access: a New Collection c assigned whole, a(0) = c, a Variant array, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    Dim c As New Collection\r\n    Dim a(1) As Variant\r\n    a(0) = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_object_late_compile",
+      "description": "Excel: a New Collection c assigned whole, o.Value = c with o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then o.Value = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_object_late_compile",
+      "description": "Word: a New Collection c assigned whole, o.Value = c with o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then o.Value = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_object_late_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, o.Value = c with o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then o.Value = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_object_late_compile",
+      "description": "Access: a New Collection c assigned whole, o.Value = c with o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then o.Value = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_compare_member_compile",
+      "description": "Excel: a New Collection c compared, If o.Value = c Then, is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then\r\n        If o.Value = c Then v = 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_compare_member_compile",
+      "description": "Word: a New Collection c compared, If o.Value = c Then, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then\r\n        If o.Value = c Then v = 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_compare_member_compile",
+      "description": "PowerPoint: a New Collection c compared, If o.Value = c Then, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then\r\n        If o.Value = c Then v = 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_compare_member_compile",
+      "description": "Access: a New Collection c compared, If o.Value = c Then, is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then\r\n        If o.Value = c Then v = 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_host_range_value_compile",
+      "description": "Excel: a New Collection c assigned whole, Range(\"A1\").Value = c, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Range(\"A1\").Value = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_host_ws_name_compile",
+      "description": "Excel: a New Collection c assigned whole, ws.Name = c (String), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Dim ws As Worksheet\r\n    If False Then ws.Name = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_host_ws_visible_compile",
+      "description": "Excel: a New Collection c assigned whole, ws.Visible = c (enum), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Dim ws As Worksheet\r\n    If False Then ws.Visible = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_host_r_rowheight_compile",
+      "description": "Excel: a New Collection c assigned whole, r.RowHeight = c (Variant), compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Dim r As Range\r\n    If False Then r.RowHeight = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_host_activesheet_name_compile",
+      "description": "Excel: a New Collection c assigned whole, ActiveSheet.Name = c (late), compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then ActiveSheet.Name = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_host_cells_value_compile",
+      "description": "Excel: a New Collection c assigned whole, Cells(1, 1).Value = c, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then Cells(1, 1).Value = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_excel_host_app_caption_compile",
+      "description": "Excel: a New Collection c assigned whole, Application.Caption = c (String), is rejected: Compile error: Argument not optional. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then Application.Caption = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_host_content_text_compile",
+      "description": "Word: a New Collection c assigned whole, dd.Content.Text = c (String), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Dim dd As Document\r\n    If False Then dd.Content.Text = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_host_app_caption_compile",
+      "description": "Word: a New Collection c assigned whole, Application.Caption = c, is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then Application.Caption = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_word_host_para_space_compile",
+      "description": "Word: a New Collection c assigned whole, p.SpaceAfter = c (Single), is rejected: Compile error: Argument not optional. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Dim p As Paragraph\r\n    If False Then p.SpaceAfter = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_host_slide_name_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, s.Name = c (String), is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Dim s As Slide\r\n    If False Then s.Name = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_powerpoint_host_app_caption_compile",
+      "description": "PowerPoint: a New Collection c assigned whole, Application.Caption = c, is rejected: Compile error: Argument not optional. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then Application.Caption = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_host_form_caption_compile",
+      "description": "Access: a New Collection c assigned whole, f.Caption = c (String), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    Dim f As Form\r\n    If False Then f.Caption = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "collection_into_access_host_app_visible_compile",
+      "description": "Access: a New Collection c assigned whole, Application.Visible = c (Boolean), is rejected: Compile error: Argument not optional. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, o As Object, d As Date, t As Date\r\n    Dim c As New Collection\r\n    If False Then Application.Visible = c\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_powerpoint_bracket_private_type_compile",
       "description": "Issue #1623: referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: a private class named in brackets after the project, `Dim t As ProbeLibrary.[Thing]` is rejected: Compile error: User-defined type not defined. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",

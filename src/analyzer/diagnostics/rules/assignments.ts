@@ -300,7 +300,7 @@ function procedureAssignmentTarget(
 	return undefined;
 }
 
-function memberAssignmentTarget(
+export function memberAssignmentTarget(
 	source: string,
 	span: Span,
 ): {
@@ -1796,7 +1796,7 @@ function hostReadOnlyAssignmentError(
 }
 
 /** Whether the receiver of the member ending at `offset` binds only at run time. */
-function lateBoundReceiver(source: string, offset: number, memberCtx: MemberCompletionContext): boolean {
+export function lateBoundReceiver(source: string, offset: number, memberCtx: MemberCompletionContext): boolean {
 	const receiver = resolveReceiverTypeAt(source, offset, memberCtx);
 	return receiver === undefined || isLateBoundTypeKey(receiver);
 }
