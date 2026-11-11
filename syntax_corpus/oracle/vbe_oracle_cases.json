@@ -236178,6 +236178,2886 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "block_header_excel_case_is_value_compile",
+      "description": "Excel: Select Case n / Case Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_value_compile",
+      "description": "Word: Select Case n / Case Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_value_compile",
+      "description": "PowerPoint: Select Case n / Case Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_value_compile",
+      "description": "Access: Select Case n / Case Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_alone_compile",
+      "description": "Excel: Select Case n / Case Is / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_alone_compile",
+      "description": "Word: Select Case n / Case Is / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_alone_compile",
+      "description": "PowerPoint: Select Case n / Case Is / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_alone_compile",
+      "description": "Access: Select Case n / Case Is / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_paren_compile",
+      "description": "Excel: Select Case n / Case Is (5) / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is (5)\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_paren_compile",
+      "description": "Word: Select Case n / Case Is (5) / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is (5)\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_paren_compile",
+      "description": "PowerPoint: Select Case n / Case Is (5) / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is (5)\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_paren_compile",
+      "description": "Access: Select Case n / Case Is (5) / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is (5)\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_minus_compile",
+      "description": "Excel: Select Case n / Case Is -5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is -5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_minus_compile",
+      "description": "Word: Select Case n / Case Is -5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is -5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_minus_compile",
+      "description": "PowerPoint: Select Case n / Case Is -5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is -5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_minus_compile",
+      "description": "Access: Select Case n / Case Is -5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is -5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_is_nothing_compile",
+      "description": "Excel: Select Case o / Case Is Is Nothing / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case o\r\n        Case Is Is Nothing\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_is_nothing_compile",
+      "description": "Word: Select Case o / Case Is Is Nothing / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case o\r\n        Case Is Is Nothing\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_is_nothing_compile",
+      "description": "PowerPoint: Select Case o / Case Is Is Nothing / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case o\r\n        Case Is Is Nothing\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_is_nothing_compile",
+      "description": "Access: Select Case o / Case Is Is Nothing / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case o\r\n        Case Is Is Nothing\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_list_is_value_compile",
+      "description": "Excel: Select Case n / Case 1, Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_list_is_value_compile",
+      "description": "Word: Select Case n / Case 1, Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_list_is_value_compile",
+      "description": "PowerPoint: Select Case n / Case 1, Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_list_is_value_compile",
+      "description": "Access: Select Case n / Case 1, Is 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_eq_compile",
+      "description": "Excel: Select Case n / Case Is = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_eq_compile",
+      "description": "Word: Select Case n / Case Is = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_eq_compile",
+      "description": "PowerPoint: Select Case n / Case Is = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_eq_compile",
+      "description": "Access: Select Case n / Case Is = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_list_is_lt_compile",
+      "description": "Excel: Select Case n / Case 1, Is < 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is < 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_list_is_lt_compile",
+      "description": "Word: Select Case n / Case 1, Is < 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is < 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_list_is_lt_compile",
+      "description": "PowerPoint: Select Case n / Case 1, Is < 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is < 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_list_is_lt_compile",
+      "description": "Access: Select Case n / Case 1, Is < 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case 1, Is < 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_ne_compile",
+      "description": "Excel: Select Case n / Case Is <> 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is <> 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_ne_compile",
+      "description": "Word: Select Case n / Case Is <> 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is <> 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_ne_compile",
+      "description": "PowerPoint: Select Case n / Case Is <> 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is <> 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_ne_compile",
+      "description": "Access: Select Case n / Case Is <> 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is <> 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_continued_compile",
+      "description": "Excel: Select Case n / Case Is _ / = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is _\r\n            = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_continued_compile",
+      "description": "Word: Select Case n / Case Is _ / = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is _\r\n            = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_continued_compile",
+      "description": "PowerPoint: Select Case n / Case Is _ / = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is _\r\n            = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_continued_compile",
+      "description": "Access: Select Case n / Case Is _ / = 5 / Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is _\r\n            = 5\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_is_colon_compile",
+      "description": "Excel: Select Case n / Case Is = 5: Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5: Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_is_colon_compile",
+      "description": "Word: Select Case n / Case Is = 5: Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5: Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_is_colon_compile",
+      "description": "PowerPoint: Select Case n / Case Is = 5: Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5: Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_is_colon_compile",
+      "description": "Access: Select Case n / Case Is = 5: Beep / End Select, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Select Case n\r\n        Case Is = 5: Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_loop_until_none_compile",
+      "description": "Excel: Do / Loop Until, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_loop_until_none_compile",
+      "description": "Word: Do / Loop Until, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_loop_until_none_compile",
+      "description": "PowerPoint: Do / Loop Until, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_loop_until_none_compile",
+      "description": "Access: Do / Loop Until, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_loop_while_none_compile",
+      "description": "Excel: Do / Loop While, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_loop_while_none_compile",
+      "description": "Word: Do / Loop While, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_loop_while_none_compile",
+      "description": "PowerPoint: Do / Loop While, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_loop_while_none_compile",
+      "description": "Access: Do / Loop While, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_do_until_none_compile",
+      "description": "Excel: Do Until / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_do_until_none_compile",
+      "description": "Word: Do Until / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_do_until_none_compile",
+      "description": "PowerPoint: Do Until / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_do_until_none_compile",
+      "description": "Access: Do Until / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_do_while_none_compile",
+      "description": "Excel: Do While / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do While\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_do_while_none_compile",
+      "description": "Word: Do While / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do While\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_do_while_none_compile",
+      "description": "PowerPoint: Do While / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do While\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_do_while_none_compile",
+      "description": "Access: Do While / Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do While\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_do_until_colon_compile",
+      "description": "Excel: Do Until: Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until: Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_do_until_colon_compile",
+      "description": "Word: Do Until: Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until: Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_do_until_colon_compile",
+      "description": "PowerPoint: Do Until: Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until: Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_do_until_colon_compile",
+      "description": "Access: Do Until: Loop, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until: Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_loop_until_comment_compile",
+      "description": "Excel: Do / Loop Until ' note, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_loop_until_comment_compile",
+      "description": "Word: Do / Loop Until ' note, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_loop_until_comment_compile",
+      "description": "PowerPoint: Do / Loop Until ' note, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_loop_until_comment_compile",
+      "description": "Access: Do / Loop Until ' note, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n    Loop Until ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_do_until_ok_compile",
+      "description": "Excel: Do Until n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_do_until_ok_compile",
+      "description": "Word: Do Until n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_do_until_ok_compile",
+      "description": "PowerPoint: Do Until n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_do_until_ok_compile",
+      "description": "Access: Do Until n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_loop_while_ok_compile",
+      "description": "Excel: Do / n = n + 1 / Loop While n < 3, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        n = n + 1\r\n    Loop While n < 3\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_loop_while_ok_compile",
+      "description": "Word: Do / n = n + 1 / Loop While n < 3, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        n = n + 1\r\n    Loop While n < 3\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_loop_while_ok_compile",
+      "description": "PowerPoint: Do / n = n + 1 / Loop While n < 3, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        n = n + 1\r\n    Loop While n < 3\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_loop_while_ok_compile",
+      "description": "Access: Do / n = n + 1 / Loop While n < 3, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        n = n + 1\r\n    Loop While n < 3\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_do_plain_compile",
+      "description": "Excel: Do / Exit Do / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        Exit Do\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_do_plain_compile",
+      "description": "Word: Do / Exit Do / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        Exit Do\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_do_plain_compile",
+      "description": "PowerPoint: Do / Exit Do / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        Exit Do\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_do_plain_compile",
+      "description": "Access: Do / Exit Do / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do\r\n        Exit Do\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_while_none_compile",
+      "description": "Excel: While / Wend, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_while_none_compile",
+      "description": "Word: While / Wend, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_while_none_compile",
+      "description": "PowerPoint: While / Wend, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_while_none_compile",
+      "description": "Access: While / Wend, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_while_ok_compile",
+      "description": "Excel: While n < 3 / n = n + 1 / Wend, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While n < 3\r\n        n = n + 1\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_while_ok_compile",
+      "description": "Word: While n < 3 / n = n + 1 / Wend, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While n < 3\r\n        n = n + 1\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_while_ok_compile",
+      "description": "PowerPoint: While n < 3 / n = n + 1 / Wend, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While n < 3\r\n        n = n + 1\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_while_ok_compile",
+      "description": "Access: While n < 3 / n = n + 1 / Wend, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    While n < 3\r\n        n = n + 1\r\n    Wend\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_each_no_in_compile",
+      "description": "Excel: For Each v / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_each_no_in_compile",
+      "description": "Word: For Each v / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_each_no_in_compile",
+      "description": "PowerPoint: For Each v / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_each_no_in_compile",
+      "description": "Access: For Each v / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_each_in_none_compile",
+      "description": "Excel: For Each v In / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_each_in_none_compile",
+      "description": "Word: For Each v In / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_each_in_none_compile",
+      "description": "PowerPoint: For Each v In / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_each_in_none_compile",
+      "description": "Access: For Each v In / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_each_no_var_compile",
+      "description": "Excel: For Each In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_each_no_var_compile",
+      "description": "Word: For Each In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_each_no_var_compile",
+      "description": "PowerPoint: For Each In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_each_no_var_compile",
+      "description": "Access: For Each In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_each_ok_compile",
+      "description": "Excel: For Each v In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_each_ok_compile",
+      "description": "Word: For Each v In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_each_ok_compile",
+      "description": "PowerPoint: For Each v In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_each_ok_compile",
+      "description": "Access: For Each v In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_no_to_compile",
+      "description": "Excel: For n = 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_no_to_compile",
+      "description": "Word: For n = 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_no_to_compile",
+      "description": "PowerPoint: For n = 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_no_to_compile",
+      "description": "Access: For n = 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_to_none_compile",
+      "description": "Excel: For n = 1 To / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_to_none_compile",
+      "description": "Word: For n = 1 To / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_to_none_compile",
+      "description": "PowerPoint: For n = 1 To / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_to_none_compile",
+      "description": "Access: For n = 1 To / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_step_none_compile",
+      "description": "Excel: For n = 1 To 2 Step / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_step_none_compile",
+      "description": "Word: For n = 1 To 2 Step / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_step_none_compile",
+      "description": "PowerPoint: For n = 1 To 2 Step / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_step_none_compile",
+      "description": "Access: For n = 1 To 2 Step / Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_ok_compile",
+      "description": "Excel: For n = 1 To 2 Step 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_ok_compile",
+      "description": "Word: For n = 1 To 2 Step 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_ok_compile",
+      "description": "PowerPoint: For n = 1 To 2 Step 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_ok_compile",
+      "description": "Access: For n = 1 To 2 Step 1 / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For n = 1 To 2 Step 1\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_do_until_continued_compile",
+      "description": "Excel: Do Until _ / n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until _\r\n        n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_do_until_continued_compile",
+      "description": "Word: Do Until _ / n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until _\r\n        n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_do_until_continued_compile",
+      "description": "PowerPoint: Do Until _ / n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until _\r\n        n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_do_until_continued_compile",
+      "description": "Access: Do Until _ / n > 3 / n = n + 1 / Loop, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do Until _\r\n        n > 3\r\n        n = n + 1\r\n    Loop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_each_in_colon_compile",
+      "description": "Excel: For Each v In: Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In: Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_each_in_colon_compile",
+      "description": "Word: For Each v In: Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In: Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_each_in_colon_compile",
+      "description": "PowerPoint: For Each v In: Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In: Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_each_in_colon_compile",
+      "description": "Access: For Each v In: Next, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v In: Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_loop_until_colon_compile",
+      "description": "Excel: Do: Loop Until: Beep, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do: Loop Until: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_loop_until_colon_compile",
+      "description": "Word: Do: Loop Until: Beep, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do: Loop Until: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_loop_until_colon_compile",
+      "description": "PowerPoint: Do: Loop Until: Beep, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do: Loop Until: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_loop_until_colon_compile",
+      "description": "Access: Do: Loop Until: Beep, with v As Variant, n As Long, o As Object and c As New Collection, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    Do: Loop Until: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_each_continued_in_compile",
+      "description": "Excel: For Each v _ / In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v _\r\n        In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_each_continued_in_compile",
+      "description": "Word: For Each v _ / In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v _\r\n        In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_each_continued_in_compile",
+      "description": "PowerPoint: For Each v _ / In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v _\r\n        In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_each_continued_in_compile",
+      "description": "Access: For Each v _ / In c / Next, with v As Variant, n As Long, o As Object and c As New Collection, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object, c As New Collection\r\n    For Each v _\r\n        In c\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_numbered_loop_member_until_compile",
+      "description": "Excel: 10 Do / 20 Loop While o.Until, with v As Variant, n As Long and o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n10  Do\r\n20  Loop While o.Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_numbered_loop_member_until_compile",
+      "description": "Word: 10 Do / 20 Loop While o.Until, with v As Variant, n As Long and o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n10  Do\r\n20  Loop While o.Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_numbered_loop_member_until_compile",
+      "description": "PowerPoint: 10 Do / 20 Loop While o.Until, with v As Variant, n As Long and o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n10  Do\r\n20  Loop While o.Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_numbered_loop_member_until_compile",
+      "description": "Access: 10 Do / 20 Loop While o.Until, with v As Variant, n As Long and o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n10  Do\r\n20  Loop While o.Until\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_member_to_none_compile",
+      "description": "Excel: For n = o.To To / Next, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_member_to_none_compile",
+      "description": "Word: For n = o.To To / Next, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_member_to_none_compile",
+      "description": "PowerPoint: For n = o.To To / Next, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_member_to_none_compile",
+      "description": "Access: For n = o.To To / Next, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_member_to_ok_compile",
+      "description": "Excel: For n = o.To To 3 / Next, with v As Variant, n As Long and o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_member_to_ok_compile",
+      "description": "Word: For n = o.To To 3 / Next, with v As Variant, n As Long and o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_member_to_ok_compile",
+      "description": "PowerPoint: For n = o.To To 3 / Next, with v As Variant, n As Long and o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_member_to_ok_compile",
+      "description": "Access: For n = o.To To 3 / Next, with v As Variant, n As Long and o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For n = o.To To 3\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_for_each_member_in_ok_compile",
+      "description": "Excel: For Each v In o.In / Next, with v As Variant, n As Long and o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For Each v In o.In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_for_each_member_in_ok_compile",
+      "description": "Word: For Each v In o.In / Next, with v As Variant, n As Long and o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For Each v In o.In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_for_each_member_in_ok_compile",
+      "description": "PowerPoint: For Each v In o.In / Next, with v As Variant, n As Long and o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For Each v In o.In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_for_each_member_in_ok_compile",
+      "description": "Access: For Each v In o.In / Next, with v As Variant, n As Long and o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    For Each v In o.In\r\n    Next\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_numbered_case_member_to_compile",
+      "description": "Excel: Select Case n / 10 Case Is > o.To / Beep / End Select, with v As Variant, n As Long and o As Object, is rejected: Compile error: Statements and labels invalid between Select Case and first Case. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n10      Case Is > o.To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_numbered_case_member_to_compile",
+      "description": "Word: Select Case n / 10 Case Is > o.To / Beep / End Select, with v As Variant, n As Long and o As Object, is rejected: Compile error: Statements and labels invalid between Select Case and first Case. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n10      Case Is > o.To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_numbered_case_member_to_compile",
+      "description": "PowerPoint: Select Case n / 10 Case Is > o.To / Beep / End Select, with v As Variant, n As Long and o As Object, is rejected: Compile error: Statements and labels invalid between Select Case and first Case. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n10      Case Is > o.To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_numbered_case_member_to_compile",
+      "description": "Access: Select Case n / 10 Case Is > o.To / Beep / End Select, with v As Variant, n As Long and o As Object, is rejected: Compile error: Statements and labels invalid between Select Case and first Case. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n10      Case Is > o.To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_excel_case_bang_member_to_compile",
+      "description": "Excel: Select Case n / Case Is > o!To / Beep / End Select, with v As Variant, n As Long and o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n        Case Is > o!To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_word_case_bang_member_to_compile",
+      "description": "Word: Select Case n / Case Is > o!To / Beep / End Select, with v As Variant, n As Long and o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n        Case Is > o!To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_powerpoint_case_bang_member_to_compile",
+      "description": "PowerPoint: Select Case n / Case Is > o!To / Beep / End Select, with v As Variant, n As Long and o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n        Case Is > o!To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "block_header_access_case_bang_member_to_compile",
+      "description": "Access: Select Case n / Case Is > o!To / Beep / End Select, with v As Variant, n As Long and o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    Select Case n\r\n        Case Is > o!To\r\n            Beep\r\n    End Select\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_word_members_compile",
       "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: its Public members compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",

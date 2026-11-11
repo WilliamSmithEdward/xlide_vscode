@@ -70,6 +70,15 @@ const STATEMENT_KEYWORDS: ReadonlySet<string> = new Set([
 
 const PARAMETER_MODIFIERS: ReadonlySet<string> = new Set(['optional', 'byval', 'byref', 'paramarray']);
 
+/** True for a member's name, `o.To`, `o!In`: the word after a `.`, or after a `!` touching it. */
+function isMemberName(words: readonly VbaToken[], k: number): boolean {
+	const previous = words[k - 1];
+	return previous !== undefined && (previous.rawText === '.' || (previous.rawText === '!' && previous.end === words[k].start));
+}
+
+/** The operators `Case Is` takes before its value. */
+const CASE_IS_OPERATORS: ReadonlySet<string> = new Set(['=', '<>', '<', '>', '<=', '>=']);
+
 type Place = 'procedure' | 'top' | 'after';
 
 export function checkMalformedLines(
@@ -237,14 +246,67 @@ function checkStatementForms(
 			}
 		} else if (head === 'do') {
 			dos.push(words.length > 1 && (tokenText(words[1]) === 'while' || tokenText(words[1]) === 'until'));
+			checkCondition(words, 1);
 		} else if (head === 'loop') {
 			const conditioned = dos.pop();
-			const kinds = words.slice(1).filter((tok) => tokenText(tok) === 'while' || tokenText(tok) === 'until');
+			// A member named While or Until, `o.Until`, is no condition keyword.
+			const kinds = words.filter((tok, k) => k > 0 && !isMemberName(words, k) && (tokenText(tok) === 'while' || tokenText(tok) === 'until'));
 			if (kinds.length > 1) {
 				report(kinds[0], kinds[1], 'A Loop takes one condition, While or Until, not both.', 'Syntax error');
 			} else if (kinds.length === 1 && conditioned) {
 				report(words[0], kinds[0], 'A Loop with a condition closes a Do with none; this Do has its own.', 'Loop without Do');
+			} else {
+				checkCondition(words, 1);
 			}
+		} else if (head === 'while' && words.length === 1) {
+			report(words[0], words[0], 'While needs a condition: While n < 10.', 'Syntax error');
+		} else if (head === 'for') {
+			checkForHeader(words);
+		}
+	};
+	/** `Do While` or `Loop Until` at `words[at]` with no condition after it. */
+	const checkCondition = (words: readonly VbaToken[], at: number): void => {
+		const kind = tokenText(words[at]);
+		if ((kind === 'while' || kind === 'until') && words.length === at + 1) {
+			report(words[0], words[at], `${words[0].rawText} ${words[at].rawText} needs a condition.`, 'Syntax error');
+		}
+	};
+	/** A For or For Each header without one of its parts: `For n = 1`, `For Each v`. */
+	const checkForHeader = (words: readonly VbaToken[]): void => {
+		const last = words[words.length - 1];
+		const at = (word: string): number => {
+			let depth = 0;
+			for (let k = 1; k < words.length; k++) {
+				const raw = words[k].rawText;
+				if (raw === '(') {
+					depth++;
+				} else if (raw === ')') {
+					depth--;
+				} else if (depth === 0 && words[k].kind === 'keyword' && !isMemberName(words, k) && tokenText(words[k]) === word) {
+					return k;
+				}
+			}
+			return -1;
+		};
+		if (tokenText(words[1]) === 'each') {
+			const inAt = at('in');
+			if (inAt === 2) {
+				report(words[0], words[2], 'For Each needs its loop variable before In: For Each v In c.', 'Syntax error');
+			} else if (inAt < 0) {
+				report(words[0], last, 'For Each needs In and what it walks: For Each v In c.', 'Syntax error');
+			} else if (inAt === words.length - 1) {
+				report(words[0], last, 'For Each ... In needs the collection or array it walks.', 'Syntax error');
+			}
+			return;
+		}
+		const toAt = at('to');
+		const stepAt = at('step');
+		if (toAt < 0) {
+			report(words[0], last, 'A For loop needs To and its end value: For n = 1 To 10.', 'Syntax error');
+		} else if (toAt === words.length - 1) {
+			report(words[0], words[toAt], 'For ... To needs the loop\'s end value.', 'Syntax error');
+		} else if (stepAt === words.length - 1) {
+			report(words[0], words[stepAt], 'Step needs a value: Step 2.', 'Syntax error');
 		}
 	};
 	const checkCaseItems = (items: readonly VbaToken[]): void => {
@@ -267,9 +329,11 @@ function checkStatementForms(
 			}
 			if (tokenText(item[1]) === 'like') {
 				report(item[0], item[1], "Case Is takes a comparison operator, and Like is none.", 'Syntax error');
-			} else if (item.some((t) => tokenText(t) === 'to')) {
-				const to = item.find((t) => tokenText(t) === 'to')!;
+			} else if (item.some((t, k) => tokenText(t) === 'to' && !isMemberName(item, k))) {
+				const to = item.find((t, k) => tokenText(t) === 'to' && !isMemberName(item, k))!;
 				report(item[0], to, 'Case Is takes one value: a range with To is a Case of its own.', 'Syntax error');
+			} else if (!CASE_IS_OPERATORS.has(item[1]?.rawText ?? '')) {
+				report(item[0], item[1] ?? item[0], 'Case Is takes a comparison operator before its value: Case Is > 5.', 'Syntax error');
 			}
 		}
 	};
@@ -292,6 +356,10 @@ function splitStatements(words: readonly VbaToken[]): VbaToken[][] {
 		} else {
 			out[out.length - 1].push(tok);
 		}
+	}
+	// A line number is no part of the statement after it: `10 For n = 1`.
+	if (isDecimalLineNumber(out[0][0])) {
+		out[0].shift();
 	}
 	return out.filter((statement) => statement.length > 0);
 }
