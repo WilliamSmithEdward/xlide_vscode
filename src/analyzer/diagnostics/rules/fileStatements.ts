@@ -33,7 +33,7 @@ import { bareCallStatementTarget } from '../../call/callContext';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
-import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
+import { isDecimalLineNumber, splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
@@ -44,6 +44,7 @@ import { stringLiteralValue } from '../typeInference';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	forEachStatement,
 	blockHeaderLineSpan,
 	matchParenFrom,
 	statementTokensAfterLeadingLabel,
@@ -117,6 +118,11 @@ export function checkFileStatements(
 	_projectOpened?: OpenedFileNumbers,
 	projectCallables?: Iterable<string>,
 ): void {
+	// The callables may come as an iterator, which reads once: read it here
+	// for every procedure.
+	const projectCallableNames = [...(projectCallables ?? [])];
+	// A statement refused for its shape runs nothing, so it is not followed.
+	const refusedShapes = checkFileStatementShapes(source, mod, activity, push);
 	// A project index cannot prove a valid file number is unopened at runtime.
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
@@ -126,7 +132,7 @@ export function checkFileStatements(
 		const trackState = !/\bon\s+error\b/i.test(source.slice(member.span.start, member.span.end));
 		const callables = new Set([
 			...mod.members.filter(node => node.kind === 'Procedure').map(node => node.name.toLowerCase()),
-			...[...(projectCallables ?? [])].map(name => name.toLowerCase()),
+			...projectCallableNames.map(name => name.toLowerCase()),
 		]);
 		const mayInvoke = (toks: readonly VbaToken[]): boolean => toks.some((tok, i) => {
 			const name = tokenText(tok);
@@ -152,6 +158,11 @@ export function checkFileStatements(
 				resumeNext = tokenText(toks[2]) === 'resume';
 				return;
 			}
+			// A statement refused for its shape never runs: nothing it would raise
+			// or change is followed.
+			if (refusedShapes.has(node.span.start + toks[0].start)) {
+				return;
+			}
 			if (!trackState) {
 				// A handled failed Open can leave an earlier mode or handle intact.
 				// Keep intrinsic argument checks, without propagating successful I/O.
@@ -168,7 +179,10 @@ export function checkFileStatements(
 				// establish state after the branch. Cached token arrays stay immutable.
 				for (const span of node.singleLineIfBranches) {
 					const tokens = statementTokensAfterLeadingLabel(source, span);
-					checkStatement(span, tokenText(tokens[0]) === 'else' ? tokens.slice(1) : tokens, new Map(states), push, resumeNext);
+					const branch = tokenText(tokens[0]) === 'else' ? tokens.slice(1) : tokens;
+					if (branch.length > 0 && !refusedShapes.has(span.start + branch[0].start)) {
+						checkStatement(span, branch, new Map(states), push, resumeNext);
+					}
 				}
 				for (const key of fileNumberKeysIn(toks)) {
 					states.delete(key);
@@ -861,4 +875,271 @@ function fileKeysTouchedBy(source: string, node: LeafStatementNode): Set<string>
 		out.add(target.name.toLowerCase());
 	}
 	return out;
+}
+
+/** The Access an Open of each mode takes; Binary and Random take any. */
+const OPEN_ACCESS: Readonly<Partial<Record<FileMode, readonly string[]>>> = {
+	append: ['write', 'read write'],
+	input: ['read'],
+	output: ['write'],
+};
+
+/**
+ * File statements in a shape the VBE refuses, each a Syntax error unless
+ * noted (measured in Excel, Word, PowerPoint and Access 16.0, build 20527):
+ *
+ *  - Open with an Access its mode doesn't take: For Append takes Write or
+ *    Read Write, For Input Read, For Output Write; `Access` with nothing.
+ *  - `Width f, 80`, without `#`; Width with other than two arguments.
+ *  - `Print #f` and `Write #f` with nothing after the number, and
+ *    `Print #f; 1`: the number is followed by a comma.
+ *  - Input with no variable, or with a value that is no variable
+ *    (`Input #f, 1`, `Input #f, s & "x"`); Line Input with other than one
+ *    variable.
+ *  - Get with no variable after the record, and Put with no value;
+ *    `Get #f, , 1` is "Variable required - can't assign to this
+ *    expression", and so is `Me.s` as the target of Input, Line Input or
+ *    Get.
+ *  - Name without `As` and the new name.
+ *
+ * Width and Name are these statements wherever they head one, also before
+ * an element list and where a procedure has the name, except a member, a
+ * label or an assignment to the name (see namedUse).
+ */
+function checkFileStatementShapes(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): Set<number> {
+	/** Where each refused statement starts, its first token's offset. */
+	const refused = new Set<number>();
+	const check = (base: Span, raw: readonly VbaToken[]): void => {
+		const toks = isDecimalLineNumber(raw[0]) ? raw.slice(1) : raw;
+		const text = (part: readonly VbaToken[]): string => source.slice(base.start + part[0].start, base.start + part[part.length - 1].end);
+		const report = (first: VbaToken, last: VbaToken, what: string, error = 'Syntax error'): void => {
+			refused.add(base.start + toks[0].start);
+			push('malformedStatement', `${what} This is a VBE compile error: ${error}.`, { start: base.start + first.start, end: base.start + last.end });
+		};
+		// Width, Line, Name and Access are names to the lexer, not keywords.
+		const head = tokenText(toks[0]);
+		const last = toks[toks.length - 1];
+		if (!head) {
+			return;
+		}
+		if (head === 'open') {
+			checkOpenAccess(toks, report);
+		} else if (head === 'width' && toks[1] && !namedUse(toks)) {
+			const parts = splitTopLevelTokenGroups(toks, 1, ',');
+			if (toks[1]?.rawText !== '#') {
+				report(toks[0], last, 'Width names its file number with #: Width #f, 80.');
+			} else if (parts.length !== 2 || parts[0].length < 2 || parts[1].length === 0) {
+				report(toks[0], last, 'Width takes a file number and a width: Width #f, 80.');
+			}
+		} else if ((head === 'print' || head === 'write') && toks[1]?.rawText === '#') {
+			const after = numberEnd(toks, 2);
+			if (after >= toks.length) {
+				report(toks[0], last, `${toks[0].rawText} #f needs a comma after the file number: ${toks[0].rawText} #f, or ${toks[0].rawText} #f, s.`);
+			} else if (toks[after].rawText === ';') {
+				report(toks[0], toks[after], `${toks[0].rawText} #f takes a comma after the file number, not a semicolon.`);
+			}
+		} else if (head === 'input' && toks[1]?.rawText === '#') {
+			checkVariables(toks, 2, 'Input #f reads into one or more variables: Input #f, s.', undefined, report, text);
+		} else if (head === 'line' && tokenText(toks[1]) === 'input' && toks[2]?.rawText === '#') {
+			checkVariables(toks, 3, 'Line Input #f reads into one variable: Line Input #f, s.', 1, report, text);
+		} else if (head === 'get' || head === 'put') {
+			const parts = splitTopLevelTokenGroups(toks, 1, ',');
+			if (parts.length !== 3 || parts[2].length === 0) {
+				report(toks[0], last, `${toks[0].rawText} takes a file number, a record and a ${head === 'get' ? 'variable' : 'value'}: ${toks[0].rawText} #f, , v.`);
+			} else if (head === 'get' && !isVariableReference(parts[2])) {
+				const target = parts[2];
+				report(target[0], target[target.length - 1], `Get reads into a variable, and '${text(target)}' is none.`, "Variable required - can't assign to this expression");
+			}
+		} else if (head === 'name' && toks[1] && !namedUse(toks)) {
+			const as = toks.findIndex((tok, k) => k > 0 && tok.kind === 'keyword' && tokenText(tok) === 'as');
+			if (as < 0 || as === toks.length - 1) {
+				report(toks[0], last, 'Name renames with As: Name "old" As "new".');
+			}
+		}
+	};
+	const checkSpan = (span: Span): void => {
+		const toks = statementTokensAfterLeadingLabel(source, span);
+		for (const statement of splitTopLevelTokenGroups(toks, tokenText(toks[0]) === 'else' ? 1 : 0, ':')) {
+			if (statement.length > 0) {
+				check(span, statement);
+			}
+		}
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (node) => {
+			if (node.kind === 'Statement' && node.singleLineIfBranches) {
+				for (const span of node.singleLineIfBranches) {
+					checkSpan(span);
+				}
+				return;
+			}
+			checkSpan(node.span);
+		}, activity);
+	}
+	return refused;
+}
+
+/** `Open ... For Append Access Read`: an Access the mode doesn't take. */
+function checkOpenAccess(toks: readonly VbaToken[], report: (first: VbaToken, last: VbaToken, what: string) => void): void {
+	let mode: FileMode = 'random';
+	// Access comes straight after For's mode, or, with no For, after the whole
+	// path: a path that names a variable access, as in `Open (access) For
+	// Input` or `"x" & access`, has no Access clause.
+	let modeAt = -1;
+	let depth = 0;
+	for (let i = 1; i < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		// Inside parentheses is the path's own expression: `CStr(Not access)`.
+		if (toks[i].rawText === '(') {
+			depth++;
+		} else if (toks[i].rawText === ')') {
+			depth--;
+		}
+		if (depth !== 0) {
+			continue;
+		}
+		if (word === 'as' && toks[i].kind === 'keyword') {
+			return;
+		}
+		if (word === 'for' && toks[i].kind === 'keyword') {
+			modeAt = i + 1;
+			const next = tokenText(toks[i + 1]);
+			if (next === 'input' || next === 'output' || next === 'append' || next === 'random' || next === 'binary') {
+				mode = next;
+			}
+		} else if (word === 'access' && !isMemberAccessName(toks, i) && (modeAt >= 0 ? i === modeAt + 1 : i > 1 && !operandBefore(toks[i - 1]))) {
+			const first = tokenText(toks[i + 1]);
+			const access = first === 'read' && tokenText(toks[i + 2]) === 'write' ? 'read write' : first;
+			const end = toks[access === 'read write' ? i + 2 : i + 1] ?? toks[i];
+			if (access !== 'read' && access !== 'write' && access !== 'read write') {
+				report(toks[i], toks[i], 'Access takes Read, Write or Read Write.');
+			} else if (OPEN_ACCESS[mode] && !OPEN_ACCESS[mode]!.includes(access)) {
+				const allowed = OPEN_ACCESS[mode]!.map((a) => a.replace(/\b\w/g, (c) => c.toUpperCase())).join(' or ');
+				report(toks[i], end, `For ${modeWord(mode)} takes Access ${allowed}.`);
+			}
+			return;
+		}
+	}
+}
+
+/** Where the file number starting at `from` ends: the next comma or semicolon outside parentheses. */
+function numberEnd(toks: readonly VbaToken[], from: number): number {
+	let depth = 0;
+	for (let k = from; k < toks.length; k++) {
+		const raw = toks[k].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth--;
+		} else if (depth === 0 && (raw === ',' || raw === ';')) {
+			return k;
+		}
+	}
+	return toks.length;
+}
+
+/** Input's and Line Input's list after the file number: each place a variable, `count` of them if given. */
+function checkVariables(
+	toks: readonly VbaToken[],
+	from: number,
+	what: string,
+	count: number | undefined,
+	report: (first: VbaToken, last: VbaToken, what: string, error?: string) => void,
+	text: (part: readonly VbaToken[]) => string,
+): void {
+	const parts = splitTopLevelTokenGroups(toks, from, ',');
+	const items = parts.slice(1);
+	const last = toks[toks.length - 1];
+	if (items.length === 0 || (count !== undefined && items.length !== count) || items.some((item) => !isVariableReference(item) && !isMeMember(item))) {
+		report(toks[0], last, what);
+		return;
+	}
+	// `Me.s` has a variable's shape but is a property of the module's object.
+	const me = items.find(isMeMember);
+	if (me) {
+		report(me[0], me[me.length - 1], `'${text(me)}' is a property of Me, not a variable to read into.`, "Variable required - can't assign to this expression");
+	}
+}
+
+/** The word operators an operand named access may follow in an Open path: `Not access`. */
+const WORD_OPERATORS: ReadonlySet<string> = new Set(['not', 'and', 'or', 'xor', 'eqv', 'imp', 'mod', 'like', 'is']);
+
+/**
+ * True when what follows `tok` in an Open path is an operand: after any
+ * operator token (`&`, `<>`, `>=`, ...), a word operator, `(` or `,`, as in
+ * `"x" & access` or `"x" <> access`.
+ */
+function operandBefore(tok: VbaToken): boolean {
+	return tok.kind === 'operator' || tok.rawText === '(' || tok.rawText === ',' || WORD_OPERATORS.has(tokenText(tok));
+}
+
+/**
+ * A variable, by its shape: a name, then any of a member (`.f`, `!k`), an
+ * element or argument list (`(1)`) and a type character glued to a name
+ * (`s$`), as in `s`, `t.f`, `a(1)`, `b$(1)`, `o!k`, a With block's `.s`. A
+ * literal, an operator or a second name (`s And s`, `s s`) is none, nor is
+ * `Me.s` (see isMeMember).
+ */
+function isVariableReference(item: readonly VbaToken[]): boolean {
+	let k = item[0]?.rawText === '.' || item[0]?.rawText === '!' ? 1 : 0;
+	const first = item[k];
+	if (!first || (k === 0 ? first.kind !== 'identifier' && first.kind !== 'bracketedIdentifier' : !tokenName(first))) {
+		return false;
+	}
+	for (k++; k < item.length; k++) {
+		const tok = item[k];
+		const glued = tok.start === item[k - 1].end;
+		if ((tok.rawText === '.' || tok.rawText === '!') && item[k + 1] && tokenName(item[k + 1]) && (tok.rawText === '.' || item[k + 1].start === tok.end)) {
+			k++;
+		} else if (tok.rawText === '(') {
+			const close = matchParenFrom(item, k);
+			if (close < 0) {
+				return false;
+			}
+			k = close;
+		} else if (!(glued && TYPE_CHARACTERS.has(tok.rawText) && tokenName(item[k - 1]))) {
+			return false;
+		}
+	}
+	return true;
+}
+
+const TYPE_CHARACTERS: ReadonlySet<string> = new Set(['$', '%', '&', '!', '#', '@', '^']);
+
+/**
+ * A member of the module's own object, `Me.s` or `Me!k`: a property, which
+ * the VBE reads as a place to store into but refuses, "Variable required -
+ * can't assign to this expression", even for a class's Public variable.
+ */
+function isMeMember(item: readonly VbaToken[]): boolean {
+	return tokenText(item[0]) === 'me' && (item[1]?.rawText === '.' || item[1]?.rawText === '!') && item.length > 2 && isVariableReference(item.slice(2));
+}
+
+/**
+ * A use of something named Width or Name, which is no such statement: a
+ * member straight after the name (`Width.Add 1, 2`, `Width!k = 1`), a label
+ * (`Width:`), or an assignment to the name itself, with any type character
+ * glued to it (`Width = 300`, `Name = "x"`, `Width# = 300`, `Name$ = "x"`).
+ * Anything else is the statement, as the VBE reads it: with an element list
+ * after the name (`Width(1) = n`, `Name(1).Add 1`), where a procedure is
+ * named Width or Name, and in `Width f, 80 = 80` or `Name "a" = "b"`.
+ */
+function namedUse(toks: readonly VbaToken[]): boolean {
+	const typed = toks[1] !== undefined && TYPE_CHARACTERS.has(toks[1].rawText) && toks[1].start === toks[0].end && toks[2]?.rawText === '=';
+	const after = toks[1]?.rawText;
+	return typed || after === '.' || after === '!' || after === ':' || after === '=';
+}
+
+/** True for a member's name, `t.access`, `t!access`: after a `.`, or a `!` touching it. */
+function isMemberAccessName(toks: readonly VbaToken[], k: number): boolean {
+	const previous = toks[k - 1];
+	return previous !== undefined && (previous.rawText === '.' || (previous.rawText === '!' && previous.end === toks[k].start));
 }
