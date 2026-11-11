@@ -237186,6 +237186,4686 @@
       "host": "word"
     },
     {
+      "id": "statement_shape_excel_end_one_compile",
+      "description": "Excel: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_end_one_compile",
+      "description": "Word: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_end_one_compile",
+      "description": "PowerPoint: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_end_one_compile",
+      "description": "Access: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_end_paren_compile",
+      "description": "Excel: End (1), with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End (1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_end_paren_compile",
+      "description": "Word: End (1), with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End (1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_end_paren_compile",
+      "description": "PowerPoint: End (1), with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End (1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_end_paren_compile",
+      "description": "Access: End (1), with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End (1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_end_else_compile",
+      "description": "Excel: If v Then End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_end_else_compile",
+      "description": "Word: If v Then End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_end_else_compile",
+      "description": "PowerPoint: If v Then End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_end_else_compile",
+      "description": "Access: If v Then End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_end_one_compile",
+      "description": "Excel: If v Then End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_end_one_compile",
+      "description": "Word: If v Then End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_end_one_compile",
+      "description": "PowerPoint: If v Then End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_end_one_compile",
+      "description": "Access: If v Then End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_numbered_end_one_compile",
+      "description": "Excel: 10 End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_numbered_end_one_compile",
+      "description": "Word: 10 End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_numbered_end_one_compile",
+      "description": "PowerPoint: 10 End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_numbered_end_one_compile",
+      "description": "Access: 10 End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_end_name_compile",
+      "description": "Excel: End Foo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_end_name_compile",
+      "description": "Word: End Foo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_end_name_compile",
+      "description": "PowerPoint: End Foo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_end_name_compile",
+      "description": "Access: End Foo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End Foo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_end_while_compile",
+      "description": "Excel: End While, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_end_while_compile",
+      "description": "Word: End While, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_end_while_compile",
+      "description": "PowerPoint: End While, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_end_while_compile",
+      "description": "Access: End While, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End While\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_continued_end_compile",
+      "description": "Excel: End _ / 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End _\r\n        1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_continued_end_compile",
+      "description": "Word: End _ / 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End _\r\n        1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_continued_end_compile",
+      "description": "PowerPoint: End _ / 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End _\r\n        1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_continued_end_compile",
+      "description": "Access: End _ / 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End _\r\n        1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_colon_end_one_compile",
+      "description": "Excel: Beep: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_colon_end_one_compile",
+      "description": "Word: Beep: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_colon_end_one_compile",
+      "description": "PowerPoint: Beep: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_colon_end_one_compile",
+      "description": "Access: Beep: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_label_end_one_compile",
+      "description": "Excel: L: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\nL: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_label_end_one_compile",
+      "description": "Word: L: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\nL: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_label_end_one_compile",
+      "description": "PowerPoint: L: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\nL: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_label_end_one_compile",
+      "description": "Access: L: End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\nL: End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_end_colon_compile",
+      "description": "Excel: End: Beep, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_end_colon_compile",
+      "description": "Word: End: Beep, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_end_colon_compile",
+      "description": "PowerPoint: End: Beep, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_end_colon_compile",
+      "description": "Access: End: Beep, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_end_comment_compile",
+      "description": "Excel: End ' note, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_end_comment_compile",
+      "description": "Word: End ' note, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_end_comment_compile",
+      "description": "PowerPoint: End ' note, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_end_comment_compile",
+      "description": "Access: End ' note, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    End ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_else_end_compile",
+      "description": "Excel: If v Then Beep Else End, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else End\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_else_end_compile",
+      "description": "Word: If v Then Beep Else End, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else End\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_else_end_compile",
+      "description": "PowerPoint: If v Then Beep Else End, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else End\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_else_end_compile",
+      "description": "Access: If v Then Beep Else End, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else End\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_stop_one_compile",
+      "description": "Excel: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_stop_one_compile",
+      "description": "Word: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_stop_one_compile",
+      "description": "PowerPoint: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_stop_one_compile",
+      "description": "Access: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_stop_one_compile",
+      "description": "Excel: If v Then Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_stop_one_compile",
+      "description": "Word: If v Then Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_stop_one_compile",
+      "description": "PowerPoint: If v Then Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_stop_one_compile",
+      "description": "Access: If v Then Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_stop_else_compile",
+      "description": "Excel: If v Then Stop Else Beep, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_stop_else_compile",
+      "description": "Word: If v Then Stop Else Beep, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_stop_else_compile",
+      "description": "PowerPoint: If v Then Stop Else Beep, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_stop_else_compile",
+      "description": "Access: If v Then Stop Else Beep, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_stop_colon_compile",
+      "description": "Excel: Stop: Beep, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_stop_colon_compile",
+      "description": "Word: Stop: Beep, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_stop_colon_compile",
+      "description": "PowerPoint: Stop: Beep, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_stop_colon_compile",
+      "description": "Access: Stop: Beep, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Stop: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_error_none_compile",
+      "description": "Excel: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_error_none_compile",
+      "description": "Word: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_error_none_compile",
+      "description": "PowerPoint: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_error_none_compile",
+      "description": "Access: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_error_none_compile",
+      "description": "Excel: If v Then Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_error_none_compile",
+      "description": "Word: If v Then Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_error_none_compile",
+      "description": "PowerPoint: If v Then Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_error_none_compile",
+      "description": "Access: If v Then Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_error_else_compile",
+      "description": "Excel: If v Then Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_error_else_compile",
+      "description": "Word: If v Then Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_error_else_compile",
+      "description": "PowerPoint: If v Then Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_error_else_compile",
+      "description": "Access: If v Then Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_error_two_compile",
+      "description": "Excel: Error 5, 6, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error 5, 6\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_error_two_compile",
+      "description": "Word: Error 5, 6, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error 5, 6\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_error_two_compile",
+      "description": "PowerPoint: Error 5, 6, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error 5, 6\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_error_two_compile",
+      "description": "Access: Error 5, 6, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error 5, 6\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_colon_error_compile",
+      "description": "Excel: Beep: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_colon_error_compile",
+      "description": "Word: Beep: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_colon_error_compile",
+      "description": "PowerPoint: Beep: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_colon_error_compile",
+      "description": "Access: Beep: Error, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Beep: Error\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_error_paren_compile",
+      "description": "Excel: If v Then Error (5), with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error (5)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_error_paren_compile",
+      "description": "Word: If v Then Error (5), with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error (5)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_error_paren_compile",
+      "description": "PowerPoint: If v Then Error (5), with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error (5)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_error_paren_compile",
+      "description": "Access: If v Then Error (5), with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Error (5)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_error_colon_compile",
+      "description": "Excel: Error: Beep, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_error_colon_compile",
+      "description": "Word: Error: Beep, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_error_colon_compile",
+      "description": "PowerPoint: Error: Beep, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_error_colon_compile",
+      "description": "Access: Error: Beep, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_numbered_error_colon_compile",
+      "description": "Excel: 10 Error: Beep, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_numbered_error_colon_compile",
+      "description": "Word: 10 Error: Beep, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_numbered_error_colon_compile",
+      "description": "PowerPoint: 10 Error: Beep, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_numbered_error_colon_compile",
+      "description": "Access: 10 Error: Beep, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    10 Error: Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_continued_error_compile",
+      "description": "Excel: Error _ / 5, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error _\r\n        5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_continued_error_compile",
+      "description": "Word: Error _ / 5, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error _\r\n        5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_continued_error_compile",
+      "description": "PowerPoint: Error _ / 5, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error _\r\n        5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_continued_error_compile",
+      "description": "Access: Error _ / 5, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error _\r\n        5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_error_dollar_compile",
+      "description": "Excel: Error$ 5, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error$ 5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_error_dollar_compile",
+      "description": "Word: Error$ 5, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error$ 5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_error_dollar_compile",
+      "description": "PowerPoint: Error$ 5, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error$ 5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_error_dollar_compile",
+      "description": "Access: Error$ 5, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    Error$ 5\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_error_minus2_compile",
+      "description": "Excel: On Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_error_minus2_compile",
+      "description": "Word: On Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_error_minus2_compile",
+      "description": "PowerPoint: On Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_error_minus2_compile",
+      "description": "Access: On Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_error_minus0_compile",
+      "description": "Excel: On Error GoTo -0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_error_minus0_compile",
+      "description": "Word: On Error GoTo -0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_error_minus0_compile",
+      "description": "PowerPoint: On Error GoTo -0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_error_minus0_compile",
+      "description": "Access: On Error GoTo -0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo -0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_local_error_minus2_compile",
+      "description": "Excel: On Local Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Local Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_local_error_minus2_compile",
+      "description": "Word: On Local Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Local Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_local_error_minus2_compile",
+      "description": "PowerPoint: On Local Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Local Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_local_error_minus2_compile",
+      "description": "Access: On Local Error GoTo -2, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Local Error GoTo -2\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_error_goto_none_compile",
+      "description": "Excel: On Error GoTo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_error_goto_none_compile",
+      "description": "Word: On Error GoTo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_error_goto_none_compile",
+      "description": "PowerPoint: On Error GoTo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_error_goto_none_compile",
+      "description": "Access: On Error GoTo, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_error_minus1_space_compile",
+      "description": "Excel: On Error GoTo - 1, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo - 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_error_minus1_space_compile",
+      "description": "Word: On Error GoTo - 1, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo - 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_error_minus1_space_compile",
+      "description": "PowerPoint: On Error GoTo - 1, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo - 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_error_minus1_space_compile",
+      "description": "Access: On Error GoTo - 1, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo - 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_error_resume_label_compile",
+      "description": "Excel: On Error Resume L / L:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume L\r\nL:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_error_resume_label_compile",
+      "description": "Word: On Error Resume L / L:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume L\r\nL:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_error_resume_label_compile",
+      "description": "PowerPoint: On Error Resume L / L:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume L\r\nL:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_error_resume_label_compile",
+      "description": "Access: On Error Resume L / L:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume L\r\nL:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_error_resume_bare_compile",
+      "description": "Excel: On Error Resume, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_error_resume_bare_compile",
+      "description": "Word: On Error Resume, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_error_resume_bare_compile",
+      "description": "PowerPoint: On Error Resume, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_error_resume_bare_compile",
+      "description": "Access: On Error Resume, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_error_resume_zero_compile",
+      "description": "Excel: On Error Resume 0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume 0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_error_resume_zero_compile",
+      "description": "Word: On Error Resume 0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume 0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_error_resume_zero_compile",
+      "description": "PowerPoint: On Error Resume 0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume 0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_error_resume_zero_compile",
+      "description": "Access: On Error Resume 0, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume 0\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_resume_bare_else_compile",
+      "description": "Excel: If v Then On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_resume_bare_else_compile",
+      "description": "Word: If v Then On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_resume_bare_else_compile",
+      "description": "PowerPoint: If v Then On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_resume_bare_else_compile",
+      "description": "Access: If v Then On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_resume_next_else_compile",
+      "description": "Excel: If v Then On Error Resume Next Else Beep, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Next Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_resume_next_else_compile",
+      "description": "Word: If v Then On Error Resume Next Else Beep, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Next Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_resume_next_else_compile",
+      "description": "PowerPoint: If v Then On Error Resume Next Else Beep, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Next Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_resume_next_else_compile",
+      "description": "Access: If v Then On Error Resume Next Else Beep, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then On Error Resume Next Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_goto_empty_compile",
+      "description": "Excel: On n GoTo A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_goto_empty_compile",
+      "description": "Word: On n GoTo A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_goto_empty_compile",
+      "description": "PowerPoint: On n GoTo A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_goto_empty_compile",
+      "description": "Access: On n GoTo A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_goto_trailing_compile",
+      "description": "Excel: On n GoTo A, / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A,\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_goto_trailing_compile",
+      "description": "Word: On n GoTo A, / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A,\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_goto_trailing_compile",
+      "description": "PowerPoint: On n GoTo A, / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A,\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_goto_trailing_compile",
+      "description": "Access: On n GoTo A, / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A,\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_goto_leading_compile",
+      "description": "Excel: On n GoTo , A / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo , A\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_goto_leading_compile",
+      "description": "Word: On n GoTo , A / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo , A\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_goto_leading_compile",
+      "description": "PowerPoint: On n GoTo , A / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo , A\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_goto_leading_compile",
+      "description": "Access: On n GoTo , A / A:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo , A\r\nA:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_gosub_empty_compile",
+      "description": "Excel: On n GoSub A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoSub A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_gosub_empty_compile",
+      "description": "Word: On n GoSub A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoSub A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_gosub_empty_compile",
+      "description": "PowerPoint: On n GoSub A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoSub A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_gosub_empty_compile",
+      "description": "Access: On n GoSub A, , B / A: / B:, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoSub A, , B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_on_goto_ok_compile",
+      "description": "Excel: On n GoTo A, B / A: / B:, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_on_goto_ok_compile",
+      "description": "Word: On n GoTo A, B / A: / B:, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_on_goto_ok_compile",
+      "description": "PowerPoint: On n GoTo A, B / A: / B:, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_on_goto_ok_compile",
+      "description": "Access: On n GoTo A, B / A: / B:, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On n GoTo A, B\r\nA:\r\nB:\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_colon_stop_else_compile",
+      "description": "Excel: If v Then Beep: Stop Else Beep, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_colon_stop_else_compile",
+      "description": "Word: If v Then Beep: Stop Else Beep, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_colon_stop_else_compile",
+      "description": "PowerPoint: If v Then Beep: Stop Else Beep, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_colon_stop_else_compile",
+      "description": "Access: If v Then Beep: Stop Else Beep, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Stop Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_colon_error_else_compile",
+      "description": "Excel: If v Then Beep: Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_colon_error_else_compile",
+      "description": "Word: If v Then Beep: Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_colon_error_else_compile",
+      "description": "PowerPoint: If v Then Beep: Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_colon_error_else_compile",
+      "description": "Access: If v Then Beep: Error Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Error Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_colon_else_stop_one_compile",
+      "description": "Excel: If v Then Beep: Beep Else Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_colon_else_stop_one_compile",
+      "description": "Word: If v Then Beep: Beep Else Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_colon_else_stop_one_compile",
+      "description": "PowerPoint: If v Then Beep: Beep Else Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_colon_else_stop_one_compile",
+      "description": "Access: If v Then Beep: Beep Else Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_colon_else_end_one_compile",
+      "description": "Excel: If v Then Beep: Beep Else End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_colon_else_end_one_compile",
+      "description": "Word: If v Then Beep: Beep Else End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_colon_else_end_one_compile",
+      "description": "PowerPoint: If v Then Beep: Beep Else End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_colon_else_end_one_compile",
+      "description": "Access: If v Then Beep: Beep Else End 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: Beep Else End 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_colon_end_else_compile",
+      "description": "Excel: If v Then Beep: End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_colon_end_else_compile",
+      "description": "Word: If v Then Beep: End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_colon_end_else_compile",
+      "description": "PowerPoint: If v Then Beep: End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_colon_end_else_compile",
+      "description": "Access: If v Then Beep: End Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: End Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_else_colon_stop_compile",
+      "description": "Excel: If v Then Beep Else Beep: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else Beep: Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_else_colon_stop_compile",
+      "description": "Word: If v Then Beep Else Beep: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else Beep: Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_else_colon_stop_compile",
+      "description": "PowerPoint: If v Then Beep Else Beep: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else Beep: Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_else_colon_stop_compile",
+      "description": "Access: If v Then Beep Else Beep: Stop 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep Else Beep: Stop 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_colon_resume_else_compile",
+      "description": "Excel: If v Then Beep: On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_colon_resume_else_compile",
+      "description": "Word: If v Then Beep: On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_colon_resume_else_compile",
+      "description": "PowerPoint: If v Then Beep: On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_colon_resume_else_compile",
+      "description": "Access: If v Then Beep: On Error Resume Else Beep, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then Beep: On Error Resume Else Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_resume_stop_compile",
+      "description": "Excel: On Error Resume Stop, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Stop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_resume_stop_compile",
+      "description": "Word: On Error Resume Stop, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Stop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_resume_stop_compile",
+      "description": "PowerPoint: On Error Resume Stop, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Stop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_resume_stop_compile",
+      "description": "Access: On Error Resume Stop, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Stop\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_resume_next_one_compile",
+      "description": "Excel: On Error Resume Next 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_resume_next_one_compile",
+      "description": "Word: On Error Resume Next 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_resume_next_one_compile",
+      "description": "PowerPoint: On Error Resume Next 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_resume_next_one_compile",
+      "description": "Access: On Error Resume Next 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error Resume Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_goto_zero_one_compile",
+      "description": "Excel: On Error GoTo 0 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo 0 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_goto_zero_one_compile",
+      "description": "Word: On Error GoTo 0 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo 0 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_goto_zero_one_compile",
+      "description": "PowerPoint: On Error GoTo 0 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo 0 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_goto_zero_one_compile",
+      "description": "Access: On Error GoTo 0 1, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    On Error GoTo 0 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_else_if_stop_one_compile",
+      "description": "Excel: If v Then / Beep / Else If n Then Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_else_if_stop_one_compile",
+      "description": "Word: If v Then / Beep / Else If n Then Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_else_if_stop_one_compile",
+      "description": "PowerPoint: If v Then / Beep / Else If n Then Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_else_if_stop_one_compile",
+      "description": "Access: If v Then / Beep / Else If n Then Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_else_if_stop_else_compile",
+      "description": "Excel: If v Then / Beep / Else If n Then Stop Else Beep / End If, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop Else Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_else_if_stop_else_compile",
+      "description": "Word: If v Then / Beep / Else If n Then Stop Else Beep / End If, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop Else Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_else_if_stop_else_compile",
+      "description": "PowerPoint: If v Then / Beep / Else If n Then Stop Else Beep / End If, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop Else Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_else_if_stop_else_compile",
+      "description": "Access: If v Then / Beep / Else If n Then Stop Else Beep / End If, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else If n Then Stop Else Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_else_stop_one_compile",
+      "description": "Excel: If v Then / Beep / Else Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_else_stop_one_compile",
+      "description": "Word: If v Then / Beep / Else Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_else_stop_one_compile",
+      "description": "PowerPoint: If v Then / Beep / Else Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_else_stop_one_compile",
+      "description": "Access: If v Then / Beep / Else Stop 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_else_end_one_compile",
+      "description": "Excel: If v Then / Beep / Else End 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else End 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_else_end_one_compile",
+      "description": "Word: If v Then / Beep / Else End 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else End 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_else_end_one_compile",
+      "description": "PowerPoint: If v Then / Beep / Else End 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else End 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_else_end_one_compile",
+      "description": "Access: If v Then / Beep / Else End 1 / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else End 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_else_error_compile",
+      "description": "Excel: If v Then / Beep / Else Error / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_else_error_compile",
+      "description": "Word: If v Then / Beep / Else Error / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_else_error_compile",
+      "description": "PowerPoint: If v Then / Beep / Else Error / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_else_error_compile",
+      "description": "Access: If v Then / Beep / Else Error / End If, with v As Variant and n As Long, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_else_stop_compile",
+      "description": "Excel: If v Then / Beep / Else Stop / End If, with v As Variant and n As Long, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_else_stop_compile",
+      "description": "Word: If v Then / Beep / Else Stop / End If, with v As Variant and n As Long, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_else_stop_compile",
+      "description": "PowerPoint: If v Then / Beep / Else Stop / End If, with v As Variant and n As Long, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_else_stop_compile",
+      "description": "Access: If v Then / Beep / Else Stop / End If, with v As Variant and n As Long, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long\r\n    If v Then\r\n        Beep\r\n    Else Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_elseif_stop_one_compile",
+      "description": "Excel: If False Then / Beep / ElseIf True Then Stop 1 / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_elseif_stop_one_compile",
+      "description": "Word: If False Then / Beep / ElseIf True Then Stop 1 / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_elseif_stop_one_compile",
+      "description": "PowerPoint: If False Then / Beep / ElseIf True Then Stop 1 / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_elseif_stop_one_compile",
+      "description": "Access: If False Then / Beep / ElseIf True Then Stop 1 / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop 1\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_elseif_stop_compile",
+      "description": "Excel: If False Then / Beep / ElseIf True Then Stop / End If, with v As Variant, n As Long and o As Object, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_elseif_stop_compile",
+      "description": "Word: If False Then / Beep / ElseIf True Then Stop / End If, with v As Variant, n As Long and o As Object, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_elseif_stop_compile",
+      "description": "PowerPoint: If False Then / Beep / ElseIf True Then Stop / End If, with v As Variant, n As Long and o As Object, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_elseif_stop_compile",
+      "description": "Access: If False Then / Beep / ElseIf True Then Stop / End If, with v As Variant, n As Long and o As Object, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Stop\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_elseif_error_compile",
+      "description": "Excel: If False Then / Beep / ElseIf True Then Error / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_elseif_error_compile",
+      "description": "Word: If False Then / Beep / ElseIf True Then Error / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_elseif_error_compile",
+      "description": "PowerPoint: If False Then / Beep / ElseIf True Then Error / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_elseif_error_compile",
+      "description": "Access: If False Then / Beep / ElseIf True Then Error / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If False Then\r\n        Beep\r\n    ElseIf True Then Error\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_procedure_line_stop_one_compile",
+      "description": "Excel: Sub Other(): Stop 1: End Sub, is rejected: Compile error: Expected: end of statement. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop 1: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_procedure_line_stop_one_compile",
+      "description": "Word: Sub Other(): Stop 1: End Sub, is rejected: Compile error: Expected: end of statement. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop 1: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_procedure_line_stop_one_compile",
+      "description": "PowerPoint: Sub Other(): Stop 1: End Sub, is rejected: Compile error: Expected: end of statement. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop 1: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_procedure_line_stop_one_compile",
+      "description": "Access: Sub Other(): Stop 1: End Sub, is rejected: Compile error: Expected: end of statement. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop 1: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_procedure_line_stop_compile",
+      "description": "Excel: Sub Other(): Stop: End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_procedure_line_stop_compile",
+      "description": "Word: Sub Other(): Stop: End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_procedure_line_stop_compile",
+      "description": "PowerPoint: Sub Other(): Stop: End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_procedure_line_stop_compile",
+      "description": "Access: Sub Other(): Stop: End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Other(): Stop: End Sub\r\nSub Main()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_inline_then_block_if_compile",
+      "description": "Excel: If True Then Stop 1: If True Then / Beep / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If True Then Stop 1: If True Then\r\n        Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_inline_then_block_if_compile",
+      "description": "Word: If True Then Stop 1: If True Then / Beep / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If True Then Stop 1: If True Then\r\n        Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_inline_then_block_if_compile",
+      "description": "PowerPoint: If True Then Stop 1: If True Then / Beep / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If True Then Stop 1: If True Then\r\n        Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_inline_then_block_if_compile",
+      "description": "Access: If True Then Stop 1: If True Then / Beep / End If, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    If True Then Stop 1: If True Then\r\n        Beep\r\n    End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_excel_goto_next_one_compile",
+      "description": "Excel: On Error GoTo Next 1, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    On Error GoTo Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_word_goto_next_one_compile",
+      "description": "Word: On Error GoTo Next 1, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    On Error GoTo Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_powerpoint_goto_next_one_compile",
+      "description": "PowerPoint: On Error GoTo Next 1, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    On Error GoTo Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "statement_shape_access_goto_next_one_compile",
+      "description": "Access: On Error GoTo Next 1, with v As Variant, n As Long and o As Object, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant, n As Long, o As Object\r\n    On Error GoTo Next 1\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_powerpoint_members_compile",
       "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: its Public members compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",
