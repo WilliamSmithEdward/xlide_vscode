@@ -47,6 +47,29 @@ function checkDeclareLine(source: string, declare: DeclareNode, push: PushFn): v
 	const refuse = (tok: VbaToken, what: string, error: string): void => {
 		push('invalidProcedureHeader', `Declare '${declare.name}': ${what}. This is a VBE compile error: ${error}.`, at(tok));
 	};
+	// Lib comes straight after the name, its type character and CDecl:
+	// `Declare PtrSafe Function F () As Long` and `Function F Alias "x" Lib "k"`
+	// are "Expected: Lib" (measured in Excel, Word, PowerPoint and Access 16.0,
+	// build 20527).
+	// Start after the parser's span of the name and its type character, and
+	// past what is glued onto it: `9Sleep` and `9Sleep&`, whose name the
+	// parser reads as 9 and the invalid-identifier-start check reports whole.
+	const nameEnd = declare.typeSuffixSpan?.end ?? declare.nameSpan?.end;
+	if (nameEnd !== undefined) {
+		let at = toks.findIndex((tok) => declare.span.start + tok.start >= nameEnd);
+		while (at > 0 && toks[at] && toks[at].start === toks[at - 1].end
+			&& (toks[at].kind === 'identifier' || toks[at].kind === 'integerLiteral' || /^[$%&!#@^]$/.test(toks[at].rawText))) {
+			at++;
+		}
+		if (at >= 0 && tokenText(toks[at]) === 'cdecl') {
+			at++;
+		}
+		if (at < 0 || tokenText(toks[at]) !== 'lib') {
+			const nameTok = toks.filter((tok) => declare.span.start + tok.end <= nameEnd).pop();
+			refuse(toks[at] ?? nameTok ?? toks[toks.length - 1], 'Lib and the library\'s name come straight after the name', 'Expected: Lib');
+			return;
+		}
+	}
 	let open = -1;
 	for (let i = 0; i < toks.length; i++) {
 		const word = tokenText(toks[i]);
