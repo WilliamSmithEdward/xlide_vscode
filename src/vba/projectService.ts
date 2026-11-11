@@ -74,7 +74,7 @@ import {
 } from './vbaProject';
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
 import type { ShapeEdit, ShapeInfo } from './shapes';
-import { editSlideShape, listSlideShapes, presentationSlides, requireSlide } from './pptShapes';
+import { editSlideShape, listSlideShapes, presentationSlides, requireSlide, slideControlNames, slideModuleParts, slidePartsById } from './pptShapes';
 import {
 	WORD_SHAPE_MACRO_REFUSAL,
 	defaultStory,
@@ -959,7 +959,7 @@ export function listModules(filePath: string): ModuleEntry[] {
 	}
 	const { container, cfb, project } = open;
 	const entries = project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
-	return withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, entries, project.codePage)));
+	return withSlideControls(container, withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, entries, project.codePage))));
 }
 
 /**
@@ -1166,7 +1166,7 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 	if (sheets && out.length > 0) {
 		out[0].projectSheets = sheets;
 	}
-	return withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, out, project.codePage, constants)));
+	return withSlideControls(container, withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, out, project.codePage, constants))));
 }
 
 /**
@@ -1250,6 +1250,38 @@ function moduleControlNames(header: string): string[] {
 		}
 	}
 	return names;
+}
+
+/**
+ * A PowerPoint slide's module whose header lists no control, with the
+ * controls on its slide (issue #1555, measured in PowerPoint 16.0 builds
+ * 12527 and 20527). Saving a .pptm, .potm or .ppsm after a VBA edit while
+ * ActiveX is disabled drops the module's `Attribute VB_Control` lines, but
+ * the controls stay on the slides and compile again where ActiveX is
+ * enabled.
+ *
+ * XLIDE reads nothing in the file that ties a module to its slide.
+ * PowerPoint names it after the slide's ID, `Slide` + (ID - 255), wherever
+ * the slide has moved since, and the VBE lists it under that name once
+ * PowerPoint opens the file, whatever name the file stores. A module
+ * renamed in the VBE would break that, so unless every slide module is
+ * named so, they are all left as they were. Only the slides of modules
+ * with no controls yet are read.
+ */
+function withSlideControls(container: MacroContainer, entries: ModuleEntry[]): ModuleEntry[] {
+	const bare = (entry: ModuleEntry) => entry.type === 'document' && entry.designerClass === undefined && entry.implicitMembers === undefined;
+	const zip = container.kind === 'powerpoint' && entries.some(bare) ? container.xlsx?.zipArchive() : undefined;
+	const slides = zip ? slidePartsById(zip) : undefined;
+	const parts = slides && slideModuleParts(entries.filter((entry) => entry.type === 'document').map((entry) => entry.name), slides);
+	if (!zip || !parts) {
+		return entries;
+	}
+	return entries.map((entry) => {
+		const names = bare(entry) ? slideControlNames(zip, parts.get(entry.name.toLowerCase())!) : undefined;
+		return !names || names.length === 0
+			? entry
+			: { ...entry, designerClass: 'PowerPoint.Slide', implicitMembers: names.map((name) => ({ name, type: 'Object' })) };
+	});
 }
 
 /** A workbook's sheets, or undefined for any other file or one whose sheets cannot be read. */
