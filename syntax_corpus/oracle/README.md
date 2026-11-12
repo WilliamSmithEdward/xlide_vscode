@@ -258,10 +258,10 @@ a bogus "accepted" control). Guard against it with the controls below.
    surfaced as a detectable visible top-level window, so the Win32 dialog watcher
    never sees it and the rejection is misrecorded as `accepted`.
 
-2. **Accept on a positive signal where there is one.** The original fixed
-   8-second watch window produced systematic false "accepted" results, because
-   rejects took longer than that to show their dialog (most of it was the
-   Compile command's lookup, since replaced). Accepts no longer wait out the
+2. **Accept only on a positive signal.** The original fixed 8-second watch
+   window produced systematic false "accepted" results, because rejects took
+   longer than that to show their dialog (most of it was the Compile command's
+   lookup, since replaced). Accepts no longer wait out the
    window: a compile case is accepted when the Compile command turns disabled,
    which it does only once the project has compiled, and is still disabled with
    no dialog seen 300 ms later. A run case is accepted when the host's `Run` returns
@@ -275,9 +275,9 @@ a bogus "accepted" control). Guard against it with the controls below.
 
 4. **The watch window is an upper bound.** A compile case that neither shows a
    dialog nor disables the Compile command waits the *entire* window, then is
-   recorded as `accepted` if the host is alive. `host_start + watch + cleanup`
-   must fit inside `--timeout` or the coordinator kills the worker as a false
-   `timeout`/`oracle_failure`.
+   a `worker_error`, since no signal is not evidence.
+   `host_start + watch + cleanup` must fit inside `--timeout` or the
+   coordinator kills the worker as a false `timeout`/`oracle_failure`.
 
 5. **The first run on a cold machine may time out entirely.** The first-ever COM
    Office launch (Office first-run/activation) can exceed the timeout before
@@ -346,9 +346,9 @@ source, show the disposable module in VBE, then invoke the exact
 `Compile <project-name>` VBE command bar control through COM. The worker does
 not use keyboard accelerators for compile invocation. A `Compile error:` dialog
 is treated as compile rejection. When the Compile command turns disabled with
-no dialog, or no compile dialog appears before the popup watch period ends, the
-case is recorded as compile-accepted, but only if the host is still running and
-answering COM calls. If the host crashed, the case is a
+no dialog, the case is recorded as compile-accepted, but only if the host is
+still running and answering COM calls. If the host crashed, or the popup watch
+period ends with no dialog and the command still enabled, the case is a
 `worker_error`.
 
 Some source never reaches the compiler: the VBE refuses to insert it, as its
@@ -485,7 +485,8 @@ Use a `--timeout` comfortably larger than the hold window so the worker has time
 to detect the dialog and clean up afterward.
 
 `run` mode is for focused runtime-behavior probes only. Runtime fixtures must
-name an `entryPoint`. The worker starts the same Win32 dialog watcher before
+name an `entryPoint`; one that does not runs nothing and is a `worker_error`.
+The worker starts the same Win32 dialog watcher before
 running the macro; a `Microsoft Visual Basic` dialog with `Run-time error` text
 is recorded as `outcome: "rejected"` and dismissed with the dialog's `End`
 button. The dismiss fallback also sends standard OK/Cancel/Abort dialog commands
