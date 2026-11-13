@@ -1744,6 +1744,14 @@
       "host_enum_member_good",
       "source_enum_member_bad",
       "source_enum_member_good",
+      "vba_enum_bare_bad",
+      "vba_enum_bare_good",
+      "vba_enum_bare_word_bad",
+      "vba_enum_bare_word_good",
+      "vba_enum_bare_powerpoint_bad",
+      "vba_enum_bare_powerpoint_good",
+      "vba_enum_bare_access_bad",
+      "vba_enum_bare_access_good",
         "str_null_into_string_runtime",
         "str_null_into_variant_runtime"
     ],
@@ -8848,7 +8856,12 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.2.1",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "option_after_procedure_compile",
+        "option_after_procedure_word_compile",
+        "option_after_procedure_powerpoint_compile",
+        "option_after_procedure_access_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error"
