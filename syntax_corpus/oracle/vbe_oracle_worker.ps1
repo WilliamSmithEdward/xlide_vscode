@@ -748,7 +748,8 @@ function Wait-ForSeenDialogResult {
 
 # The Compile command is disabled once the project has compiled, and stays
 # enabled when compiling fails with an error dialog. A disabled command with no
-# dialog is the accept signal, so accepted cases don't wait out the window.
+# dialog is the accept signal, so accepted cases don't wait out the window. A
+# window that ends with neither signal is not evidence either way.
 function Wait-ForCompileResult($Control, $HostPid) {
     $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(1, $DialogWatchSeconds))
     while ([DateTime]::UtcNow -lt $deadline) {
@@ -779,7 +780,10 @@ function Wait-ForCompileResult($Control, $HostPid) {
         }
         Start-Sleep -Milliseconds 50
     }
-    return $null
+    if ([XlideVbeDialogWatcher]::DialogSeen) {
+        return Wait-ForSeenDialogResult
+    }
+    throw "No compile result within $DialogWatchSeconds s: no VBE dialog appeared and the Compile command was not seen disabled. No signal is not VBA evidence."
 }
 
 # A host's Run returns only after a dialog it raised has been dismissed, so
@@ -1753,8 +1757,12 @@ function Invoke-OracleCase {
                 Set-DialogOutcome $dialog $false
             }
         }
-
-        elseif ($mode -ne "run") {
+        elseif ($mode -eq "run") {
+            # Nothing ran, so nothing may be recorded as accepted.
+            Set-Stage "run"
+            throw "run oracle cases require entryPoint."
+        }
+        else {
             throw "Unsupported oracle mode: $mode"
         }
 
