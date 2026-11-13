@@ -18,11 +18,11 @@ function fresh(source: string): string {
 	return Buffer.from(source, 'utf8').toString('utf8');
 }
 
-function build(procedures: number): string {
+function build(procedures: number, name = 'Proc'): string {
 	const lines: string[] = ['Option Explicit', ''];
 	for (let i = 0; i < procedures; i += 1) {
 		lines.push(
-			`Public Sub Proc${i}(ByVal a As Long)`,
+			`Public Sub ${name}${i}(ByVal a As Long)`,
 			'    Dim total As Long',
 			'    Dim ws As Worksheet',
 			'    Set ws = ActiveWorkbook.Worksheets(1)',
@@ -65,16 +65,31 @@ describe('the analyzer memos hit on content, not only on instance', () => {
 
 	it('analyses a repeat pass in the same order of time as the first', () => {
 		// The defect showed as a repeat pass costing MULTIPLES of the cold one -
-		// 18x on a 64,802-line module, growing with its square. The margin here is
-		// deliberately loose: this guards the shape, not a millisecond budget.
-		const source = build(400);
-		const time = (): number => {
+		// 18x on a 64,802-line module, growing with its square. At 1,000
+		// procedures it still costs about 4-7x, while a sound repeat costs about
+		// as much as the cold pass. The margin is deliberately loose: this
+		// guards the shape, not a millisecond budget.
+		//
+		// A busy machine can stall any one pass, so a single cold sample is not
+		// a baseline. Each round times a cold pass and then a repeat over a fresh
+		// instance of the same text, and the median of three rounds decides. Each
+		// round names its procedures afresh, so no memo can reuse an earlier
+		// round's tokens or parse and every cold pass is a full one.
+		const time = (source: string): number => {
 			const started = process.hrtime.bigint();
 			analyzeModule(fresh(source), { host: 'excel' });
 			return Number(process.hrtime.bigint() - started) / 1e6;
 		};
-		const cold = time();
-		const repeat = Math.min(time(), time());
-		expect(repeat).toBeLessThan(cold * 3);
-	});
+		const round = (index: number): number => {
+			const source = build(1000, `Round${index}Proc`);
+			const cold = time(source);
+			return time(source) / cold;
+		};
+		time(build(40, 'WarmUp')); // reduces JIT start-up in the first cold pass
+		const ratios = [round(0), round(1)];
+		// Two rounds on the same side of 3x already settle the median of three.
+		if ((ratios[0] < 3) !== (ratios[1] < 3)) { ratios.push(round(2)); }
+		ratios.sort((a, b) => a - b);
+		expect(ratios[1]).toBeLessThan(3);
+	}, 120_000);
 });
