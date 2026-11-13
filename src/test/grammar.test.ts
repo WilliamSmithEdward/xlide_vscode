@@ -493,7 +493,7 @@ suite('VBA grammar', () => {
 	// after 1. MS-VBAL 5.4.1.2.
 	test('colors Rem glued to a number as a comment, with the number before it', async () => {
 		const REM = 'comment.line.rem.vba';
-		const glued = ['1Rem n', '1.5Rem n', '&H1Rem n', '&HFRem n', '&O7Rem n', '1D2Rem n', '.5Rem n'];
+		const glued = ['1Rem n', '1.5Rem n', '&H1Rem n', '&HFRem n', '&O7Rem n', '1D2Rem n', '.5Rem n', '2!Rem n', '2.5!Rem n', '2E5!Rem n', '3.Rem n', '3.!Rem n', '3.E2!Rem n'];
 		await withProbe([
 			...glued.map((text) => `If a Then b = ${text}`),
 			'If a Then b = 1Rem note _',
@@ -507,7 +507,7 @@ suite('VBA grammar', () => {
 				assert.ok(token, `no token is ${JSON.stringify(text)}`);
 				return token.t.split(' ').at(-1) ?? '';
 			};
-			for (const number of ['1', '1.5', '&H1', '&HF', '&O7', '1D2', '.5']) {
+			for (const number of ['1', '1.5', '&H1', '&HF', '&O7', '1D2', '.5', '2!', '2.5!', '2E5!', '3.', '3.!', '3.E2!']) {
 				assert.match(scopeOf(number), /^constant\.numeric\./, number);
 			}
 			// VS Code joins Rem and the comment after it into one token.
