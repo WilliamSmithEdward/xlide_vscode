@@ -64,6 +64,15 @@ oracle (`syntax_corpus/oracle/`, whose fixtures name their `host`). Route by
 `src/officeHostApps.ts` rather than naming one application, and where the
 hosts really differ, measure each one and record the difference.
 
+## Tests that start processes
+
+Starting PowerShell or git can take seconds on a slow, busy or freshly
+installed Windows machine. A test that starts a process, or the hook that does
+it for the test, sets a time limit above vitest's defaults (5 s for a test,
+10 s for a hook) and above the total of any limits it puts on the processes:
+see `tests/oracle/vbeOracleWorker.test.ts` (40 s) and
+`tests/oracle/vbeOracleChanged.test.ts` (30 s).
+
 ## Editor responsiveness
 
 The owner wants completion menus to update nearly instantaneously while typing
