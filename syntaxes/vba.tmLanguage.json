@@ -23,8 +23,9 @@
   ],
   "repository": {
     "line-continuation": {
+      "comment": "A line continuation. The match starts only at the first blank of a run, so a long run of blanks is not searched again from every blank",
       "name": "punctuation.separator.continuation.vba",
-      "match": "\\s+_[ \\t]*$"
+      "match": "(?<!\\s)\\s+_[ \\t]*$"
     },
     "comments": {
       "patterns": [
@@ -457,9 +458,9 @@
     "identifiers": {
       "patterns": [
         {
-          "comment": "Foreign name: [Identifier With Spaces]",
+          "comment": "Foreign name: [Identifier With Spaces]. A [ inside one is a syntax error in Excel, Word, PowerPoint and Access, and leaving it out keeps a long run of [ from being searched again from every [",
           "name": "variable.other.foreign.vba",
-          "match": "\\[[^\\]\\n]+\\]"
+          "match": "\\[[^\\[\\]\\n]+\\]"
         },
         {
           "comment": "Ordinary identifier",
