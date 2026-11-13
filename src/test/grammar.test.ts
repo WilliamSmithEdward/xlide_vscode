@@ -439,8 +439,9 @@ suite('VBA grammar', () => {
 			'    x = VBA.CStr(v) + o.UBound',
 			'Private Type Flags',
 			'    CStr As Long',
-			'    Debug(1 To 2) As Long',
+			'    Debug As Long',
 			'End Type',
+			'    Name CStr(a) As CStr(b): Open CStr(p) As #1',
 		]);
 		assert.deepEqual(lines[0].filter((word) => word.endsWith(OTHER)).map((word) => word.split(' ')[0]), conversions);
 		assert.deepEqual(lines[1].filter((word) => /^[LU]Bound /.test(word)), [`LBound ${OTHER}`, `UBound ${OTHER}`]);
@@ -450,6 +451,9 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[5].filter((word) => /^(CStr|UBound) /.test(word)), [`CStr ${MEMBER}`, `UBound ${MEMBER}`]);
 		assert.deepEqual(lines[7][0], `CStr ${NAME}`);
 		assert.deepEqual(lines[8][0], `Debug ${NAME}`);
+		// The VBE shows CStr as a keyword in Name CStr(a) As CStr(b), and stores Open CStr(p) As #1
+		// as Open CStr(p) For Random As #1, with CStr a keyword too.
+		assert.deepEqual(lines[10].filter((word) => word.startsWith('CStr')), [`CStr ${OTHER}`, `CStr ${OTHER}`, `CStr ${OTHER}`]);
 	});
 
 	// Issue #1642. The VBE shows Print and Assert after Debug. as keywords in Excel, Word,
@@ -654,7 +658,7 @@ suite('VBA grammar', () => {
 			'End Sub',
 			'Private Type Flags',
 			'    True As Long',
-			'    Nothing(1 To 2) As Long',
+			'    Nothing As Long',
 			'End Type',
 		]);
 		const literals = lines.map((line) => line.filter((word) => word.endsWith(` ${LITERAL}`)).map((word) => word.split(' ')[0]));
