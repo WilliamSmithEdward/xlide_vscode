@@ -39,8 +39,10 @@ describe('Restart Manager names who holds a file', () => {
         const holder = holdFile(file);
         const pid = await holder.pid;
         const holders = await findFileLockHolders(file);
-        expect(holders).toEqual([{ pid, appName: 'Windows PowerShell', image: 'powershell.exe' }]);
-        expect(describeLockHolders(holders!)).toBe(`Windows PowerShell (powershell.exe, process ${pid})`);
+        // Restart Manager's name for powershell.exe varies between Windows releases.
+        const appName = expect.stringMatching(/^Windows PowerShell/);
+        expect(holders).toEqual([{ pid, appName, image: 'powershell.exe' }]);
+        expect(describeLockHolders(holders!)).toBe(`${holders![0].appName} (powershell.exe, process ${pid})`);
 
         await holder.release();
         expect(await findFileLockHolders(file)).toEqual([]);
