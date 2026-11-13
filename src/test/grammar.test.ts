@@ -306,6 +306,65 @@ suite('VBA grammar', () => {
 		});
 	});
 
+	// A Type field may be named like a keyword (oracle
+	// reserved_member_name_every_reserved_word_type_fields_compile), and the VBE
+	// shows every such field as a name, in every host. MS-VBAL 5.2.3.3
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a5fe374b-eddf-4808-9e73-477914940dba
+	test('colors a Type field named like a keyword as a name', async () => {
+		const AS = 'As keyword.other.vba';
+		const LONG = 'Long storage.type.primitive.vba';
+		const lines = await lineTokens([
+			'Private Type Rec',
+			'    Next As Long',
+			'    Sub As Long',
+			'    Type As Long',
+			'    DefBool As Long',
+			'    Implements As Long',
+			'    Left As Long',
+			'    As As Long',
+			'    Rem As Long',
+			'End Type',
+			'Private Type Pair: Loop As Long: End Type',
+			'Sub Main()',
+			'    For i = 1 To 2: Next',
+			'    Name a As b',
+			'    Open f For Binary _',
+			'        Shared As #1',
+		]);
+		for (const [index, field] of ['Next', 'Sub', 'Type', 'DefBool', 'Implements', 'Left', 'As'].entries()) {
+			assert.deepEqual(lines[index + 1], [`${field} ${NAME}`, AS, LONG], field);
+		}
+		assert.deepEqual(lines[8], ['Rem As Long comment.line.rem.vba']);
+		assert.deepEqual(lines[10].slice(3, 6), [`Loop ${NAME}`, AS, LONG]);
+		assert.deepEqual(lines[11], ['Sub storage.type.function.vba', 'Main entity.name.function.vba']);
+		assert.equal(lines[12].at(-1), `Next ${KEYWORD}`);
+		assert.equal(lines[13][0], `Name ${KEYWORD}`);
+		assert.equal(lines[15][0], 'Shared storage.modifier.vba');
+		// A header under #If and again under #Else opens one block, and a Type left
+		// without End Type ends at the next procedure; the code after either is as before.
+		const after = await lineTokens([
+			'#If Win64 Then',
+			'Private Type Rec',
+			'#Else',
+			'Private Type Rec',
+			'#End If',
+			'    Next As Long',
+			'End Type',
+			'    Open f For Binary _',
+			'        Shared As #1',
+			'Private Type Unfinished',
+			'    Sub As Long',
+			'Sub Main()',
+			'    Open f For Binary _',
+			'        Shared As #1',
+		]);
+		assert.deepEqual(after[5], [`Next ${NAME}`, AS, LONG]);
+		assert.equal(after[8][0], 'Shared storage.modifier.vba');
+		assert.deepEqual(after[10], [`Sub ${NAME}`, AS, LONG]);
+		assert.deepEqual(after[11], ['Sub storage.type.function.vba', 'Main entity.name.function.vba']);
+		assert.equal(after[13][0], 'Shared storage.modifier.vba');
+	});
+
 	test('colors a name after . or ! as a member, whatever it is spelled like (issue #1574)', async () => {
 		const lines = await lineTokens([
 			'ws.Range("A1").End(xlUp).Select',
