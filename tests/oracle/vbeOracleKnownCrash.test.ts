@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 // Exercise the coordinator's pure policy without starting PowerShell or Office.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['caseHost', 'unsupportedHost', 'malformedReferences', 'validateCrashBuilds', 'hostsNeedingBuilds', 'knownHostCrashResult',
-    'expectedMatches', 'isOracleInfrastructureFailure', 'promoteObservedCases', 'formatCasesDocument',
+    'expectedMatches', 'isOracleInfrastructureFailure', 'isObserveWithoutVerdict', 'promoteObservedCases', 'formatCasesDocument',
     'evidencePhaseForCase', 'evidencePhaseForResult', 'diagnosticMeaningForResult', 'phaseMatches'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
@@ -268,5 +268,203 @@ describe('VBE oracle invocation evidence', () => {
         const before = JSON.stringify(fixture);
         expect(policy.promoteObservedCases({ cases: [fixture] }, [{ caseId: id, outcome: 'worker_error', stage: 'run' }]).promoted).toBe(0);
         expect(JSON.stringify(fixture)).toBe(before);
+    });
+});
+
+describe('VBE oracle observe-only cases without a verdict', () => {
+    const corpus = JSON.parse(readFileSync(join(process.cwd(), 'syntax_corpus/oracle/vbe_oracle_cases.json'), 'utf8'));
+    const fixture = (id: string) => corpus.cases.find((kase: { id: string }) => kase.id === id);
+    const hosts = ['excel', 'word', 'powerpoint', 'access'];
+    // A build per host, so that a lookup in the wrong host's build shows.
+    const builds: Record<string, string> = { excel: '16.0.20527.20196', word: '16.0.20527.20197',
+        powerpoint: '16.0.20527.20198', access: '16.0.20527.20199' };
+    const invalidArg = { outcome: 'worker_error', stage: 'run', hresult: -2146233087,
+        message: 'Exception calling "Run" with "1" argument(s): "Value does not fall within the expected range."' };
+    // The coordinator's own checkpoint reader, over the lines this run appends.
+    const readCheckpoint = (lines: string[]) => runInNewContext(`const EVIDENCE_OUTCOMES = new Set(['accepted', 'rejected']);
+${['checkpointKey', 'loadCheckpoint'].map((name) => {
+        const start = source.indexOf(`function ${name}(`);
+        return source.slice(start, source.indexOf('\n}', start) + 2);
+    }).join('\n')}\nloadCheckpoint('checkpoint')`, {
+        fs: { readFileSync: () => lines.join(''), appendFileSync() {} },
+    });
+
+    type Case = { id: string; host?: string; expected?: string };
+    function runMain(cases: Case[], replies: Record<string, object>,
+        options: { json?: boolean; checkpoint?: string; promoteObserved?: boolean; caseIds?: string[] } = {}) {
+        const output: string[] = [];
+        const errors: string[] = [];
+        const ran: string[] = [];
+        const appended: string[] = [];
+        const writes: string[] = [];
+        const start = source.indexOf('async function main(');
+        const mainSource = source.slice(start, source.indexOf('\nprocess.exit(', start));
+        const main = runInNewContext(`${mainSource}\nmain`, {
+            ...policy,
+            parseArgs: () => ({ timeout: 30, timeoutRetries: 0, dialogHoldSeconds: 0, casesPerInstance: 40,
+                caseIds: options.caseIds ?? [], cases: 'memory.json', checkpoint: options.checkpoint ?? null,
+                strict: true, json: options.json ?? true, promoteObserved: options.promoteObserved ?? false }),
+            process: Object.assign(new EventEmitter(), { platform: 'win32' }),
+            setDialogSounds: () => {}, // Sound lifecycle is covered in vbeOracleDialogSounds.test.ts.
+            console: { log: (line: string) => output.push(line), error: (line: string) => errors.push(line) },
+            loadCasesDocument: () => ({ cases }),
+            OFFICE_HOSTS: Object.fromEntries(hosts.map((host) => [host, { progId: `${host}.Application` }])),
+            comRegistered: () => true,
+            registeredHostBuild: (progId: string) => ({ registered: true, build: builds[progId.split('.')[0]] }),
+            loadCheckpoint: () => readCheckpoint(appended),
+            // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
+            acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
+            oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
+            // Owned hosts are covered in vbeOracleOwnedHosts.test.ts; here the run owns none.
+            OwnedHosts: class { load() { return []; } add() {} sweep() { return []; } },
+            ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
+            unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
+            OracleWorker: class { async close() {} },
+            caseHash: () => 'hash', checkpointKey: (id: string, hash: string) => `${id}\n${hash}`,
+            runCaseWithRetries: async (_worker: unknown, kase: Case) => {
+                ran.push(kase.id);
+                return { caseId: kase.id, hostBuild: builds[kase.host ?? 'excel'],
+                    ...(replies[kase.id] ?? { outcome: 'accepted', stage: 'compile' }) };
+            },
+            fs: {
+                appendFileSync: (_file: string, line: string) => appended.push(line),
+                writeFileSync: (_file: string, text: string) => writes.push(text),
+            },
+        });
+        return { main, output, errors, ran, appended, writes };
+    }
+
+    // The two Excel fixtures, or the same source in another host, then an
+    // ordinary compile case and run case.
+    const issueCases = (host = 'excel') => [
+        ...['issue609_13_runtime', 'issue609_17_runtime'].map((id) => (host === 'excel' ? fixture(id) : { ...fixture(id), host })),
+        { id: 'later_compile', ...(host === 'excel' ? {} : { host }), mode: 'compile', expected: 'accepted' },
+        { id: 'later_run', ...(host === 'excel' ? {} : { host }), mode: 'run', entryPoint: 'Main', expected: 'rejected' }];
+    const issueReplies = { issue609_13_runtime: invalidArg, issue609_17_runtime: invalidArg,
+        later_run: { outcome: 'rejected', stage: 'runtime_dialog' } };
+    const issueIds = ['issue609_13_runtime', 'issue609_17_runtime', 'later_compile', 'later_run'];
+
+    it.each(hosts.flatMap((host) => [[host, false], [host, true]]))('reports both invocation failures in %s and runs the cases after them, checkpoint=%s', async (host, checkpoint) => {
+        const run = runMain(issueCases(host as string), issueReplies, checkpoint ? { checkpoint: 'checkpoint' } : {});
+        expect(await run.main([])).toBe(0);
+        expect(run.ran).toEqual(issueIds);
+        const report = JSON.parse(run.output[0]);
+        expect(report).toMatchObject({ failureCount: 0, oracleFailureCount: 0, skippedCount: 0, noVerdictCount: 2 });
+        for (const result of report.results.slice(0, 2)) {
+            // Still a worker error, never a verdict (#1402).
+            expect(result).toMatchObject({ outcome: 'worker_error', stage: 'run', expected: 'observe', matched: false, noVerdict: true });
+        }
+        expect(report.results.slice(2).map((result: { matched: boolean; noVerdict?: boolean }) => [result.matched, result.noVerdict]))
+            .toEqual([[true, undefined], [true, undefined]]);
+    });
+
+    it('marks them NO-VERDICT in text and counts them apart from failures', async () => {
+        const run = runMain(issueCases(), issueReplies, { json: false });
+        expect(await run.main([])).toBe(0);
+        const text = run.output.join('\n');
+        expect(text).toContain('NO-VERDICT issue609_13_runtime: outcome=worker_error expected=observe stage=run');
+        expect(text).toContain('NO-VERDICT issue609_17_runtime: outcome=worker_error expected=observe stage=run');
+        expect(text).toContain('Value does not fall within the expected range.');
+        expect(text).toContain('PASS later_run: outcome=rejected');
+        expect(text).not.toContain('ORACLE-FAIL');
+        expect(text).toContain('4 oracle case(s), 0 expectation failure(s), 0 oracle infrastructure failure(s), '
+            + '0 skipped case(s), 2 observe-only case(s) without a verdict.');
+    });
+
+    // Run's answer cannot be told from these by the coordinator; all are reported.
+    it.each([
+        ['a host that crashed during the run', 'Excel (pid 4242) exited during the run stage. A crash is not VBA evidence.'],
+        ['a macro Run cannot find', 'Exception calling "Run" with "1" argument(s): "Cannot run the macro \'Main\'."'],
+    ])('reports %s in an observe case and goes on', async (_why, message) => {
+        const run = runMain(issueCases(), { ...issueReplies, issue609_13_runtime: { outcome: 'worker_error', stage: 'run', message } });
+        expect(await run.main([])).toBe(0);
+        expect(run.ran).toEqual(issueIds);
+        expect(JSON.parse(run.output[0]).results[0]).toMatchObject({ noVerdict: true, message });
+    });
+
+    it.each(['accepted', 'rejected'])('still stops at a worker error in a case expected %s', async (expected) => {
+        const run = runMain([{ ...fixture('issue609_13_runtime'), expected }, { id: 'after', expected: 'accepted' }],
+            { issue609_13_runtime: invalidArg }, { json: false });
+        expect(await run.main([])).toBe(1);
+        expect(run.ran).toEqual(['issue609_13_runtime']);
+        expect(run.output.join('\n')).toContain(`ORACLE-FAIL issue609_13_runtime: outcome=worker_error expected=${expected}`);
+        expect(run.output.at(-1)).toContain('1 oracle infrastructure failure(s), 0 skipped case(s), 0 observe-only case(s) without a verdict.');
+    });
+
+    const stops = (kase: Case, reply: object, options: { checkpoint?: string } = {}) => async () => {
+        const run = runMain([kase, { id: 'after', host: kase.host, expected: 'accepted' }], { [kase.id]: reply }, options);
+        expect(await run.main([])).toBe(1);
+        expect(run.ran).toEqual([kase.id]);
+        expect(JSON.parse(run.output[0])).toMatchObject({ oracleFailureCount: 1, noVerdictCount: 0 });
+    };
+
+    it.each([
+        ['timed out every attempt', { outcome: 'oracle_failure', stage: 'run', message: 'Oracle timed out after 3 attempt(s) at 45 seconds each.' }],
+        ['could not start its host', { outcome: 'worker_error', stage: 'start_host', hostBuild: null, message: 'Could not tell which Excel process the oracle started.' }],
+        ['could not create its file', { outcome: 'worker_error', stage: 'create_file', message: 'Exception from HRESULT: 0x800A03EC' }],
+        ['failed before its host', { outcome: 'worker_error', stage: 'setup', hostBuild: null, message: 'Unexpected character.' }],
+        ['lost its worker', { outcome: 'worker_error', stage: 'worker', hostBuild: undefined, message: 'PowerShell exited 1' }],
+        ['found no Compile command', { outcome: 'worker_error', stage: 'compile', message: "Could not find exact VBE command 'Compile VBAProject'. Oracle compile command was not invoked." }],
+        ['met a Security Notice', { outcome: 'worker_error', stage: 'security_notice', message: "Office showed 'Microsoft Excel Security Notice' while adding the project reference." }],
+        ['could not reach its project', { outcome: 'worker_error', stage: 'add_module', message: 'Programmatic access to Visual Basic Project is not trusted.' }],
+        ['met a host left running', { outcome: 'worker_error', stage: 'host_cleanup', hostBuild: undefined, message: 'EXCEL.EXE pid 4242 is still running.' }],
+    ])('still stops at an observe case that %s', (_why, reply) => stops(fixture('issue609_13_runtime'), reply)());
+
+    it('still stops at an observe run case with no entry point', () => {
+        const { entryPoint: _none, ...kase } = fixture('issue609_13_runtime');
+        return stops(kase, { outcome: 'worker_error', stage: 'run', message: 'A run case needs an entryPoint.' })();
+    });
+
+    it.each(hosts)('still stops at an observe %s case that reports another host\'s build or none in a checkpoint run', async (host) => {
+        const kase = { ...fixture('issue609_13_runtime'), host };
+        const other = hosts.find((one) => one !== host) as string;
+        await stops(kase, { ...invalidArg, hostBuild: builds[other] }, { checkpoint: 'checkpoint' })();
+        await stops(kase, { ...invalidArg, hostBuild: null }, { checkpoint: 'checkpoint' })();
+    });
+
+    it('takes the build check from the coordinator\'s own conversion', async () => {
+        const start = source.indexOf('async function runCaseOnce(');
+        const runCaseOnceSource = source.slice(start, source.indexOf('\n}', start) + 2);
+        const kase = fixture('issue609_13_runtime');
+        const expected = builds.excel;
+        const convert = async (reply: object) => runInNewContext(`${runCaseOnceSource}\nrunCaseOnce`, {
+            ...policy, OFFICE_HOSTS: { excel: { noun: 'Excel' } }, EVIDENCE_OUTCOMES: new Set(['accepted', 'rejected']),
+            runCaseOnceUnchecked: async () => ({ caseId: kase.id, ...reply }),
+        })({ hostBuilds: new Map([['excel', expected]]) }, kase, 45, 0);
+        // Evidence from another build or none becomes a worker error that stops the run.
+        for (const hostBuild of [builds.word, undefined]) {
+            const result = await convert({ outcome: 'accepted', stage: 'run', hostBuild });
+            expect(result.outcome).toBe('worker_error');
+            expect(policy.isObserveWithoutVerdict(kase, result, expected)).toBe(false);
+        }
+        const refused = await convert({ ...invalidArg, hostBuild: expected });
+        expect(refused).toMatchObject(invalidArg);
+        expect(policy.isObserveWithoutVerdict(kase, refused, expected)).toBe(true);
+        expect(policy.isObserveWithoutVerdict({ ...kase, expected: 'rejected' }, refused, expected)).toBe(false);
+    });
+
+    it('never reuses the invocation failure from a checkpoint, so a resumed run tries it again', async () => {
+        const first = runMain(issueCases(), issueReplies, { checkpoint: 'checkpoint' });
+        expect(await first.main([])).toBe(0);
+        expect(first.appended.map((line) => JSON.parse(line).result.outcome))
+            .toEqual(['worker_error', 'worker_error', 'accepted', 'rejected']);
+        expect([...readCheckpoint(first.appended).keys()]).toEqual(['later_compile\nhash', 'later_run\nhash']);
+
+        const resumed = runMain(issueCases(), issueReplies, { checkpoint: 'checkpoint' });
+        resumed.appended.push(...first.appended);
+        expect(await resumed.main([])).toBe(0);
+        expect(resumed.ran).toEqual(['issue609_13_runtime', 'issue609_17_runtime']);
+        expect(JSON.parse(resumed.output[0])).toMatchObject({ noVerdictCount: 2 });
+    });
+
+    it('refuses to promote it and writes nothing', async () => {
+        const cases = issueCases();
+        const before = JSON.stringify(cases);
+        const run = runMain(cases, issueReplies, { promoteObserved: true, caseIds: ['issue609_13_runtime'] });
+        expect(await run.main([])).toBe(1);
+        expect(run.errors).toEqual(['Cannot promote observed oracle result(s):',
+            "  issue609_13_runtime: outcome 'worker_error' cannot be promoted"]);
+        expect(run.writes).toEqual([]);
+        expect(JSON.stringify(cases)).toBe(before);
     });
 });

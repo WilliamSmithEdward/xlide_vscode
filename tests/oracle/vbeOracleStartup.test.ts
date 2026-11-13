@@ -7,7 +7,7 @@ import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'malformedReferences', 'hostsNeedingBuilds',
-    'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
+    'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure', 'isObserveWithoutVerdict'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     return source.slice(start, source.indexOf('\n}', start) + 2);
