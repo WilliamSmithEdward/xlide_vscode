@@ -155,7 +155,9 @@ describe('VBE oracle run lock', () => {
 		const lock = main.indexOf('await acquireOracleRunLock(oracleRunLockAddress()');
 		expect(lock).toBeGreaterThan(0);
 		expect(lock).toBeLessThan(main.indexOf('new OracleWorker('));
-		expect(lock).toBeLessThan(main.indexOf("setDialogSounds('silence')"));
+		// The worker's process silences the sounds, so nothing else does.
+		expect(main).not.toContain("'silence'");
+		expect(lock).toBeLessThan(main.indexOf("setDialogSounds('restore')"));
 		expect(main.slice(lock, main.indexOf('new OracleWorker('))).toContain('return 3;');
 	});
 });

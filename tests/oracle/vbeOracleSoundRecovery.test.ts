@@ -10,7 +10,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 // are real. Windows CI executes these; other platforms retain lifecycle tests.
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const begin = source.indexOf('function dialogSoundsScript()');
-const end = source.indexOf('// Never stops a run:', begin);
+const end = source.indexOf('\nconst SOUNDS_PREFIX', begin);
 let body: string = runInNewContext(`const DIALOG_SOUNDS = ['.Default', 'SystemAsterisk', 'SystemExclamation', 'SystemHand'];\n${source.slice(begin, end)}\ndialogSoundsScript()`);
 const openBegin = body.indexOf('    function Open-Sound(');
 const openEnd = body.indexOf('    # A normal shell', openBegin);
@@ -26,8 +26,10 @@ body = body.slice(0, openBegin) + String.raw`
 ` + body.slice(openEnd);
 const startedBegin = body.indexOf('    function Started(');
 const startedEnd = body.indexOf('    # Only a sound', startedBegin);
-body = body.slice(0, startedBegin) + "    function Started($id) { return '1234567890' }\n" + body.slice(startedEnd);
-body = body.replaceAll('exit 0', 'return');
+// Owner 999 has ended; every other owner is still running.
+body = body.slice(0, startedBegin) + "    function Started($id) { if ($id -eq 999) { return '' } return '1234567890' }\n" + body.slice(startedEnd);
+// The worker runs the script inside its own process, so it must never exit it.
+if (/\bexit\b/.test(body)) { throw new Error('the sound script must return, not exit'); }
 
 type Probe = { saved: unknown; current: string };
 type RecoveryResult = { writes: unknown[]; exists: boolean; quarantined: string[]; original: string };
@@ -133,6 +135,19 @@ describe.skipIf(process.platform !== 'win32')('executed PowerShell sound recover
     });
     recoveryTest('preserves a sound changed by the user during the run', valid(), 'user-changed.wav', result => {
         expect(result.writes).toEqual([]);
+    });
+    // A run that started no worker puts back a killed run's sounds at its end.
+    const killed = valid(); killed.owner = 999;
+    recoveryTest('restores the sounds a killed run left and removes its backup', killed, '', result => {
+        expect(result.writes).toEqual([{ name: '.Default', value: 'original.wav', kind: 'String' }]);
+        expect(result.exists).toBe(false);
+        expect(result.quarantined).toEqual([]);
+    });
+    const running = valid(); running.owner = 555;
+    recoveryTest('leaves the sounds of another run that is still going', running, '', result => {
+        expect(result.writes).toEqual([]);
+        expect(result.exists).toBe(true);
+        expect(result.quarantined).toEqual([]);
     });
     const malformed = [
         ['missing value', (s: any) => { delete s.sounds[0].value; }],
