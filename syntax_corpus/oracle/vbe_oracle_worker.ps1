@@ -1532,6 +1532,104 @@ function Test-MacroNotFound([string]$Message) {
     return $false
 }
 
+# Office's older client telemetry is set up at every host start, even with no
+# network, and makes Access, PowerPoint and Word start much slower: an Access
+# compile case took about 4.0 s with it and 1.5 s without. A served run turns
+# it off for the user (DisableTelemetry in the user's own Office settings, not
+# a policy, so no administrator is needed) and puts back what was there when
+# the worker ends. What was there is saved first, so a run whose worker is
+# killed before putting it back (a case that timed out, Ctrl-C, a killed run)
+# leaves it for the next run's worker to put back.
+$TelemetryKey = 'Software\Microsoft\Office\Common\ClientTelemetry'
+$TelemetryProfile = [Environment]::GetFolderPath('UserProfile')
+$TelemetryBackup = if ($TelemetryProfile) { Join-Path $TelemetryProfile '.xlide-vbe-oracle-telemetry.json' } else { $null }
+
+# A saved value Office could have held: a string for the string kinds, a
+# whole number in range for the number kinds.
+function Test-TelemetryBackup($Saved) {
+    if ($null -eq $Saved -or $Saved.present -isnot [bool]) { return $false }
+    if (-not $Saved.present) { return $true }
+    $value = $Saved.value
+    switch ([string]$Saved.kind) {
+        'String' { return $value -is [string] }
+        'ExpandString' { return $value -is [string] }
+        'DWord' { return ($value -is [int] -or $value -is [long]) -and $value -ge [int]::MinValue -and $value -le [int]::MaxValue }
+        'QWord' { return $value -is [int] -or $value -is [long] }
+    }
+    return $false
+}
+
+# Puts back the value a backup holds, if the value is still the DWORD 1 a run
+# set: any other value is the user's and stays. Then removes the backup.
+function Restore-OracleTelemetry {
+    if (-not $TelemetryBackup -or -not (Test-Path -LiteralPath $TelemetryBackup)) {
+        return
+    }
+    $saved = $null
+    try { $saved = Get-Content -Raw -Encoding UTF8 -LiteralPath $TelemetryBackup | ConvertFrom-Json } catch { }
+    if (-not (Test-TelemetryBackup $saved)) {
+        # Set aside where the user can find it, and go on.
+        $aside = $TelemetryBackup + '.unreadable-' + [DateTime]::UtcNow.Ticks
+        [IO.File]::Move($TelemetryBackup, $aside)
+        [Console]::Error.WriteLine("The saved Office telemetry setting could not be read; it was moved to $aside. DisableTelemetry may stay set to 1.")
+        return
+    }
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($TelemetryKey, $true)
+    if ($null -ne $key) {
+        try {
+            if ($key.GetValueNames() -contains 'DisableTelemetry' -and
+                $key.GetValueKind('DisableTelemetry') -eq 'DWord' -and $key.GetValue('DisableTelemetry') -eq 1) {
+                if ($saved.present) {
+                    $key.SetValue('DisableTelemetry', $saved.value, [Microsoft.Win32.RegistryValueKind]$saved.kind)
+                }
+                else {
+                    $key.DeleteValue('DisableTelemetry', $false)
+                }
+            }
+        }
+        finally {
+            $key.Close()
+        }
+    }
+    Remove-Item -Force -LiteralPath $TelemetryBackup
+}
+
+function Disable-OracleTelemetry {
+    if (-not $TelemetryBackup) {
+        throw "there is no user profile folder to save the setting in."
+    }
+    # A killed run's value first, so its backup is not taken for the user's.
+    Restore-OracleTelemetry
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($TelemetryKey)
+    try {
+        $saved = [pscustomobject]@{ present = $false }
+        if ($key.GetValueNames() -contains 'DisableTelemetry') {
+            $saved = [pscustomobject]@{ present = $true; kind = [string]$key.GetValueKind('DisableTelemetry')
+                value = $key.GetValue('DisableTelemetry', $null, 'DoNotExpandEnvironmentNames') }
+            if (-not (Test-TelemetryBackup $saved)) {
+                # A value it could not put back exactly is left alone.
+                [Console]::Error.WriteLine("Office telemetry was left on for this run: DisableTelemetry holds a $($saved.kind) value it could not put back exactly.")
+                return
+            }
+        }
+        # Saved, and flushed to disk, before the change, so a killed run can
+        # always be put right.
+        $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($saved | ConvertTo-Json -Compress))
+        $stream = [IO.File]::Open($TelemetryBackup, 'Create', 'Write', 'None')
+        try {
+            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Flush($true)
+        }
+        finally {
+            $stream.Dispose()
+        }
+        $key.SetValue('DisableTelemetry', 1, 'DWord')
+    }
+    finally {
+        $key.Close()
+    }
+}
+
 # The build of the running host, read from its own executable once per host
 # process. A failed read is not kept, so the next case reads it again.
 function Get-HostBuild($HostPid) {
@@ -1846,6 +1944,14 @@ function Invoke-OracleCase {
 }
 
 if ($Serve) {
+    # Telemetry only costs time, so a failure here never stops a run. Notices
+    # are kept for the end: on stderr now they would only reach the first
+    # case's result, which the text report does not show.
+    $telemetryNotices = New-Object IO.StringWriter
+    $stderr = [Console]::Error
+    [Console]::SetError($telemetryNotices)
+    try { Disable-OracleTelemetry } catch { [Console]::Error.WriteLine("Could not turn off Office telemetry for this run: $($_.Exception.Message)") }
+    finally { [Console]::SetError($stderr) }
     try {
         while ($null -ne ($line = [Console]::In.ReadLine())) {
             if (-not $line.Trim()) {
@@ -1865,7 +1971,12 @@ if ($Serve) {
         }
     }
     finally {
-        Stop-OracleHost
+        try { Stop-OracleHost }
+        finally {
+            $notices = $telemetryNotices.ToString().Trim()
+            if ($notices) { [Console]::Error.WriteLine($notices) }
+            try { Restore-OracleTelemetry } catch { [Console]::Error.WriteLine("Could not put back the Office telemetry setting: $($_.Exception.Message) The next oracle run tries again.") }
+        }
     }
 }
 else {
