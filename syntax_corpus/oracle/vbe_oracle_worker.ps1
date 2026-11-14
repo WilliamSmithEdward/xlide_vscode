@@ -158,9 +158,39 @@ public static class XlideVbeDialogWatcher {
     private static volatile bool stopRequested;
     private static volatile bool dialogSeen;
     private static readonly ManualResetEvent stopEvent = new ManualResetEvent(false);
+    // What one start's watcher recorded, so the worker need not read the file
+    // back. Each start has its own: a watcher that outlives Stop() writes only
+    // to its own, never to a later case's.
+    private static volatile Recording current;
+
+    private sealed class Recording {
+        public readonly string Path;
+        public readonly ManualResetEvent Written = new ManualResetEvent(false);
+        public volatile string Json;
+
+        public Recording(string path) {
+            Path = path;
+        }
+    }
 
     public static bool DialogSeen {
         get { return dialogSeen; }
+    }
+
+    // The dialog result the watcher wrote to resultPath, as JSON, or null.
+    public static string ResultFor(string resultPath) {
+        Recording recording = current;
+        return recording != null && recording.Path == resultPath ? recording.Json : null;
+    }
+
+    // Waits up to the given time for the result to be written to resultPath.
+    public static string WaitForResult(string resultPath, int milliseconds) {
+        Recording recording = current;
+        if (recording == null || recording.Path != resultPath) {
+            return null;
+        }
+        recording.Written.WaitOne(Math.Max(0, milliseconds));
+        return recording.Json;
     }
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -245,6 +275,7 @@ public static class XlideVbeDialogWatcher {
     // finished with it, 6 to 10 s later.
     public static void Start(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
         Stop();
+        current = null;
         if (hostProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
             return;
         }
@@ -252,8 +283,10 @@ public static class XlideVbeDialogWatcher {
         stopRequested = false;
         dialogSeen = false;
         stopEvent.Reset();
+        Recording recording = new Recording(resultPath);
+        current = recording;
         watcherThread = new Thread(delegate() {
-            Watch(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endHostAfterDialog);
+            Watch(hostProcessId, recording, stagePath, maxSeconds, holdSeconds, endHostAfterDialog);
         });
         watcherThread.IsBackground = true;
         watcherThread.Start();
@@ -313,7 +346,7 @@ public static class XlideVbeDialogWatcher {
         return GetForegroundWindow() == hWnd;
     }
 
-    private static void Watch(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
+    private static void Watch(uint hostProcessId, Recording recording, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
         DateTime deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, maxSeconds));
         while (!stopRequested && DateTime.UtcNow < deadline) {
             DialogInfo dialog = FindVbeDialog(hostProcessId);
@@ -329,14 +362,15 @@ public static class XlideVbeDialogWatcher {
                 }
                 HoldDialogForInspection(dialog.Handle, holdSeconds);
                 if (DismissDialog(dialog.Handle)) {
-                    WriteDialogResult(resultPath, dialog);
+                    WriteDialogResult(recording, dialog);
                     if (endHostAfterDialog) {
                         EndProcess(hostProcessId);
                     }
                     return;
                 }
             }
-            stopEvent.WaitOne(100);
+            // A cheap scan, so a dialog is seen soon after it appears.
+            stopEvent.WaitOne(15);
         }
     }
 
@@ -547,7 +581,8 @@ public static class XlideVbeDialogWatcher {
         PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
     }
 
-    private static void WriteDialogResult(string resultPath, DialogInfo dialog) {
+    // The file stays: the coordinator reads it if the worker dies.
+    private static void WriteDialogResult(Recording recording, DialogInfo dialog) {
         StringBuilder json = new StringBuilder();
         json.Append("{");
         json.Append("\"kind\":").Append(JsonString(dialog.Kind)).Append(",");
@@ -562,7 +597,9 @@ public static class XlideVbeDialogWatcher {
             json.Append(JsonString(dialog.Texts[i]));
         }
         json.Append("]}");
-        File.WriteAllText(resultPath, json.ToString(), Encoding.UTF8);
+        File.WriteAllText(recording.Path, json.ToString(), Encoding.UTF8);
+        recording.Json = json.ToString();
+        recording.Written.Set();
     }
 
     private static string JsonString(string value) {
@@ -665,16 +702,18 @@ function Remove-ComObjectReference($Value) {
 function Set-Stage($Name) {
     $script:stage = $Name
     if ($StagePath) {
-        try { Set-Content -LiteralPath $StagePath -Value $Name -Encoding ascii } catch { }
+        try { [IO.File]::WriteAllText($StagePath, $Name, [Text.Encoding]::ASCII) } catch { }
     }
 }
 
+# The watcher hands over what it wrote to this case's dialog file.
 function Read-DialogResult {
-    if (-not $DialogPath -or -not (Test-Path -LiteralPath $DialogPath)) {
+    $json = if ($DialogPath) { [XlideVbeDialogWatcher]::ResultFor($DialogPath) } else { $null }
+    if ($null -eq $json) {
         return $null
     }
     try {
-        return Get-Content -LiteralPath $DialogPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        return $json | ConvertFrom-Json
     }
     catch {
         return $null
@@ -734,10 +773,10 @@ function Resolve-DialogAfterStop($Dialog) {
 # --dialog-hold-seconds hold and up to 5 s of dismissing. A dialog that was
 # seen but never recorded must not count as no dialog.
 function Wait-ForSeenDialogResult {
-    $deadline = [DateTime]::UtcNow.AddSeconds($DialogHoldSeconds + 10)
     $dialog = Read-DialogResult
-    while ($null -eq $dialog -and [DateTime]::UtcNow -lt $deadline) {
-        Start-Sleep -Milliseconds 10
+    if ($null -eq $dialog -and $DialogPath) {
+        $milliseconds = [int][Math]::Min(([double]$DialogHoldSeconds + 10) * 1000, [int]::MaxValue)
+        $null = [XlideVbeDialogWatcher]::WaitForResult($DialogPath, $milliseconds)
         $dialog = Read-DialogResult
     }
     if ($null -eq $dialog) {
@@ -1163,6 +1202,7 @@ function Invoke-VbeCompileCommand($App) {
 # its database asks whether to save the case's modules.
 $script:app = $null
 $script:appPid = 0
+$script:appProcess = $null
 $script:appBuild = $null
 $script:appBuildPid = 0
 $script:appCases = 0
@@ -1199,7 +1239,11 @@ function Get-WindowProcessId([long]$Hwnd) {
 function Start-OracleHost {
     $script:appBuild = $null
     $script:appBuildPid = 0
-    $before = Get-HostProcessIds
+    # Only Word and PowerPoint need to know which instances were running.
+    $before = @()
+    if ($script:hostName -eq "word" -or $script:hostName -eq "powerpoint") {
+        $before = Get-HostProcessIds
+    }
     # Word and PowerPoint can hand an automation request to an instance that
     # is already running, and PowerPoint always does: that instance is
     # someone's, and the oracle would compile into it and then quit it.
@@ -1229,6 +1273,18 @@ function Start-OracleHost {
         throw "Could not tell which $($script:hostNoun) process the oracle started."
     }
     $script:appPid = $processId
+    # Held until the host has exited, so the stop can wait on it and the id
+    # cannot be reused meanwhile. Without it the stop only polls the id.
+    $script:appProcess = $null
+    $process = $null
+    try {
+        $process = [Diagnostics.Process]::GetProcessById($processId)
+        $null = $process.Handle
+        $script:appProcess = $process
+    }
+    catch {
+        if ($null -ne $process) { $process.Dispose() }
+    }
     $script:appHost = $script:hostName
     $script:appCases = 0
 }
@@ -1239,7 +1295,7 @@ function Start-OracleHost {
 # taken for it. Written as soon as the host is started, and before each case.
 function Write-HostRecord {
     $start = (Get-Process -Id $script:appPid -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc()
-    Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImageOfApp) $start" -Encoding ascii
+    [IO.File]::WriteAllText($PidPath, "$($script:appPid) $($script:hostImageOfApp) $start", [Text.Encoding]::ASCII)
 }
 
 function Stop-OracleHost {
@@ -1267,6 +1323,11 @@ function Stop-OracleHost {
         # Gone before the next case looks, or the next Word or PowerPoint case
         # would take this worker's own exiting instance for someone else's.
         $deadline = [DateTime]::UtcNow.AddSeconds(10)
+        # The exit signals the held handle at once; the loop then normally
+        # finds the process gone at its first look.
+        if ($null -ne $script:appProcess) {
+            $null = $script:appProcess.WaitForExit(10000)
+        }
         while ([DateTime]::UtcNow -lt $deadline -and $null -ne (Get-Process -Id $script:appPid -ErrorAction SilentlyContinue)) {
             Start-Sleep -Milliseconds 50
         }
@@ -1275,6 +1336,10 @@ function Stop-OracleHost {
         $left = Get-Process -Id $script:appPid -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -eq $script:hostImageOfApp }
         if ($null -ne $left) {
             throw "The $($script:hostNoun) instance the oracle started, pid $($script:appPid), did not exit."
+        }
+        if ($null -ne $script:appProcess) {
+            $script:appProcess.Dispose()
+            $script:appProcess = $null
         }
         $script:appPid = 0
     }
@@ -1552,10 +1617,7 @@ function Get-HostBuild($HostPid) {
     return $null
 }
 
-function Invoke-OracleCase {
-    # The coordinator writes the case as UTF-8; Windows PowerShell would
-    # otherwise read it in the ANSI code page and garble non-ASCII source.
-    $case = Get-Content -LiteralPath $CasePath -Raw -Encoding UTF8 | ConvertFrom-Json
+function Invoke-OracleCase($case) {
     $app = $null
     $appPid = 0
     $container = $null
@@ -1810,18 +1872,21 @@ function Invoke-OracleCase {
         Remove-ComObjectReference $vbProject
         Remove-ComObjectReference $container
 
+        # What is still open is asked only of an instance that would
+        # otherwise be kept.
+        $evidence = $result.outcome -eq "accepted" -or $result.outcome -eq "rejected"
+        $keep = $evidence -and $mode -eq "compile" -and $script:hostName -ne "access" -and $script:appCases -lt $CasesPerInstance
         # A macro can open files of its own; they must not outlive the case.
-        if ($closed -and $null -ne $script:app) {
+        if ($keep -and $closed -and $null -ne $script:app) {
             try { $closed = (Get-OpenContainerCount $script:app) -eq 0 } catch { $closed = $false }
         }
         # PowerPoint drops the provider's add-in when the case's presentation
         # closes. An instance that still lists an add-in, that one or another,
         # is not kept.
-        if ($closed -and $script:providerPath -and $script:hostName -eq "powerpoint") {
+        if ($keep -and $closed -and $script:providerPath -and $script:hostName -eq "powerpoint") {
             try { $closed = $script:app.AddIns.Count -eq 0 } catch { $closed = $false }
         }
-        $evidence = $result.outcome -eq "accepted" -or $result.outcome -eq "rejected"
-        if (-not $closed -or -not $evidence -or $mode -ne "compile" -or $script:hostName -eq "access" -or $script:appCases -ge $CasesPerInstance) {
+        if (-not $closed -or -not $keep) {
             Stop-OracleHost
         }
 
@@ -1852,14 +1917,17 @@ if ($Serve) {
                 continue
             }
             $request = $line | ConvertFrom-Json
-            $script:CasePath = [string]$request.casePath
             $script:PidPath = [string]$request.pidPath
             $script:StagePath = [string]$request.stagePath
             $script:DialogPath = [string]$request.dialogPath
             $script:DialogWatchSeconds = [int]$request.dialogWatchSeconds
             $script:DialogHoldSeconds = [int]$request.dialogHoldSeconds
             Set-OracleHost $request.host $request.hostProgId $request.hostImage
-            $output = @(Invoke-OracleCase)
+            # The case comes in the request, escaped to ASCII like the rest.
+            if ($null -eq $request.case) {
+                throw "The request carries no case."
+            }
+            $output = @(Invoke-OracleCase $request.case)
             [Console]::Out.WriteLine("XLIDE-ORACLE-RESULT " + (Write-ResultJson $output[-1]))
             [Console]::Out.Flush()
         }
@@ -1873,7 +1941,9 @@ else {
         throw "-CasePath and -PidPath are required without -Serve."
     }
     Set-OracleHost $HostName $HostProgId $HostImage
-    $output = @(Invoke-OracleCase)
+    # Read as UTF-8; Windows PowerShell would otherwise read it in the ANSI
+    # code page and garble non-ASCII source.
+    $output = @(Invoke-OracleCase (Get-Content -LiteralPath $CasePath -Raw -Encoding UTF8 | ConvertFrom-Json))
     Stop-OracleHost
     Write-ResultJson $output[-1]
 }

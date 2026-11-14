@@ -606,7 +606,7 @@ class OracleWorker {
                 clearTimeout(timer);
                 resolve(reply);
             };
-            // Escaped to ASCII so a path survives the console code page.
+            // Escaped to ASCII so a path or a case's source survives the console code page.
             const json = JSON.stringify(message).replace(
                 /[\u0080-\uffff]/g,
                 (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`,
@@ -670,11 +670,9 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
     }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vbe-oracle-'));
     ACTIVE_CASE_DIRS.add(tmpDir);
-    const casePath = path.join(tmpDir, 'case.json');
     const pidPath = path.join(tmpDir, 'host.pid');
     const stagePath = path.join(tmpDir, 'stage.txt');
     const dialogPath = path.join(tmpDir, 'vbe_dialog.json');
-    fs.writeFileSync(casePath, JSON.stringify(kase), 'utf8');
 
     // The watch window is an upper bound, not a wait. A compile case ends when
     // its error dialog is recorded or the Compile command turns disabled, and a
@@ -692,7 +690,7 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
         let reply;
         try {
             reply = await worker.request({
-                casePath, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
+                case: kase, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
                 host, hostProgId: OFFICE_HOSTS[host].progId, hostImage: OFFICE_HOSTS[host].image,
             }, timeoutSeconds * 1000);
         } catch (error) {

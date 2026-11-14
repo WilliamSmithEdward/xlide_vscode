@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 const ORACLE = path.join(__dirname, '..', '..', 'syntax_corpus', 'oracle');
@@ -79,11 +80,11 @@ describe('VBE oracle worker', () => {
         const worker = readOracle('vbe_oracle_worker.ps1');
         const watchStart = worker.indexOf('private static void Watch(');
         const watch = worker.slice(watchStart, worker.indexOf('private static void EndProcess', watchStart));
-        const recorded = watch.indexOf('WriteDialogResult(resultPath, dialog);');
+        const recorded = watch.indexOf('WriteDialogResult(recording, dialog);');
         const ended = watch.indexOf('EndProcess(hostProcessId);');
         expect(recorded).toBeGreaterThan(0);
         expect(ended).toBeGreaterThan(recorded);
-        expect(watch.slice(recorded, ended)).toMatch(/^WriteDialogResult\(resultPath, dialog\);\s*if \(endHostAfterDialog\) \{\s*$/);
+        expect(watch.slice(recorded, ended)).toMatch(/^WriteDialogResult\(recording, dialog\);\s*if \(endHostAfterDialog\) \{\s*$/);
 
         // Only a run case ends its host this way; a compile case keeps it.
         const starts = [...worker.matchAll(/\[XlideVbeDialogWatcher\]::Start\(([^)]*)\)/g)].map((match) => match[1]);
@@ -432,4 +433,212 @@ $other.Close()
         expect(seen.noneTitle).toBeNull();
         expect(seen.noneStopMs).toBeLessThan(1000);
     }, 40_000);
+});
+
+// Waits that end on a signal instead of a poll, and work skipped when its
+// answer cannot change what happens. None of it may change a verdict.
+describe('the worker waits on signals, not polls', () => {
+    const worker = readOracle('vbe_oracle_worker.ps1').replaceAll('\r\n', '\n');
+    const coordinator = readOracle('run_vbe_oracle.mjs').replaceAll('\r\n', '\n');
+    const fn = (name: string): string => {
+        const start = worker.search(new RegExp(`\\nfunction ${name}[ ({]`)) + 1;
+        expect(start, name).toBeGreaterThan(0);
+        return worker.slice(start, worker.indexOf('\nfunction ', start));
+    };
+    const watcherSource = 'using System;\nusing System.Collections.Generic;\nusing System.Diagnostics;\nusing System.IO;\n'
+        + 'using System.Runtime.InteropServices;\nusing System.Text;\nusing System.Threading;\n'
+        + worker.slice(worker.indexOf('public static class XlideVbeDialogWatcher'), worker.indexOf('\n"@'));
+
+    it('scans for a dialog every 15 ms with the same rule, and hands its result over in memory', () => {
+        const watch = watcherSource.slice(watcherSource.indexOf('private static void Watch('), watcherSource.indexOf('private static void EndProcess('));
+        expect(watch).toContain('stopEvent.WaitOne(15);');
+        expect(watch).not.toContain('WaitOne(100)');
+        // The result is handed over only once the dialog is dismissed and its file written.
+        expect(watch.indexOf('DismissDialog(dialog.Handle)')).toBeLessThan(watch.indexOf('WriteDialogResult(recording, dialog)'));
+        const write = watcherSource.slice(watcherSource.indexOf('private static void WriteDialogResult('), watcherSource.indexOf('private static string JsonString(')).trimEnd();
+        expect(write).toMatch(/File\.WriteAllText\(recording\.Path, json\.ToString\(\), Encoding\.UTF8\);\n\s+recording\.Json = json\.ToString\(\);\n\s+recording\.Written\.Set\(\);\n\s+\}$/);
+        // Every start forgets the last case's dialog, and its watcher writes
+        // only to the record made for it: one that outlives Stop() cannot
+        // touch a later case's.
+        const start = watcherSource.slice(watcherSource.lastIndexOf('public static void Start('), watcherSource.indexOf('public static void Stop('));
+        for (const reset of ['current = null;', 'dialogSeen = false;', 'Recording recording = new Recording(resultPath);', 'current = recording;', 'Watch(hostProcessId, recording,']) {
+            expect(start).toContain(reset);
+        }
+        expect(watcherSource).not.toMatch(/\bcurrent\.(Json|Written)\b/);
+        // The worker waits for the result instead of reading the file again and again.
+        expect(fn('Wait-ForSeenDialogResult')).not.toContain('Start-Sleep');
+        expect(fn('Read-DialogResult')).not.toMatch(/Get-Content|Test-Path/);
+    });
+
+    it('stops the host with the same sequence, waiting on its handle first', () => {
+        const stop = fn('Stop-OracleHost');
+        const order = [
+            '$script:app.Quit(0)', '$script:app.Quit(2)', '$script:app.Quit()',
+            'Remove-ComObjectReference $script:app', '[GC]::Collect()', '[GC]::WaitForPendingFinalizers()',
+            "Where-Object { $_.ProcessName -eq $script:hostImageOfApp }", 'Stop-Process -Force',
+            '$deadline = [DateTime]::UtcNow.AddSeconds(10)', '$script:appProcess.WaitForExit(10000)',
+            'while ([DateTime]::UtcNow -lt $deadline -and $null -ne (Get-Process -Id $script:appPid',
+            'did not exit.', '$script:appProcess.Dispose()', '$script:appPid = 0',
+        ].map((text) => {
+            expect(stop, text).toContain(text);
+            return stop.indexOf(text);
+        });
+        expect(order).toEqual([...order].sort((a, b) => a - b));
+        // The handle is taken once the host's pid is known.
+        const start = fn('Start-OracleHost');
+        expect(start.indexOf('$script:appPid = $processId')).toBeLessThan(start.indexOf('[Diagnostics.Process]::GetProcessById($processId)'));
+    });
+
+    it('skips work whose answer cannot change what happens', () => {
+        // Only Word and PowerPoint use the snapshot of running instances.
+        const start = fn('Start-OracleHost');
+        expect(start).toMatch(/if \(\$script:hostName -eq "word" -or \$script:hostName -eq "powerpoint"\) \{\n\s+\$before = Get-HostProcessIds\n/);
+        expect(start.split('Get-HostProcessIds')).toHaveLength(3);
+        // What is still open is asked only of an instance that would be kept.
+        const cleanup = worker.slice(worker.indexOf('$evidence = $result.outcome -eq'), worker.indexOf('# A loaded add-in holds its file'));
+        expect(cleanup).toContain('$keep = $evidence -and $mode -eq "compile" -and $script:hostName -ne "access" -and $script:appCases -lt $CasesPerInstance');
+        expect(cleanup).toContain('if ($keep -and $closed -and $null -ne $script:app) {');
+        expect(cleanup).toContain('if ($keep -and $closed -and $script:providerPath -and $script:hostName -eq "powerpoint") {');
+        expect(cleanup).toContain('if (-not $closed -or -not $keep) {\n            Stop-OracleHost');
+        expect(cleanup.indexOf('$keep = $evidence')).toBeLessThan(cleanup.indexOf('Get-OpenContainerCount'));
+        // The stage and the host record are written by .NET, not Set-Content.
+        expect(fn('Set-Stage')).toContain('[IO.File]::WriteAllText($StagePath, $Name, [Text.Encoding]::ASCII)');
+        expect(fn('Write-HostRecord')).toContain('[IO.File]::WriteAllText($PidPath,');
+        // A served case travels in the request; a request without one is no verdict.
+        expect(coordinator).not.toContain('case.json');
+        expect(coordinator).toContain('case: kase, pidPath, stagePath, dialogPath,');
+        expect(worker).toContain('if ($null -eq $request.case) {\n                throw "The request carries no case."\n            }\n            $output = @(Invoke-OracleCase $request.case)');
+    });
+
+    describe.skipIf(process.platform !== 'win32')('on Windows', () => {
+        // One PowerShell for every check here. The dialog is a real message
+        // box of this PowerShell, titled and worded as the VBE's are; the host
+        // is a ping.exe this PowerShell starts.
+        let seen: Record<string, unknown>;
+        const source = 'Caf\u00e9 \u65e5\u672c \ud83d\ude00 "quoted" back\\slash\r\nnext line';
+        const kase = { id: 'request_round_trip', source, modules: [{ name: 'M\u00f6dule', type: 'standard', source }] };
+        let tmp = '';
+
+        beforeAll(() => {
+            tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-oracle-waits-'));
+            // A case file as single-case mode reads it, and the same case as
+            // a served request line, escaped as the coordinator escapes it.
+            const casePath = path.join(tmp, 'case.json');
+            fs.writeFileSync(casePath, JSON.stringify(kase), 'utf8');
+            const line = JSON.stringify({ case: kase }).replace(/[\u0080-\uffff]/g, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`);
+            const watcherPath = path.join(tmp, 'watcher.cs');
+            fs.writeFileSync(watcherPath, watcherSource, 'utf8');
+            const script = String.raw`
+$ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition ((Get-Content -LiteralPath $env:XLIDE_WATCHER_PATH -Raw -Encoding UTF8) + @'
+
+public static class XlideTestBox {
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int MessageBoxW(System.IntPtr owner, string text, string caption, uint type);
+    public static System.Threading.Thread Show(string text, string caption) {
+        System.Threading.Thread thread = new System.Threading.Thread(delegate() { MessageBoxW(System.IntPtr.Zero, text, caption, 0); });
+        thread.IsBackground = true;
+        thread.Start();
+        return thread;
+    }
+}
+'@)
+` + ['Write-ResultJson', 'Remove-ComObjectReference', 'Read-DialogResult', 'Wait-ForSeenDialogResult', 'Stop-OracleHost'].map(fn).join('\n') + String.raw`
+$out = [ordered]@{}
+$request = [Console]::In.ReadLine() | ConvertFrom-Json
+$fromFile = Get-Content -LiteralPath $env:XLIDE_CASE_PATH -Raw -Encoding UTF8 | ConvertFrom-Json
+$out.requestSource = $request.case.source
+$out.requestModule = $request.case.modules[0].name
+$out.fileSource = $fromFile.source
+
+$dir = $env:XLIDE_TMP
+$DialogPath = Join-Path $dir 'vbe_dialog.json'
+$StagePath = Join-Path $dir 'stage.txt'
+$DialogHoldSeconds = 0
+[XlideVbeDialogWatcher]::Start([uint32]$PID, $DialogPath, $StagePath, 10, 0)
+$out.beforeDialog = Read-DialogResult
+$box = [XlideTestBox]::Show("Compile error:` + '`n`n' + String.raw`Expected: end of statement", 'Microsoft Visual Basic for Applications')
+$out.dialog = Wait-ForSeenDialogResult
+$out.seen = [XlideVbeDialogWatcher]::DialogSeen
+$out.boxClosed = $box.Join(5000)
+[XlideVbeDialogWatcher]::Stop()
+$out.file = Get-Content -LiteralPath $DialogPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$out.stage = [IO.File]::ReadAllText($StagePath)
+# Another case's path is told nothing, and is not kept waiting.
+$DialogPath = Join-Path $dir 'other.json'
+$timer = [Diagnostics.Stopwatch]::StartNew()
+$out.otherPath = try { Wait-ForSeenDialogResult; 'returned' } catch { $_.Exception.Message }
+$out.otherPathMs = $timer.Elapsed.TotalMilliseconds
+# A new start forgets the last dialog.
+$DialogPath = Join-Path $dir 'vbe_dialog.json'
+[XlideVbeDialogWatcher]::Start([uint32]$PID, $DialogPath, $StagePath, 1, 0)
+$out.afterRestart = Read-DialogResult
+$out.seenAfterRestart = [XlideVbeDialogWatcher]::DialogSeen
+[XlideVbeDialogWatcher]::Stop()
+
+# Stop-OracleHost on a stand-in host: with the handle, and without it.
+$script:app = $null
+$script:hostNoun = 'Ping'
+$script:hostImageOfApp = 'PING'
+foreach ($held in @($true, $false)) {
+    $child = Start-Process -FilePath ping.exe -ArgumentList '-n', '60', '127.0.0.1' -WindowStyle Hidden -PassThru
+    $script:appPid = $child.Id
+    $script:appProcess = $null
+    if ($held) {
+        $script:appProcess = [Diagnostics.Process]::GetProcessById($child.Id)
+        $null = $script:appProcess.Handle
+    }
+    Stop-OracleHost
+    $out["stop_$held"] = [ordered]@{
+        gone = $null -eq (Get-Process -Id $child.Id -ErrorAction SilentlyContinue)
+        exited = $child.HasExited
+        appPid = $script:appPid
+        handleReleased = $null -eq $script:appProcess
+    }
+}
+Write-ResultJson ([pscustomobject]$out)
+`;
+            const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
+                encoding: 'utf8',
+                timeout: 60_000,
+                input: `${line}\n`,
+                env: { ...process.env, XLIDE_WATCHER_PATH: watcherPath, XLIDE_CASE_PATH: casePath, XLIDE_TMP: tmp },
+            });
+            expect(run.error).toBeUndefined();
+            expect(run.status, run.stderr).toBe(0);
+            seen = JSON.parse(run.stdout.trim().split(/\r?\n/).pop() ?? '');
+        }, 70_000);
+
+        afterAll(() => { if (tmp) { fs.rmSync(tmp, { recursive: true, force: true }); } });
+
+        it('reads a served case from its request exactly as from a case file', () => {
+            expect(seen.requestSource).toBe(source);
+            expect(seen.fileSource).toBe(source);
+            expect(seen.requestModule).toBe('M\u00f6dule');
+        });
+
+        it('records a dialog in memory exactly as in its file, for its own case only', () => {
+            expect(seen.beforeDialog).toBeNull();
+            expect(seen.dialog).toMatchObject({
+                kind: 'vbe_compile_dialog',
+                title: 'Microsoft Visual Basic for Applications',
+                className: '#32770',
+            });
+            expect((seen.dialog as { message: string }).message).toMatch(/^Compile error:\s+Expected: end of statement$/);
+            expect(seen.dialog).toEqual(seen.file);
+            expect(seen.seen).toBe(true);
+            expect(seen.boxClosed).toBe(true);
+            expect(seen.stage).toBe('compile_dialog');
+            expect(seen.otherPath).toBe('A VBE dialog appeared but was not dismissed and recorded.');
+            expect(seen.otherPathMs as number).toBeLessThan(1000);
+            expect(seen.afterRestart).toBeNull();
+            expect(seen.seenAfterRestart).toBe(false);
+        });
+
+        it('stops a host it holds a handle to, and one it does not, the same way', () => {
+            for (const held of ['True', 'False']) {
+                expect(seen[`stop_${held}`], held).toEqual({ gone: true, exited: true, appPid: 0, handleReleased: true });
+            }
+        });
+    });
 });
