@@ -965,7 +965,7 @@ describe('analyzeModule - array Erase', () => {
 			'    Dim Flexible As Variant\n' +
 			'    Dim ImplicitVariant\n' +
 			'    Erase Values, FixedValues, Flexible, ImplicitVariant, UnknownValues\n' +
-			'    Erase Settings.Values, Values(1)\n' +
+			'    Erase Settings.Values, Flexible(1)\n' +
 			'End Sub\n';
 
 		expect(byCode(analyzeModule(src), 'erase-requires-array')).toHaveLength(0);
@@ -998,6 +998,230 @@ describe('analyzeModule - array Erase', () => {
 				'erase-requires-array',
 			),
 		).toHaveLength(0);
+	});
+
+	// `Erase a(1)` names one element, and Erase takes a whole array: "Expected
+	// array" in Excel, Word, PowerPoint and Access 16.0, for an element of an
+	// array whose elements are no Variant, and for a number or string given a
+	// subscript (erase_element_<host>_* oracle cases).
+	it('flags an Erase of one element of an array whose elements are no Variant', () => {
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'End Type\n' +
+			'Private ModuleValues(2) As Long\n' +
+			'Sub Main(p() As Long)\n' +
+			'    Dim a(2) As Long, d() As String, m(1, 1) As Object, u(2) As T, i As Long\n' +
+			'    Static s(2) As Collection\n' +
+			'    Dim t As T\n' +
+			'    Erase a(1), d(i), m(0, 1)\n' +
+			'    Erase u(1): Erase s(1) \' note\n' +
+			'10  Erase ModuleValues(1), p(1)\n' +
+			'    Erase a _\n' +
+			'        (1)\n' +
+			'    Erase t.x(1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'erase-requires-array');
+
+		// The Type member rule reports first.
+		expectDiagnostics(src, hits, 'erase-requires-array', [
+			{ span: 't.x(1)', message: ["Erase target 't.x(1)' is one element of the array member 't.x'", 'Expected array'] },
+			{ severity: 'error', span: 'a(1)', message: ["Erase target 'a(1)' is one element of the array 'a'", 'Expected array'] },
+			{ span: 'd(i)' },
+			{ span: 'm(0, 1)' },
+			{ span: 'u(1)' },
+			{ span: 's(1)' },
+			{ span: 'ModuleValues(1)' },
+			{ span: 'p(1)' },
+			{ span: 'a _\n        (1)', message: "Erase target 'a (1)'" },
+		]);
+	});
+
+	it('flags an Erase of a number, string, date or Boolean given a subscript', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim n As Long, s As String, d As Date, b As Boolean, x As Double, c As Currency\n' +
+			'    Erase n(1), s(1), d(1), b(1), x(1), c(1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'erase-requires-array');
+
+		expectDiagnostics(src, hits, 'erase-requires-array', [
+			{ span: 'n(1)', message: ["'n', which is declared As Long and is no array", 'Expected array'] },
+			{ span: 's(1)' },
+			{ span: 'd(1)' },
+			{ span: 'b(1)' },
+			{ span: 'x(1)' },
+			{ span: 'c(1)' },
+		]);
+	});
+
+	it('flags an Erase of an element of another module\'s array', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Erase SharedValues(1)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedValues(2) As Long\n' },
+		], 'Caller');
+
+		expectDiagnostic(caller, byCode(diagnostics, 'erase-requires-array'), 'erase-requires-array', { span: 'SharedValues(1)' });
+	});
+
+	it('flags an element named through With, of DefLng elements, with a type character, and with a member or operator in its subscript', () => {
+		const src =
+			'DefLng A-Z\n' +
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim a(2), n As Long, o As Object, t As T, b&(2)\n' +
+			'    Erase a(1), a(o.To), a(n + 1), a(-1), b&(1), b(1)\n' +
+			'    With t\n' +
+			'        Erase .x(1)\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expectDiagnostics(src, byCode(diagnostics, 'erase-requires-array'), 'erase-requires-array', [
+			{ span: '.x(1)', message: "Erase target 't.x(1)'" },
+			{ span: 'a(1)' },
+			{ span: 'a(o.To)' },
+			{ span: 'a(n + 1)' },
+			{ span: 'a(-1)' },
+			{ span: 'b&(1)' },
+			{ span: 'b(1)' },
+		]);
+		// The element is reported once, not also as an arbitrary expression.
+		expect(byCode(diagnostics, 'invalid-erase-target').map((hit) => spanText(src, hit))).toEqual(['.x(1)']);
+	});
+
+	it('keeps the dimension-count report beside the element report', () => {
+		// The VBE shows Wrong number of dimensions alone.
+		const src =
+			'Sub Main()\n' +
+			'    Dim a(2) As Long, m(1, 1) As Long\n' +
+			'    Erase a(1, 2), m(1)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, 'erase-requires-array').map((hit) => spanText(src, hit))).toEqual(['a(1, 2)', 'm(1)']);
+		expect(byCode(diagnostics, 'wrong-number-of-dimensions')).toHaveLength(2);
+	});
+
+	it('leaves an empty subscript and a named argument alone, on a variable and a member', () => {
+		// Syntax error and Named arguments not allowed in the VBE, measured as a(1,), a(,), a(x:=1),
+		// t.x(1,), t.x(,) and t.x(i:=1); a(,1) and n(1,) are the same shapes.
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim a(2) As Long, t As T, n As Long\n' +
+			'    Erase a(1,), a(,), a(,1), a(x:=1), n(1,)\n' +
+			'    Erase t.x(1,), t.x(,), t.x(i:=1)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'erase-requires-array')).toHaveLength(0);
+	});
+
+	it('reads a named argument inside a call in the subscript as part of the subscript', () => {
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim a(2) As Long, t As T\n' +
+			'    Erase a(F(x:=1)), t.x(F(x:=1))\n' +
+			'End Sub\n' +
+			'Function F(ByVal x As Long) As Long\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'erase-requires-array').map((hit) => spanText(src, hit))).toEqual(['t.x(F(x:=1))', 'a(F(x:=1))']);
+	});
+
+	it('leaves a fixed array member given another number of subscripts than its rank alone', () => {
+		// Wrong number of dimensions in the VBE, which no report here names.
+		const src =
+			'Private Type T\n' +
+			'    f(2) As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim t As T\n' +
+			'    Erase t.f(1, 2)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'erase-requires-array')).toHaveLength(0);
+	});
+
+	it('leaves the procedure\'s own name alone, which is a call there', () => {
+		const src =
+			'Function G(ByVal i As Long) As Long()\n' +
+			'    Erase G(1)\n' +
+			'End Function\n' +
+			'Property Get P(ByVal i As Long) As String\n' +
+			'    Erase P(1)\n' +
+			'End Property\n';
+
+		expect(byCode(analyzeModule(src), 'erase-requires-array')).toHaveLength(0);
+	});
+
+	it('quotes an array member\'s subscript as written, and keeps the existing report of its operator', () => {
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim t As T, n As Long\n' +
+			'    Erase t.x(n Mod 2)\n' +
+			'    Erase t.x(n + 1)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expectDiagnostics(src, byCode(diagnostics, 'erase-requires-array'), 'erase-requires-array', [
+			{ span: 't.x(n Mod 2)', message: "Erase target 't.x(n Mod 2)'" },
+			{ span: 't.x(n + 1)', message: "Erase target 't.x(n + 1)'" },
+		]);
+		// The arbitrary-expression check reads a member's subscript as before.
+		expect(byCode(diagnostics, 'invalid-erase-target').map((hit) => spanText(src, hit))).toEqual(['t.x(n + 1)']);
+	});
+
+	it('accepts an Erase of a Variant\'s element, a call, a member and a whole array', () => {
+		// Each compiles in the four hosts, except Erase G(1), a(1 To 2) and
+		// t.x(1 To 2), which the VBE refuses and this rule leaves alone.
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'    y() As Variant\n' +
+			'End Type\n' +
+			'Private a(2) As Long\n' +
+			'Sub Main(q As Variant)\n' +
+			'    Dim v As Variant, w(2) As Variant, z(2), o As Object, c As New Collection, t As T, u(2) As T\n' +
+			'    Erase v(1), w(1), z(1), q(1), o(1), c(1), o.x(1), F(1), G(1)\n' +
+			'    Erase t.y(1), u(1).x, t.x, a(), a\n' +
+			'    Erase a(1 To 2), t.x(1 To 2)\n' +
+			'End Sub\n' +
+			'Sub Shadowed()\n' +
+			'    Dim a As Variant\n' +
+			'    Erase a(1)\n' +
+			'End Sub\n' +
+			'Function F(ByVal i As Long) As Variant\n' +
+			'End Function\n' +
+			'Function G(ByVal i As Long) As Long\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'erase-requires-array')).toHaveLength(0);
+	});
+
+	it('leaves an Erase of an element in an inactive #If arm alone', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim a(2) As Long\n' +
+			'#If False Then\n' +
+			'    Erase a(1)\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'erase-requires-array')).toHaveLength(0);
 	});
 });
 
