@@ -55,6 +55,20 @@
 //  - redim-bound-array: an array variable as a ReDim bound, lower or upper,
 //    in parentheses or not, with Preserve or not, in any dimension, "Type
 //    mismatch". An element, UBound(a) and a Variant take.
+//
+// Measured in Excel, Word, PowerPoint and Access 16.0 (build 20527,
+// 2026-11-15) through the VBE oracle:
+//
+//  - statement-operand-type: a statement handed a variable of a type it
+//    refuses. Line Input # and the Mid statement write into a String or a
+//    Variant, and anything else, a whole array included, is "Type
+//    mismatch". Load and Unload take an object or a Variant, and a
+//    literal, a scalar, a user-defined type or a whole array is "Type
+//    mismatch". Get and Put refuse what is known to be an object and a
+//    user-defined type holding one at any depth, and Put refuses Nothing,
+//    "Can not Get or Put an object reference variable or a variable of
+//    user-defined type containing an object reference"; a whole array of
+//    objects takes.
 
 import { uncheckedAggregateOperators } from './typeMembers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
@@ -65,9 +79,9 @@ import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { ProjectTypeName } from '../../completion/typeCompletion';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
+import { defTypeOf, isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
-import { isFixedArrayField, moduleTypes, type ModuleTypes } from '../typeFields';
+import { fieldChain, isFixedArrayField, moduleTypes, variableRoot, type ModuleTypes } from '../typeFields';
 import {
 	absoluteSpan,
 	activeModuleMembers,
@@ -103,6 +117,10 @@ interface Context {
 	types: ModuleTypes;
 	/** The project's class, document and UserForm names. */
 	classes: ReadonlySet<string>;
+	/** Whether each module Type holds an object, as far as it has been read. */
+	holdsObject: Map<string, boolean | undefined>;
+	/** The Types and Enums this module declares, lowercased. */
+	ownTypes: ReadonlySet<string>;
 }
 
 export function checkStatementTypes(
@@ -124,6 +142,7 @@ export function checkStatementTypes(
 			enums.add(member.name.toLowerCase());
 		}
 	}
+	const ownTypes = new Set([...udts, ...enums]);
 	const classes = new Set<string>();
 	for (const type of projectTypes ?? []) {
 		if (type.kind === 'userType') {
@@ -145,6 +164,8 @@ export function checkStatementTypes(
 		untypedIsVariant: !/^[ \t]*Def(?:Bool|Byte|Int|Lng|LngLng|LngPtr|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)\b/im.test(source),
 		types: moduleTypes(source, mod, activity),
 		classes,
+		holdsObject: new Map(),
+		ownTypes,
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure' && procedureFilter && !procedureFilter(member)) { continue; }
@@ -461,6 +482,7 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 	checkTypeSuffixes(ctx, procSym, toks, span);
 	checkNamedArguments(ctx, procSym, toks, span);
 	checkMidTarget(ctx, procSym, toks, span);
+	checkOperandTypes(ctx, procSym, toks, span);
 	const first = tokenText(toks[0]);
 	if (first === 'return' && toks.length > 1 && toks[1].kind !== 'colon') {
 		ctx.push(
@@ -922,16 +944,25 @@ function checkNamedArguments(ctx: Context, procSym: VbaSymbol | undefined, toks:
 	}
 }
 
-/** `Mid$(S, 1, 1) = "x"` with S a Const. */
-function checkMidTarget(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+/** The index of the `(` after a statement's Mid or MidB, with `$` or not; undefined for another statement. */
+function midStatementOpen(toks: readonly VbaToken[]): number | undefined {
 	const head = tokenText(toks[0]);
 	if (head !== 'mid' && head !== 'midb') {
-		return;
+		return undefined;
 	}
 	const open = toks[1]?.rawText === '$' ? 2 : 1;
+	return toks[open]?.rawText === '(' ? open : undefined;
+}
+
+/** `Mid$(S, 1, 1) = "x"` with S a Const. */
+function checkMidTarget(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	const open = midStatementOpen(toks);
+	if (open === undefined) {
+		return;
+	}
 	const target = toks[open + 1];
 	const name = target ? tokenName(target) : undefined;
-	if (toks[open]?.rawText !== '(' || !name || toks[open + 2]?.rawText !== ',') {
+	if (!name || toks[open + 2]?.rawText !== ',') {
 		return;
 	}
 	let depth = 0;
@@ -942,6 +973,264 @@ function checkMidTarget(ctx: Context, procSym: VbaSymbol | undefined, toks: read
 				variableRequired(ctx, name, absoluteSpan(span, target!));
 			}
 			return;
+		}
+	}
+}
+
+/** A variable, an element of one or a field reached from one, by its declared type. */
+interface Operand {
+	/** What it holds; 'array' for a whole array. */
+	kind: Category | 'array';
+	/** What each element holds, for a whole array. */
+	elementKind?: Category;
+	/** The module Type it is a value of, lowercased, when its fields are this module's to read. */
+	type?: string;
+	/** The declared type as written, for a message. */
+	typeName: string;
+	/** Known to hold an object reference: an Object, a Collection, a class of the project, a variable declared As New. */
+	object: boolean;
+}
+
+/**
+ * What a declared type is, as `category` reads a variable's, and whether it
+ * is known to be an object. A type name no scalar or Type claims is called a
+ * class there, and is one here only when known: a library's Enum, such as
+ * VbMsgBoxResult, is no object. `type` is its name, lowercased, unless it is
+ * qualified by another module, `Module2.T1`, or `owned` says the declaration
+ * is another module's, whose Types this module cannot read. Such a name that
+ * this module also gives a Type or Enum of its own is not known at all:
+ * Module2's Enum T1 is no Type, though this module's T1 is one.
+ */
+function typeOf(ctx: Context, written: string, owned: boolean): { kind: Category | undefined; type: string | undefined; object: boolean } {
+	const dot = written.lastIndexOf('.');
+	const bare = written.slice(dot + 1).trim();
+	const qualifier = dot < 0 ? undefined : written.slice(0, dot).trim().toLowerCase();
+	const lower = bare.toLowerCase();
+	const ownModule = qualifier === ctx.symbols.moduleName.toLowerCase();
+	if ((qualifier === undefined ? !owned : !ownModule) && ctx.ownTypes.has(lower)) {
+		return { kind: undefined, type: undefined, object: false };
+	}
+	const kind = category(ctx, { asType: bare, isArray: false } as VbaSymbol);
+	const object = kind === 'object' || (kind === 'class' && ((lower === 'collection' && (qualifier === undefined || qualifier === 'vba')) || (qualifier === undefined && ctx.classes.has(lower))));
+	return { kind, type: ownModule || (owned && qualifier === undefined) ? normalizeType(bare) : undefined, object };
+}
+
+/**
+ * What `toks` name when they are exactly a variable, `s` or `s$`, an element
+ * of an array variable, `a(1)`, or a field of a module Type reached from one,
+ * `t.n`, `ts(1).t.o`. Anything else, an expression or a call, is undefined.
+ */
+function operandOf(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[]): Operand | undefined {
+	const name = toks[0] ? tokenName(toks[0]) : undefined;
+	const variable = name && toks[0].kind !== 'keyword' ? variableNamed(ctx, procSym, name) : undefined;
+	if (!variable) {
+		return undefined;
+	}
+	const owned = variable.moduleName.toLowerCase() === ctx.symbols.moduleName.toLowerCase();
+	// No type and no type character: the module's DefType lines decide. A
+	// ParamArray they would type is refused where it is declared, "ParamArray
+	// must be declared as an array of Variant", and is read as one here.
+	const declared = variable.asType
+		?? (ctx.untypedIsVariant || variable.paramArray ? 'Variant' : owned ? defTypeOf(ctx.symbols, variable.name) ?? 'Variant' : undefined);
+	// A type character glued to the name, `s$`. One that names another type
+	// than the declaration is type-suffix-mismatch's.
+	const suffix = toks.length === 2 && toks[1].start === toks[0].end ? SUFFIX_TYPES[toks[1].rawText] : undefined;
+	if (declared === undefined || (suffix !== undefined && suffix !== normalizeType(declared))) {
+		return undefined;
+	}
+	// A fixed-length String, `s As String * 3`, is a String.
+	const value = (isArray: boolean, written: string, fixedLength: boolean, autoInstance: boolean): Operand | undefined => {
+		const read = fixedLength ? { kind: 'string' as const, type: undefined, object: false } : typeOf(ctx, written, owned);
+		const typeName = fixedLength ? 'String' : written;
+		if (isArray) {
+			return { kind: 'array', elementKind: read.kind, type: read.type, typeName, object: false };
+		}
+		return read.kind ? { kind: read.kind, type: read.type, typeName, object: read.object || autoInstance } : undefined;
+	};
+	const fixed = variable.fixedLength !== undefined;
+	const autoInstance = variable.isAutoInstantiated === true;
+	if (toks.length === 1 || suffix !== undefined) {
+		return value(variable.isArray === true, declared, fixed, autoInstance);
+	}
+	// Inside a procedure, its own name followed by anything is not read: with
+	// arguments, `Fo(1)` in `Function Fo(i As Long) As Object()`, it is a
+	// call, not an element of its result; nor is a member, `Ft.o`, followed.
+	if (procSym && variable.name.toLowerCase() === procSym.name.toLowerCase()) {
+		return undefined;
+	}
+	const close = variable.isArray && toks[1].rawText === '(' ? matchParenFrom(toks, 1) : -1;
+	if (close === toks.length - 1) {
+		// `a()` with nothing between the parentheses is the whole array.
+		return value(close === 2, declared, fixed, autoInstance);
+	}
+	// The fields of a Type of another module are not known here, even where
+	// this module has a Type of the same name.
+	const root = typeOf(ctx, declared, owned).type === undefined ? undefined : variableRoot(toks, 0, variable, ctx.types);
+	const steps = root ? fieldChain(toks, root, ctx.types) : [];
+	const last = steps.at(-1);
+	if (!last || (last.close ?? last.at) !== toks.length - 1 || steps.slice(0, -1).some((step) => typeOf(ctx, step.field.typeName ?? 'Variant', true).type === undefined)) {
+		return undefined;
+	}
+	// A field with no As is a Variant, whatever the DefType lines say.
+	const { field } = last;
+	const whole = field.isArray && (last.open === undefined || last.close === last.open + 1);
+	return value(whole, field.typeName ?? 'Variant', field.fixedLength !== undefined, false);
+}
+
+/**
+ * Whether a value of the module Type holds an object at any depth, an array
+ * field counting as its elements: `oa(2) As Object` holds objects. Undefined
+ * when a member's type is not known.
+ */
+function typeHoldsObject(ctx: Context, type: string): boolean | undefined {
+	const fields = ctx.types.get(type);
+	// Each Type is read once; one met again while it is being read, `x As A`
+	// inside Type A, is unknown.
+	if (!fields || ctx.holdsObject.has(type)) {
+		return ctx.holdsObject.get(type);
+	}
+	ctx.holdsObject.set(type, undefined);
+	let result: boolean | undefined = false;
+	for (const field of fields.values()) {
+		const read = field.fixedLength !== undefined ? { kind: 'string', type: undefined, object: false } : typeOf(ctx, field.typeName ?? 'Variant', true);
+		const nested = read.kind === 'udt' && read.type ? typeHoldsObject(ctx, read.type) : undefined;
+		if (read.object || nested === true) {
+			result = true;
+			break;
+		}
+		if (read.kind === undefined || (read.kind === 'class' && !read.object) || (read.kind === 'udt' && nested === undefined)) {
+			result = undefined;
+		}
+	}
+	ctx.holdsObject.set(type, result);
+	return result;
+}
+
+/**
+ * Whether a name the module can see takes the statement's place: `Sub
+ * Unload(a)` in it or a Public one in another module; another module's
+ * Private one is not seen. No name takes the Mid statement's: with
+ * `Function Mid(a, b)` or `Dim Mid As Variant`, `Mid(n, 1) = "x"` is still
+ * the statement.
+ */
+function isProjectName(ctx: Context, procSym: VbaSymbol | undefined, name: string): boolean {
+	return sourceIdentifierBinding(ctx.symbols, procSym, ctx.projectVisibleSymbols, name, 'call').scope !== 'unresolved';
+}
+
+/** The parts of `toks` from `start` to `end`, split at the commas outside parentheses. */
+function topLevelParts(toks: readonly VbaToken[], start: number, end: number): VbaToken[][] {
+	const parts: VbaToken[][] = [[]];
+	let depth = 0;
+	for (let i = start; i < end; i++) {
+		const raw = toks[i].rawText;
+		depth += raw === '(' ? 1 : raw === ')' ? -1 : 0;
+		if (depth === 0 && raw === ',') {
+			parts.push([]);
+		} else {
+			parts[parts.length - 1].push(toks[i]);
+		}
+	}
+	return parts;
+}
+
+function describe(operand: Operand): string {
+	return operand.kind === 'array' ? 'an array' : `declared As ${operand.typeName}`;
+}
+
+function isLiteral(tok: VbaToken | undefined): boolean {
+	return !!tok && (tok.kind === 'stringLiteral' || tok.kind === 'integerLiteral' || tok.kind === 'floatLiteral' || tok.kind === 'dateLiteral'
+		|| tokenText(tok) === 'true' || tokenText(tok) === 'false');
+}
+
+/** The statement words this rule reads: Line Input, Mid, MidB, Load, Unload, Get and Put. */
+const OPERAND_STATEMENTS: ReadonlySet<string> = new Set(['line', 'mid', 'midb', 'load', 'unload', 'get', 'put']);
+
+/**
+ * `Line Input #f, n` and `Mid(n, 1) = "x"` with n a Long, `Unload "x"`,
+ * `Put #f, , o` with o an object: an operand of a type the statement
+ * refuses (statement-operand-type).
+ */
+function checkOperandTypes(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	const head = tokenText(toks[0]);
+	if (!OPERAND_STATEMENTS.has(head)) {
+		return;
+	}
+	const end = toks.findIndex((tok) => tok.kind === 'colon' || tok.kind === 'comment');
+	const stmt = end < 0 ? toks : toks.slice(0, end);
+	const report = (operand: readonly VbaToken[], message: string): void => {
+		ctx.push('statementOperandType', message, { start: span.start + operand[0].start, end: span.start + operand[operand.length - 1].end });
+	};
+	const display = (operand: readonly VbaToken[]): string => operand.map((tok) => tok.rawText).join('');
+	const stringTarget = (operand: readonly VbaToken[], statement: string, verb: string, typeReported: boolean): void => {
+		const target = operand.length > 0 ? operandOf(ctx, procSym, operand) : undefined;
+		if (target && target.kind !== 'string' && target.kind !== 'variant' && !(typeReported && target.kind === 'udt' && operand.length === 1)) {
+			report(operand, `${statement} ${verb} a String or a Variant, and '${display(operand)}' is ${describe(target)}. This is a VBE compile error: Type mismatch.`);
+		}
+	};
+
+	if (head === 'line' && tokenText(stmt[1]) === 'input' && stmt[2]?.rawText === '#') {
+		const parts = topLevelParts(stmt, 3, stmt.length);
+		if (parts.length === 2) {
+			stringTarget(parts[1], 'Line Input #', 'reads a line into', false);
+		}
+		return;
+	}
+	const midOpen = midStatementOpen(stmt);
+	if (midOpen !== undefined) {
+		const close = matchParenFrom(stmt, midOpen);
+		if (close < 0 || stmt[close + 1]?.rawText !== '=') {
+			return;
+		}
+		const parts = topLevelParts(stmt, midOpen + 1, close);
+		if (parts.length >= 2 && parts.length <= 3) {
+			// A Type variable as the target is udt-variant-coercion's, which reads
+			// it as the Mid function's argument.
+			stringTarget(parts[0], 'The Mid statement', 'writes into', true);
+		}
+		// The value goes into a String, which a Type cannot (udt-value-mismatch).
+		const value = stmt.slice(close + 2);
+		if (value.length > 0 && operandOf(ctx, procSym, value)?.kind === 'udt') {
+			udtMismatch(ctx, display(value), { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
+		}
+		return;
+	}
+	if ((head === 'load' || head === 'unload') && stmt.length > 1 && !isProjectName(ctx, procSym, stmt[0].rawText)) {
+		const operand = stmt.slice(1);
+		if (['.', '!', '=', '('].includes(operand[0].rawText) && !(operand[0].rawText === '(' && matchParenFrom(operand, 0) === operand.length - 1)) {
+			return;
+		}
+		// Grouping parentheses make a value of what they hold: `Unload (n)`.
+		const inner = operand[0].rawText === '(' ? operand.slice(1, -1) : operand;
+		const literal = (inner.length === 1 && isLiteral(inner[0])) || (inner.length === 2 && inner[0].rawText === '-' && isLiteral(inner[1]));
+		const target = literal ? undefined : operandOf(ctx, procSym, inner);
+		// A whole array is no object, even one of objects.
+		if (literal || (target && target.kind !== 'variant' && target.kind !== 'object' && target.kind !== 'class')) {
+			const word = head === 'load' ? 'Load' : 'Unload';
+			report(operand, `${word} takes an object, such as a UserForm, and '${display(operand)}' is ${literal ? 'a literal' : describe(target!)}. This is a VBE compile error: Type mismatch.`);
+		}
+		return;
+	}
+	if ((head === 'get' || head === 'put') && stmt[1]?.rawText === '#') {
+		const parts = topLevelParts(stmt, 2, stmt.length);
+		const operand = parts[2];
+		if (parts.length !== 3 || operand.length === 0) {
+			return;
+		}
+		const word = head === 'get' ? 'Get' : 'Put';
+		const message = (what: string): string => `${word} cannot ${head === 'get' ? 'read into' : 'write'} an object, and '${display(operand)}' is ${what}. This is a VBE compile error: Can not Get or Put an object reference variable or a variable of user-defined type containing an object reference.`;
+		if (head === 'put' && operand.length === 1 && tokenText(operand[0]) === 'nothing') {
+			report(operand, message('an object reference'));
+			return;
+		}
+		const target = operandOf(ctx, procSym, operand);
+		if (!target) {
+			return;
+		}
+		const elementKind = target.kind === 'array' ? target.elementKind : target.kind;
+		if (target.object) {
+			report(operand, message(describe(target)));
+		} else if (elementKind === 'udt' && target.type && typeHoldsObject(ctx, target.type)) {
+			report(operand, message(`${target.kind === 'array' ? 'an array of' : 'declared As'} ${target.typeName}, a user-defined type holding an object`));
 		}
 	}
 }

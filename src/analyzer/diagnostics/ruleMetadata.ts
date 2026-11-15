@@ -2179,6 +2179,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'VBE "Type mismatch" on LSet between two user-defined types (issue #253, Excel 16.0); "LSet allowed only on strings and user-defined types" and "RSet allowed only on strings" (issue #451, Excel 16.0)',
 		confidence: 'high',
 	},
+	statementOperandType: {
+		code: 'statement-operand-type',
+		title: 'Statement operand of a type the statement refuses',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Type mismatch" on Line Input #, Mid, Load and Unload, and "Can not Get or Put an object reference variable or a variable of user-defined type containing an object reference" (Excel, Word, PowerPoint and Access 16.0)',
+		confidence: 'high',
+	},
 	udtVariantCoercion: {
 		code: 'udt-variant-coercion',
 		title: 'User-defined type handed to a Variant',
