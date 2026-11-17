@@ -116,7 +116,7 @@ describe('VBE oracle worker', () => {
         const coordinator = readOracle('run_vbe_oracle.mjs');
 
         expect(coordinator).toContain("const RESULT_PREFIX = 'XLIDE-ORACLE-RESULT ';");
-        expect(coordinator).toContain("'-Serve'");
+        expect(coordinator).toContain('& $env:XLIDE_ORACLE_WORKER -Serve -CasesPerInstance ');
         expect(worker).toContain('[Console]::Out.WriteLine("XLIDE-ORACLE-RESULT " + (Write-ResultJson $output[-1]))');
     });
 
