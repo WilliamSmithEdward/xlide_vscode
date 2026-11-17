@@ -26,7 +26,7 @@ import { fieldChain, isFixedArrayField, isLeadingDot, moduleTypes, typeKey, type
 import { typeMemberStatesAt, type MemberStatesAt } from '../typeMemberState';
 import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType } from '../typeInference';
 import { activeModuleMembers, isInactiveNode, matchParenFrom, statementTokens, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
-import { moduleOptionBase } from './arrays';
+import { moduleOptionBase, redimTargetBounds } from './arrays';
 
 const NOT_SET = `This will raise Run-time error '91': Object variable or With block variable not set.`;
 
@@ -466,7 +466,8 @@ function checkResizes(
 		}
 		const group = toks.slice(from, i).filter((tok) => tok.kind !== 'comment');
 		from = i + 1;
-		if (group.length === 0) {
+		// A ReDim target without bounds is a Syntax error, which the ReDim target rule reports.
+		if (group.length === 0 || (head === 'redim' && redimTargetBounds(group).missing)) {
 			continue;
 		}
 		const at = (last: VbaToken): Span => ({ start: span.start + group[0].start, end: span.start + last.end });
@@ -493,8 +494,27 @@ function checkResizes(
 			push('scalarRedim', `ReDim target '${step.display}' must be an array or Variant, but it is declared As ${step.field.typeName}. This is a VBE compile error: Expected array.`, at(group[step.at]));
 		} else if (head === 'erase' && notArray && step.at === group.length - 1) {
 			push('eraseRequiresArray', `Erase target '${step.display}' must be an array or Variant, but it is declared As ${step.field.typeName}. This is a VBE compile error: Expected array.`, at(group[step.at]));
+		} else if (head === 'erase' && step.field.isArray && step.open !== undefined && step.close === group.length - 1 && step.close > step.open + 1
+			&& step.field.type !== undefined && normalizeType(step.field.type) !== 'variant'
+			&& !group.slice(step.open + 1, step.close).some((tok, i, inner) => (tokenText(tok) === 'to' && inner[i - 1]?.rawText !== '.' && inner[i - 1]?.rawText !== '!')
+				|| (tok.rawText === ':=' && depthAt(inner, 0, i) === 0))
+			&& !group.slice(step.open + 1, step.close).some((tok, i, inner) => tok.rawText === ',' && depthAt(inner, 0, i) === 0
+				&& (i === 0 || i === inner.length - 1 || inner[i + 1].rawText === ','))
+			&& (!step.field.dims || step.field.dims.length === subscriptCount(group.slice(step.open + 1, step.close)))) {
+			// `Erase t.x(1)` names one element of an array member whose elements are no Variant (measured in the four
+			// hosts). Left to the VBE: `Erase t.x(1 To 2)`, a Syntax error, and `Erase t.f(1, 2)` with `f(2)`, Wrong
+			// number of dimensions; and, as on a variable, an empty subscript, `(1,)`, or a named argument, `(i:=1)`.
+			// The subscript as written, a space inside it where the source has one.
+			const element = step.display + group.slice(step.open, step.close + 1)
+				.map((tok, i, all) => (i > 0 && tok.start > all[i - 1].end ? ' ' : '') + tok.rawText).join('');
+			push('eraseRequiresArray', `Erase target '${element}' is one element of the array member '${step.display}', and Erase takes the whole array, as in Erase ${step.display}. This is a VBE compile error: Expected array.`, at(group[step.close]));
 		}
 	}
+}
+
+/** How many subscripts the tokens inside a pair of parentheses hold: `1, 2` holds two. */
+function subscriptCount(inner: readonly VbaToken[]): number {
+	return inner.filter((tok, i) => tok.rawText === ',' && depthAt(inner, 0, i) === 0).length + 1;
 }
 
 /** The parenthesis depth at `index`, counting from `from`. */

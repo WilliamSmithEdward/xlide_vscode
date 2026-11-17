@@ -128,6 +128,7 @@ jobs:
           tests/oracle/vbeOracleStartup.test.ts
           tests/oracle/vbeOracleKnownCrash.test.ts
           tests/oracle/vbeOracleChanged.test.ts
+          tests/oracle/vbeOracleTelemetry.test.ts
 
   # The one check branch protection requires: it passes only when every job
   # above did, so jobs can be added or renamed without touching the rules.

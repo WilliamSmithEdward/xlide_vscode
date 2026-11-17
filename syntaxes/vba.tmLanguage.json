@@ -7,6 +7,7 @@
     { "include": "#line-continuation" },
     { "include": "#comments" },
     { "include": "#attributes" },
+    { "include": "#type-blocks" },
     { "include": "#directives" },
     { "include": "#strings" },
     { "include": "#numbers" },
@@ -23,8 +24,42 @@
   ],
   "repository": {
     "line-continuation": {
+      "comment": "A line continuation. The match starts only at the first blank of a run, so a long run of blanks is not searched again from every blank",
       "name": "punctuation.separator.continuation.vba",
-      "match": "\\s+_[ \\t]*$"
+      "match": "(?<!\\s)\\s+_[ \\t]*$"
+    },
+    "type-blocks": {
+      "comment": "A Type block, so that a field named like a keyword (Next As Long, Sub As Long) is read as a name, as the VBE shows it in every host (MS-VBAL 5.2.3.3). Rem As Long stays a comment. A Type left without End Type ends at the next procedure or declaration",
+      "begin": "(?i)^\\s*((?:Public|Private|Global)\\s+)?(Type)\\s+(?!As\\b)([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+      "beginCaptures": {
+        "1": { "name": "storage.modifier.vba" },
+        "2": { "name": "storage.type.vba" },
+        "3": { "name": "entity.name.type.vba" }
+      },
+      "end": "(?i)(?:^\\s*|(?<=:)\\s*)(End)\\s+(Type)\\b|(?=^\\s*(?:(?:Public|Private|Friend|Global|Static)\\s+)*(?:Sub|Function|Property|Enum|Declare|Event)\\s+(?!As\\b)[\\p{L}_])",
+      "endCaptures": {
+        "1": { "name": "keyword.control.end.vba" },
+        "2": { "name": "keyword.control.end.vba" }
+      },
+      "patterns": [
+        {
+          "comment": "A field: a name and As, at the start of a line or after a colon",
+          "match": "(?i)(?:^|(?<=:))\\s*(?!Rem\\b)([\\p{L}_][\\p{L}\\p{M}0-9_]*)(?=\\s+As\\b)",
+          "captures": {
+            "1": { "name": "variable.other.vba" }
+          }
+        },
+        {
+          "comment": "A second header, as in #If Win64 Then / Private Type Rec / #Else / Private Type Rec / #End If, does not open a block inside this one",
+          "match": "(?i)^\\s*((?:Public|Private|Global)\\s+)?(Type)\\s+(?!As\\b)([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" },
+            "2": { "name": "storage.type.vba" },
+            "3": { "name": "entity.name.type.vba" }
+          }
+        },
+        { "include": "$self" }
+      ]
     },
     "comments": {
       "patterns": [
@@ -83,8 +118,8 @@
               "match": "(?i)\\b(?:True|False|Nothing|Null|Empty)\\b"
             },
             {
-              "comment": "Then and the operators the VBE was measured showing as keywords in a directive (MS-VBAL 5.6.16.2), with the scopes they have outside one. Xor, Eqv, Imp, Mod and Like were not measured there, so they keep the directive scope",
-              "match": "(?i)\\b(?:(Then)|(And|Or|Not)|(Is))\\b",
+              "comment": "Then and the operators, which the VBE shows as keywords in a directive too (MS-VBAL 5.6.16.2), with the scopes they have outside one",
+              "match": "(?i)\\b(?:(Then)|(And|Or|Not|Xor|Eqv|Imp|Mod|Like)|(Is))\\b",
               "captures": {
                 "1": { "name": "keyword.control.vba" },
                 "2": { "name": "keyword.other.operator.vba" },
@@ -134,8 +169,8 @@
     "numbers": {
       "patterns": [
         {
-          "comment": "A number with Rem glued to it, as the VBE stores a Rem after a statement in a single-line If (b = 1Rem n): no word boundary separates the number from Rem, so the Rem comment rule cannot start there",
-          "begin": "(?i)(?<![\\p{L}\\p{M}0-9_])(?:(&H[0-9A-F]+)|(&O[0-7]+)|([0-9]+\\.[0-9]+(?:[de][+-]?[0-9]+)?|\\.[0-9]+(?:[de][+-]?[0-9]+)?|[0-9]+[de][+-]?[0-9]+)|([0-9]+))(Rem)\\b",
+          "comment": "A number with Rem glued to it, as the VBE stores a Rem after a statement in a single-line If (b = 1Rem n, b = 1!Rem n, b = 1.Rem n): no word boundary separates the number from Rem, and a name after ! or . is a member, so the Rem comment rule cannot start there",
+          "begin": "(?i)(?<![\\p{L}\\p{M}0-9_])(?:(&H[0-9A-F]+)|(&O[0-7]+)|((?:[0-9]+\\.[0-9]+(?:[de][+-]?[0-9]+)?|\\.[0-9]+(?:[de][+-]?[0-9]+)?|[0-9]+\\.(?:[de][+-]?[0-9]+)?|[0-9]+[de][+-]?[0-9]+)!?|[0-9]+!)|([0-9]+))(Rem)\\b",
           "beginCaptures": {
             "1": { "name": "constant.numeric.hex.vba" },
             "2": { "name": "constant.numeric.octal.vba" },
@@ -189,24 +224,26 @@
     "procedures": {
       "patterns": [
         {
-          "comment": "Sub / Function declaration - captures visibility, Static, keyword, and name",
-          "match": "(?i)^\\s*((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+          "comment": "Sub / Function declaration - captures visibility, Static, keyword, and name. Static may come before the visibility too (Static Public Sub), which the VBE accepts and stores as Public Static Sub",
+          "match": "(?i)^\\s*(?:(Static)\\s+(?=(?:Public|Private|Friend|Global)\\s))?((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
-            "1": { "name": "storage.modifier.vba" },
-            "2": { "name": "storage.modifier.static.vba" },
-            "3": { "name": "storage.type.function.vba" },
-            "4": { "name": "entity.name.function.vba" }
+            "1": { "name": "storage.modifier.static.vba" },
+            "2": { "name": "storage.modifier.vba" },
+            "3": { "name": "storage.modifier.static.vba" },
+            "4": { "name": "storage.type.function.vba" },
+            "5": { "name": "entity.name.function.vba" }
           }
         },
         {
-          "comment": "Property Get / Let / Set declaration",
-          "match": "(?i)^\\s*((?:Public|Private|Friend)\\s+)?(?:(Static)\\s+)?(Property)\\s+(Get|Let|Set)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+          "comment": "Property Get / Let / Set declaration, with Static before or after the visibility as for Sub and Function",
+          "match": "(?i)^\\s*(?:(Static)\\s+(?=(?:Public|Private|Friend)\\s))?((?:Public|Private|Friend)\\s+)?(?:(Static)\\s+)?(Property)\\s+(Get|Let|Set)\\s+([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
           "captures": {
-            "1": { "name": "storage.modifier.vba" },
-            "2": { "name": "storage.modifier.static.vba" },
-            "3": { "name": "storage.type.property.vba" },
+            "1": { "name": "storage.modifier.static.vba" },
+            "2": { "name": "storage.modifier.vba" },
+            "3": { "name": "storage.modifier.static.vba" },
             "4": { "name": "storage.type.property.vba" },
-            "5": { "name": "entity.name.function.property.vba" }
+            "5": { "name": "storage.type.property.vba" },
+            "6": { "name": "entity.name.function.property.vba" }
           }
         },
         {
@@ -284,9 +321,9 @@
     "constants": {
       "patterns": [
         {
-          "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords (MS-VBAL 3.3.5.2), except as a Type field's name (True As Long), where it shows a name",
+          "comment": "True, False, Nothing, Null and Empty, which the VBE shows as keywords (MS-VBAL 3.3.5.2), except as a Type field's name (True As Long), where it shows a name. An array field so named (True(1 To 2) As Long) is an error line, so the rule does not look past parentheses, so that a line of True( is not searched to its end from every True",
           "name": "keyword.other.literal.vba",
-          "match": "(?i)\\b(True|False|Nothing|Null|Empty)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b)"
+          "match": "(?i)\\b(True|False|Nothing|Null|Empty)\\b(?!\\s*As\\b)"
         }
       ]
     },
@@ -443,9 +480,9 @@
       "comment": "reserved-name identifiers (section 3.3.5.2 MS-VBAL) that the VBE shows as keywords",
       "patterns": [
         {
-          "comment": "The conversions, LBound, UBound and Debug, which the VBE shows as keywords in every host, though MS-VBAL 3.3.5.2 lists them with Abs, Int and Len, which it shows as names. Not as a Type field's name (CStr As Long), nor as a label (CStr:), whose colour was not measured",
+          "comment": "The conversions, LBound, UBound and Debug, which the VBE shows as keywords in every host, though MS-VBAL 3.3.5.2 lists them with Abs, Int and Len, which it shows as names. Not as a Type field's name (CStr As Long), nor as a label (CStr:), whose colour was not measured. An array field so named (CStr(1 To 2) As Long) is an error line, so the rule does not look past parentheses, so that a line of CStr( is not searched to its end from every CStr",
           "name": "keyword.other.vba",
-          "match": "(?i)\\b(CBool|CByte|CCur|CDate|CDbl|CInt|CLng|CLngLng|CLngPtr|CSng|CStr|CVar|CVErr|LBound|UBound|Debug)\\b(?!\\s*(?:\\([^)\\n]*\\)\\s*)?As\\b|\\s*:(?!=))"
+          "match": "(?i)\\b(CBool|CByte|CCur|CDate|CDbl|CInt|CLng|CLngLng|CLngPtr|CSng|CStr|CVar|CVErr|LBound|UBound|Debug)\\b(?!\\s*As\\b|\\s*:(?!=))"
         }
       ]
     },
@@ -457,9 +494,9 @@
     "identifiers": {
       "patterns": [
         {
-          "comment": "Foreign name: [Identifier With Spaces]",
+          "comment": "Foreign name: [Identifier With Spaces]. A [ inside one is a syntax error in Excel, Word, PowerPoint and Access, and leaving it out keeps a long run of [ from being searched again from every [",
           "name": "variable.other.foreign.vba",
-          "match": "\\[[^\\]\\n]+\\]"
+          "match": "\\[[^\\[\\]\\n]+\\]"
         },
         {
           "comment": "Ordinary identifier",

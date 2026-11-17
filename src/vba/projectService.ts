@@ -41,7 +41,7 @@ import {
 	parseFormFrx,
 } from './formDesigner';
 import { NoVbaProjectError, openMacroContainer, type AccessContainerDesign, type MacroContainer } from './macroContainer';
-import { sheetsOfBiff, type WorkbookSheet } from './workbookSheets';
+import { sheetsOfBiff, xlsbSheetControls, type WorkbookSheet } from './workbookSheets';
 import { ZipArchive } from './zip';
 import {
 	AccessVbaWriter,
@@ -74,7 +74,7 @@ import {
 } from './vbaProject';
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
 import type { ShapeEdit, ShapeInfo } from './shapes';
-import { editSlideShape, listSlideShapes, presentationSlides, requireSlide } from './pptShapes';
+import { editSlideShape, listSlideShapes, presentationSlides, requireSlide, slideControlNames, slideModuleParts, slidePartsById } from './pptShapes';
 import {
 	WORD_SHAPE_MACRO_REFUSAL,
 	defaultStory,
@@ -959,7 +959,7 @@ export function listModules(filePath: string): ModuleEntry[] {
 	}
 	const { container, cfb, project } = open;
 	const entries = project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
-	return withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, entries, project.codePage)));
+	return withSlideControls(container, withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, entries, project.codePage))));
 }
 
 /**
@@ -1166,51 +1166,63 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 	if (sheets && out.length > 0) {
 		out[0].projectSheets = sheets;
 	}
-	return withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, out, project.codePage, constants)));
+	return withSlideControls(container, withDocumentControls(container, project, withSheetControls(container, withHostDesigns(container, out, project.codePage, constants))));
 }
 
 /**
  * A worksheet's module, with what the workbook says about it and its text
  * never does: it is a Worksheet, and each ActiveX control on the sheet is a
- * member of it (issue #225). Read from the OOXML package only; a chart sheet,
- * a legacy .xls and a sheet with no code name are left as they were.
+ * member of it (issue #225). Read from the sheet parts of an OOXML package:
+ * the XML parts of an .xlsm, or the binary parts of an .xlsb (issue #1555),
+ * which keep the controls when a save with ActiveX disabled drops them from
+ * the module's header. A chart sheet, a legacy .xls and a sheet with no code
+ * name are left as they were.
  */
 function withSheetControls(container: MacroContainer, entries: ModuleEntry[]): ModuleEntry[] {
-	if (container.kind !== 'excel' || !container.xlsx?.hasSheetSurface()) {
+	const byCodeName = container.kind === 'excel' && container.xlsx ? sheetControlsOf(container.xlsx) : undefined;
+	if (!byCodeName) {
 		return entries;
 	}
-	let sheets: ReturnType<typeof container.xlsx.shapes>;
-	try {
-		sheets = container.xlsx.shapes();
-	} catch {
-		return entries;
-	}
-	const byCodeName = new Map(sheets.flatMap((sheet) => (sheet.codeName ? [[sheet.codeName.toLowerCase(), sheet] as const] : [])));
 	return entries.map((entry) => {
-		const sheet = entry.type === 'document' ? byCodeName.get(entry.name.toLowerCase()) : undefined;
-		if (!sheet || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
+		const controls = entry.type === 'document' ? byCodeName.get(entry.name.toLowerCase()) : undefined;
+		if (!controls || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
 			return entry;
 		}
-		const controls = sheet.shapes.filter((shape) => shape.kind === 'activeX' && shape.name !== '');
 		return {
 			...entry,
 			designerClass: 'Excel.Worksheet',
 			// Typed Object: a control on a sheet answers to its OLEObject's
 			// members as well as its own, which no list here holds.
-			implicitMembers: controls.map((shape) => ({ name: shape.name, type: 'Object' })),
+			implicitMembers: controls.map((name) => ({ name, type: 'Object' })),
 		};
 	});
+}
+
+/** The ActiveX controls on each worksheet, by code name; undefined when the package cannot say. */
+function sheetControlsOf(xlsx: XlsxWorkbook): Map<string, string[]> | undefined {
+	try {
+		if (!xlsx.hasSheetSurface()) {
+			return xlsx.zipArchive().has('xl/workbook.bin') ? xlsbSheetControls(xlsx.zipArchive()) : undefined;
+		}
+		return new Map(xlsx.shapes().flatMap((sheet) => (sheet.codeName
+			? [[sheet.codeName.toLowerCase(), sheet.shapes.filter((shape) => shape.kind === 'activeX' && shape.name !== '').map((shape) => shape.name)] as const]
+			: [])));
+	} catch {
+		return undefined;
+	}
 }
 
 /** The host class a document module with controls is, for the hosts whose controls the module lists. */
 const CONTROL_HOST_CLASSES: Partial<Record<MacroContainer['kind'], string>> = {
 	word: 'Word.Document',
 	powerpoint: 'PowerPoint.Slide',
+	excel: 'Excel.Worksheet',
 };
 
 /**
- * A Word document's module, or a PowerPoint slide's, with the ActiveX
- * controls on it as its members, typed Object (issue #1481, measured in Word,
+ * A Word document's module, a PowerPoint slide's, or an Excel sheet's that
+ * the sheet's XML part did not describe, with the ActiveX controls on it
+ * as its members, typed Object (issue #1481, measured in Word,
  * Excel and PowerPoint 16.0 with ActiveX enabled): `CommandButton1`,
  * `Me.CommandButton1` and, from another module, `ThisDocument.CommandButton1`
  * or `Slide1.CommandButton1` compile, wherever on the page or in a header the
@@ -1221,18 +1233,27 @@ const CONTROL_HOST_CLASSES: Partial<Record<MacroContainer['kind'], string>> = {
  * `Attribute VB_Control = "CommandButton1, 1, 0, MSForms, CommandButton"`
  * each, in the order it gave them IDs, so a legacy .doc or .ppt has them
  * too. A module with none is left as it was. An Excel sheet's controls come
- * from its workbook instead (withSheetControls).
+ * from the sheet's XML part where there is one (withSheetControls, an
+ * .xlsm, .xlam or .xltm). An .xls, .xla, .xlt or .xlsb sheet takes them
+ * from its header here, as Excel writes them there too (issue #1555,
+ * measured in Excel 16.0 builds 12527 and 20527 with ActiveX enabled).
  */
 function withDocumentControls(container: MacroContainer, project: VbaProject, entries: ModuleEntry[]): ModuleEntry[] {
 	const hostClass = CONTROL_HOST_CLASSES[container.kind];
 	if (!hostClass) {
 		return entries;
 	}
+	const modules = new Map(project.modules.map((module) => [module.name.toLowerCase(), module]));
 	return entries.map((entry) => {
 		if (entry.type !== 'document' || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
 			return entry;
 		}
-		const module = project.modules.find((candidate) => candidate.name.toLowerCase() === entry.name.toLowerCase());
+		// ThisWorkbook and a chart sheet are no Worksheet, and Excel wrote
+		// no VB_Control line for either in any file measured.
+		if (container.kind === 'excel' && entry.documentType !== 'worksheet') {
+			return entry;
+		}
+		const module = modules.get(entry.name.toLowerCase());
 		const names = module ? moduleControlNames(module.sourceHeader) : [];
 		return names.length === 0
 			? entry
@@ -1250,6 +1271,38 @@ function moduleControlNames(header: string): string[] {
 		}
 	}
 	return names;
+}
+
+/**
+ * A PowerPoint slide's module whose header lists no control, with the
+ * controls on its slide (issue #1555, measured in PowerPoint 16.0 builds
+ * 12527 and 20527). Saving a .pptm, .potm or .ppsm after a VBA edit while
+ * ActiveX is disabled drops the module's `Attribute VB_Control` lines, but
+ * the controls stay on the slides and compile again where ActiveX is
+ * enabled.
+ *
+ * XLIDE reads nothing in the file that ties a module to its slide.
+ * PowerPoint names it after the slide's ID, `Slide` + (ID - 255), wherever
+ * the slide has moved since, and the VBE lists it under that name once
+ * PowerPoint opens the file, whatever name the file stores. A module
+ * renamed in the VBE would break that, so unless every slide module is
+ * named so, they are all left as they were. Only the slides of modules
+ * with no controls yet are read.
+ */
+function withSlideControls(container: MacroContainer, entries: ModuleEntry[]): ModuleEntry[] {
+	const bare = (entry: ModuleEntry) => entry.type === 'document' && entry.designerClass === undefined && entry.implicitMembers === undefined;
+	const zip = container.kind === 'powerpoint' && entries.some(bare) ? container.xlsx?.zipArchive() : undefined;
+	const slides = zip ? slidePartsById(zip) : undefined;
+	const parts = slides && slideModuleParts(entries.filter((entry) => entry.type === 'document').map((entry) => entry.name), slides);
+	if (!zip || !parts) {
+		return entries;
+	}
+	return entries.map((entry) => {
+		const names = bare(entry) ? slideControlNames(zip, parts.get(entry.name.toLowerCase())!) : undefined;
+		return !names || names.length === 0
+			? entry
+			: { ...entry, designerClass: 'PowerPoint.Slide', implicitMembers: names.map((name) => ({ name, type: 'Object' })) };
+	});
 }
 
 /** A workbook's sheets, or undefined for any other file or one whose sheets cannot be read. */

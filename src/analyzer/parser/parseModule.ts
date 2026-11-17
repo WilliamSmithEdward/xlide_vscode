@@ -2029,20 +2029,29 @@ class Parser {
 		if (tokenWord(tokens[0]) !== 'if') {
 			return [];
 		}
-		const starts: number[] = [];
+		// Each branch runs from the token after its Then or Else to the next
+		// Then or Else keyword, which belongs to no branch: `If ok Then Beep
+		// Else MsgBox "a"` calls Beep with no argument. A branch that is a
+		// one-line If of its own, `Else If s Is Nothing Then Exit Sub`, keeps
+		// its Then, as the rules that read it as an If need.
+		const branches: { start: number; nestedIf: boolean; keyword: number }[] = [];
+		const keywords: number[] = [];
 		for (let i = 1; i < tokens.length; i += 1) {
 			// A member named Then or Else, `d.Then`, starts no statement list.
 			if (!isThenOrElseKeywordAt(tokens, i, 'then') && !isThenOrElseKeywordAt(tokens, i, 'else')) {
 				continue;
 			}
+			keywords.push(tokens[i].start);
 			const next = tokens[i + 1];
 			if (next) {
-				starts.push(next.start);
+				branches.push({ start: next.start, nestedIf: tokenWord(next) === 'if', keyword: keywords.length - 1 });
 			}
 		}
-		return starts.map((start, index) => ({
+		return branches.map(({ start, nestedIf, keyword }, index) => ({
 			start,
-			end: index + 1 < starts.length ? starts[index + 1] : stmt.end,
+			end: nestedIf
+				? (index + 1 < branches.length ? branches[index + 1].start : stmt.end)
+				: (keyword + 1 < keywords.length ? keywords[keyword + 1] : stmt.end),
 		}));
 	}
 

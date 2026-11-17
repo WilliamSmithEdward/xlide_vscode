@@ -18,7 +18,8 @@ import {
 	type ConditionalActivityTracker,
 } from '../../conditional/conditionalCompilation';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
-import { isDecimalLineNumber } from '../../lexer/tokenHelpers';
+import { firstTokenAtOrAfter, isDecimalLineNumber } from '../../lexer/tokenHelpers';
+import { tokenizeCached } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
@@ -71,6 +72,47 @@ export const DEFTYPE_KEYWORDS = new Set([
 	'defstr',
 	'defvar',
 ]);
+
+/**
+ * The `DefDec` token heading the statement at `span`, if one does, and
+ * whether it is a label, `DefDec:`. The
+ * keyword table lists DefDec among the future-reserved words: VBA has no
+ * Decimal variable, so DefDec is no Def statement. It stays in
+ * DEFTYPE_KEYWORDS so that nothing reads it as a call, and the Def rules
+ * leave it to the report of its own (measured in Excel, Word, PowerPoint and
+ * Access 16.0, build 20527).
+ */
+export function defDecHead(source: string, span: Span): { token: VbaToken; label: boolean } | undefined {
+	const first = statementTokensAfterLeadingLabel(source, span)[0];
+	if (tokenText(first) !== 'defdec') {
+		return undefined;
+	}
+	// `DefDec:` is a label, which the reserved-label check (controlFlow.ts)
+	// reports, when that check reads it as one: the first word of its
+	// physical line, with the colon on that line and no ` _` continuing the
+	// line above. After a line number (`10 DefDec:`, issue #230), another
+	// statement (`Beep: DefDec:`) or a continuation, it is the statement here.
+	const toks = tokenizeCached(source);
+	const at = firstTokenAtOrAfter(toks, span.start + first.start);
+	const before = toks[at - 1];
+	const colon = toks[at + 1];
+	// Lines end at CR LF, CR or LF, and the line above continues this one only
+	// when its ` _` ends at an LF: the reserved-label check's own tests, kept
+	// the same so that one of the two reports each line.
+	const start = span.start + first.start;
+	const lineStart = Math.max(source.lastIndexOf('\n', start - 1), source.lastIndexOf('\r', start - 1)) + 1;
+	const label = (before === undefined || before.kind === 'newline')
+		&& colon?.kind === 'colon' && /^[ \t]*$/.test(source.slice(span.start + first.end, colon.start))
+		&& /^[ \t]*$/.test(source.slice(lineStart, start))
+		&& !/[ \t]_[ \t]*\r?\n$/.test(source.slice(Math.max(0, lineStart - 64), lineStart));
+	return { token: first, label };
+}
+
+/** What the VBE says of a DefDec statement: above the first procedure, or after one or inside one. */
+export function defDecMessage(aboveProcedures: boolean): string {
+	const error = aboveProcedures ? 'Expected: line number or label or statement or end of statement' : 'Syntax error';
+	return `'DefDec' is a reserved word and no statement: VBA has no Decimal variable to give a default type. This is a VBE compile error: ${error}.`;
+}
 
 export function leadingDeclarationModifierCount(toks: readonly VbaToken[]): number {
 	let i = 0;

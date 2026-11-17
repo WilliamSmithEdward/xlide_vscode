@@ -56,12 +56,26 @@ Beep in place of a silenced dialog sound, so all four are needed; other sounds
 are left alone. The runner first saves their values and registry types in
 `~/.xlide-vbe-oracle-sounds.json` in your account profile, then puts them back
 when it finishes or is interrupted, except any you set to another sound or
-removed meanwhile. If it is killed before putting them back, the next run
-does; a file that cannot be read is moved aside with a message instead. While
-another run is going, a second run leaves the sounds to it. Recovery validates
-the complete backup before any registry write: owner identity, unique allowed
-events, supported string registry kinds and nonempty string sound paths.
-Malformed backups are quarantined intact rather than restored or discarded.
+removed meanwhile. The worker's own PowerShell process does both, so a normal
+run starts no process for the sounds; the runner starts one only to put back
+sounds the worker, or a killed run, left. If the run is killed before they are
+put back, the next run does; a file that cannot be read is moved aside with a
+message instead. While another run is going, a second run leaves the sounds to
+it. Recovery validates the complete backup before any registry write: owner
+identity, unique allowed events, supported string registry kinds and nonempty
+string sound paths. Malformed backups are quarantined intact rather than
+restored or discarded.
+
+While it runs, the worker also turns off Office's older client telemetry for
+your user (`DisableTelemetry` under
+`HKCU\Software\Microsoft\Office\Common\ClientTelemetry`, a normal user
+setting rather than a policy). Office sets that telemetry up at every start,
+even with no network, and it slows the start of Access, PowerPoint and Word.
+The worker saves the previous value in `~/.xlide-vbe-oracle-telemetry.json`
+first and puts it back when it ends, if the value is still the 1 it set. A run
+whose worker is killed first (a case that times out, Ctrl-C, a killed run)
+leaves it for the next run, and a file that cannot be read is moved aside with
+a message.
 
 Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
 `run_vbe_oracle.mjs` invocations in parallel, even for different cases.
@@ -233,6 +247,25 @@ oracle infrastructure failure, aborts the remaining run, and exits non-zero.
 If the compile command cannot be invoked, or any COM operation fails before a
 VBE dialog is captured, the case is not treated as a VBA rejection.
 
+The one exception is an observe-only case (`expected: "observe"`), which
+asserts nothing. When it ends in a `worker_error` at stage `run`, while its
+host runs its entry point, the run reports it and goes on. Excel refuses
+`Run` for `issue609_13_runtime` and `issue609_17_runtime` with E_INVALIDARG
+(pull request #1402), which would otherwise stop every full run. The same
+holds for a host that crashes during the run, a macro `Run` cannot find and
+a dialog that was not captured: the coordinator cannot tell them apart, and
+a harness fault there that recurs stops the next asserted run case. The result
+stays a `worker_error` with `matched: false` and its message. The text
+output marks it `NO-VERDICT` and `--json` marks it `noVerdict: true`, and it
+is counted as an observe-only case without a verdict (`noVerdictCount`), not
+as an infrastructure or expectation failure, so it does not change the exit
+code, with `--strict` or without. It is still no verdict: a checkpoint
+records it but never reuses it, so a resumed run tries it again, and
+`--promote-observed` refuses it. The worker has ended its host before
+reporting it, as after any case that is not evidence. An observe-only case
+with no `entryPoint`, a timeout, a failure at any other stage and, with
+`--checkpoint`, a result from another build or none stop the run as before.
+
 For extension development, `ORACLE-FAIL` is a stop-the-line signal for the AI
 agent. Do not continue adding or promoting oracle cases after it appears. First
 perform a deep application inspection: check for lingering Office/VBE processes,
@@ -258,10 +291,10 @@ a bogus "accepted" control). Guard against it with the controls below.
    surfaced as a detectable visible top-level window, so the Win32 dialog watcher
    never sees it and the rejection is misrecorded as `accepted`.
 
-2. **Accept on a positive signal where there is one.** The original fixed
-   8-second watch window produced systematic false "accepted" results, because
-   rejects took longer than that to show their dialog (most of it was the
-   Compile command's lookup, since replaced). Accepts no longer wait out the
+2. **Accept only on a positive signal.** The original fixed 8-second watch
+   window produced systematic false "accepted" results, because rejects took
+   longer than that to show their dialog (most of it was the Compile command's
+   lookup, since replaced). Accepts no longer wait out the
    window: a compile case is accepted when the Compile command turns disabled,
    which it does only once the project has compiled, and is still disabled with
    no dialog seen 300 ms later. A run case is accepted when the host's `Run` returns
@@ -275,9 +308,9 @@ a bogus "accepted" control). Guard against it with the controls below.
 
 4. **The watch window is an upper bound.** A compile case that neither shows a
    dialog nor disables the Compile command waits the *entire* window, then is
-   recorded as `accepted` if the host is alive. `host_start + watch + cleanup`
-   must fit inside `--timeout` or the coordinator kills the worker as a false
-   `timeout`/`oracle_failure`.
+   a `worker_error`, since no signal is not evidence.
+   `host_start + watch + cleanup` must fit inside `--timeout` or the
+   coordinator kills the worker as a false `timeout`/`oracle_failure`.
 
 5. **The first run on a cold machine may time out entirely.** The first-ever COM
    Office launch (Office first-run/activation) can exceed the timeout before
@@ -306,8 +339,10 @@ a bogus "accepted" control). Guard against it with the controls below.
    watcher then sees no dialog, which used to be recorded as `accepted`. Before
    accepting, the worker now checks that the host process it started is still
    running and answers a COM call; if not, the case is a `worker_error` and the
-   run stops. A host that hangs instead, for example behind a crash report,
-   blocks that call, and the case ends as a `timeout`.
+   run stops, unless the case is observe-only and was running its entry point
+   (see the exception above, under the evidence outcomes). A host that hangs
+   instead, for example behind a crash report, blocks that call, and the case
+   ends as a `timeout`.
    A fixture may name exact four-part builds in `crashesHostBuilds`, for
    example `["16.0.20430.20182"]`. On a listed registered build of its host,
    the coordinator does not run it: it reports `skipped` at `known_host_crash`
@@ -316,9 +351,10 @@ a bogus "accepted" control). Guard against it with the controls below.
    Skips are never checkpointed and cannot be promoted with `--promote-observed`.
    Without `--checkpoint`, the build is read only for hosts whose selected
    fixtures carry the field. If that lookup fails, the fixture runs as usual.
-   Other builds run as usual too, and an unlisted crash still stops the run.
+   Other builds run as usual too, and an unlisted crash still stops the run,
+   except during the run of an observe-only case.
    The two `#Const O = Nothing` condition fixtures crash all four hosts,
-   measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).
+   measured in Excel, Word, PowerPoint and Access 16.0 (builds 20430 and 20527).
 
 ## Automation Policy
 
@@ -346,9 +382,9 @@ source, show the disposable module in VBE, then invoke the exact
 `Compile <project-name>` VBE command bar control through COM. The worker does
 not use keyboard accelerators for compile invocation. A `Compile error:` dialog
 is treated as compile rejection. When the Compile command turns disabled with
-no dialog, or no compile dialog appears before the popup watch period ends, the
-case is recorded as compile-accepted, but only if the host is still running and
-answering COM calls. If the host crashed, the case is a
+no dialog, the case is recorded as compile-accepted, but only if the host is
+still running and answering COM calls. If the host crashed, or the popup watch
+period ends with no dialog and the command still enabled, the case is a
 `worker_error`.
 
 Some source never reaches the compiler: the VBE refuses to insert it, as its
@@ -507,7 +543,8 @@ Use a `--timeout` comfortably larger than the hold window so the worker has time
 to detect the dialog and clean up afterward.
 
 `run` mode is for focused runtime-behavior probes only. Runtime fixtures must
-name an `entryPoint`. The worker starts the same Win32 dialog watcher before
+name an `entryPoint`; one that does not runs nothing and is a `worker_error`.
+The worker starts the same Win32 dialog watcher before
 running the macro; a `Microsoft Visual Basic` dialog with `Run-time error` text
 is recorded as `outcome: "rejected"` and dismissed with the dialog's `End`
 button. The dismiss fallback also sends standard OK/Cancel/Abort dialog commands

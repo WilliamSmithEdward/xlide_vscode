@@ -75,7 +75,9 @@ function malformedReferences(kase) {
 // message-box sounds for its user (Windows falls back to the Default Beep for
 // a silenced dialog sound, so all four are needed) and then puts back exactly
 // what was there. The previous sounds are saved first, so a run killed before
-// it could put them back leaves them for the next run to restore.
+// it could put them back leaves them for the next run to restore. The worker's
+// own process silences them before its first case and puts them back when it
+// ends (workerCommand), so a normal run starts no PowerShell for the sounds.
 const DIALOG_SOUNDS = ['.Default', 'SystemAsterisk', 'SystemExclamation', 'SystemHand'];
 
 function dialogSoundsPath() {
@@ -148,23 +150,23 @@ function dialogSoundsScript() {
             $aside = $file + '.unreadable-' + [DateTime]::UtcNow.Ticks
             [IO.File]::Move($file, $aside)
             [Console]::Error.WriteLine("The saved message-box sounds could not be read; they were moved to $aside.")
-        } elseif ($env:XLIDE_SOUNDS_ACTION -eq 'restore') {
-            if ($saved.owner -eq $owner -and $saved.started -eq (Started $owner)) {
-                Restore $saved
-                Remove-Item -Force -LiteralPath $file
-            }
-            exit 0
+        } elseif ($env:XLIDE_SOUNDS_ACTION -eq 'restore' -and $saved.owner -eq $owner -and $saved.started -eq (Started $owner)) {
+            Restore $saved
+            Remove-Item -Force -LiteralPath $file
+            return
         } elseif ($saved.started -and (Started $saved.owner) -in @($saved.started, 'unreadable')) {
             # Another run that is still going silenced them and will put them
-            # back; one that cannot be checked is left alone too.
-            exit 0
+            # back; one that cannot be checked is left alone too. So is this
+            # run's own, for a worker started again after a timeout.
+            return
         } else {
-            # Left by a run that was killed.
+            # Left by a run that was killed, put back by silence or restore,
+            # so a run that starts no worker still puts them back.
             Restore $saved
             Remove-Item -Force -LiteralPath $file
         }
     }
-    if ($env:XLIDE_SOUNDS_ACTION -eq 'restore') { exit 0 }
+    if ($env:XLIDE_SOUNDS_ACTION -eq 'restore') { return }
     $sounds = @()
     foreach ($name in $events) {
         $key = Open-Sound $name $false
@@ -175,7 +177,7 @@ function dialogSoundsScript() {
             if ($value -and $kind -in @('String', 'ExpandString')) { $sounds += [pscustomobject]@{ name = $name; value = $value; kind = $kind } }
         } finally { $key.Close() }
     }
-    if (-not $sounds.Count) { exit 0 }
+    if (-not $sounds.Count) { return }
     # Created only if absent, so of two runs starting together one saves and
     # silences, and the other leaves the sounds to it.
     $snapshot = [pscustomobject]@{ owner = $owner; started = (Started $owner); sounds = $sounds }
@@ -184,7 +186,7 @@ function dialogSoundsScript() {
     try { $stream = [IO.File]::Open($file, 'CreateNew', 'Write', 'None') }
     catch [IO.IOException] {
         # ERROR_FILE_EXISTS: another run got there first. Anything else is a real failure.
-        if ($_.Exception.HResult -eq -2147024816) { exit 0 }
+        if ($_.Exception.HResult -eq -2147024816) { return }
         throw
     }
     try {
@@ -200,44 +202,183 @@ function dialogSoundsScript() {
 `;
 }
 
-// Never stops a run: a sound that cannot be changed only costs memory.
-function setDialogSounds(action) {
-    const completed = spawnSync('powershell.exe', [
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `$ErrorActionPreference = 'Stop'
+const SOUNDS_PREFIX = 'XLIDE-ORACLE-SOUNDS ';
+// How long a new worker may take to silence the sounds before its first case.
+const SOUNDS_SILENCE_MS = 15_000;
+
+// A PowerShell function that saves and silences ($Action 'silence') or puts
+// back ('restore') the sounds, running dialogSoundsScript in a scope of its
+// own. It returns why it could not, or nothing; a notice, such as an
+// unreadable file set aside, goes to [Console]::Error.
+function dialogSoundsFunction() {
+    return String.raw`
+    function Invoke-OracleDialogSounds([string]$Action) {
+    $env:XLIDE_SOUNDS_ACTION = $Action
     # One run at a time saves, repairs or puts back the account's sounds, so
     # two runs starting together cannot undo each other's saved copy. Windows
     # releases the mutex if this process ends while holding it. One mutex per
     # account, in every session, open to that account elevated or not.
-    [Console]::OutputEncoding = [Text.Encoding]::UTF8
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().User
     $access = New-Object Security.AccessControl.MutexSecurity
     $access.AddAccessRule((New-Object Security.AccessControl.MutexAccessRule($user, 'FullControl', 'Allow')))
     $created = $false
-    $mutex = [Threading.Mutex]::new($false, "Global\\xlide-vbe-oracle-sounds-$($user.Value)", [ref]$created, $access)
+    $mutex = [Threading.Mutex]::new($false, "Global\xlide-vbe-oracle-sounds-$($user.Value)", [ref]$created, $access)
     $owned = $false
     try { $owned = $mutex.WaitOne(10000) } catch [Threading.AbandonedMutexException] { $owned = $true }
     if (-not $owned) {
-        [Console]::Error.WriteLine('another oracle run held the sounds for over ten seconds')
-        exit 3
+        return 'another oracle run held the sounds for over ten seconds'
     }
     try {
+    $null = & {
     ${dialogSoundsScript()}
-    } finally { try { $mutex.ReleaseMutex() } catch { } }`,
-    ], {
-        encoding: 'utf8', timeout: 15_000,
-        env: { ...process.env, XLIDE_SOUNDS_FILE: dialogSoundsPath(), XLIDE_SOUNDS_OWNER: String(process.pid), XLIDE_SOUNDS_ACTION: action },
-    });
-    // A notice from a successful run, such as an unreadable file set aside.
-    if (!completed.error && completed.status === 0 && completed.stderr?.trim()) { console.error(completed.stderr.trim()); }
-    if (completed.error || completed.status !== 0) {
-        const why = completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}`;
+    }
+    } finally { try { $mutex.ReleaseMutex() } catch { } }
+    }`;
+}
+
+function dialogSoundsEnv() {
+    return { XLIDE_SOUNDS_FILE: dialogSoundsPath(), XLIDE_SOUNDS_OWNER: String(process.pid) };
+}
+
+// Never stops a run: a sound that cannot be changed only costs memory.
+function reportDialogSounds(action, why, notice) {
+    if (why) {
         console.error(action === 'silence'
             ? `Could not silence the message-box sounds for this run (${why}); rejected cases may play them.`
             : `Could not put back the message-box sounds (${why}); the next oracle run will.`);
+    } else if (notice) {
+        console.error(notice);
     }
 }
 
+// A report line from the worker's process, returned once reported. A restore
+// it could not make is left to setDialogSounds('restore'), which finds the
+// saved sounds still there.
+function reportWorkerSounds(text) {
+    let report;
+    try { report = JSON.parse(text); } catch { return undefined; }
+    if (report?.action === 'silence') {
+        reportDialogSounds('silence', report.why, report.notice);
+    } else if (report?.action === 'restore' && !report.why) {
+        reportDialogSounds('restore', '', report.notice);
+    }
+    return report;
+}
+
+// The sounds in a PowerShell of their own. The run uses it only to restore,
+// for a run whose worker did not put them back (it was killed, or could not)
+// or that started no worker: whenever the saved sounds are still there, it
+// puts back this run's, or a killed run's.
+function setDialogSounds(action) {
+    if (action === 'restore' && !fs.existsSync(dialogSoundsPath())) { return; }
+    const completed = spawnSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `$ErrorActionPreference = 'Stop'
+    [Console]::OutputEncoding = [Text.Encoding]::UTF8
+    ${dialogSoundsFunction()}
+    $why = Invoke-OracleDialogSounds $env:XLIDE_SOUNDS_ACTION
+    if ($why) {
+        [Console]::Error.WriteLine($why)
+        exit 3
+    }`,
+    ], { encoding: 'utf8', timeout: 15_000, env: { ...process.env, ...dialogSoundsEnv(), XLIDE_SOUNDS_ACTION: action } });
+    const failed = completed.error || completed.status !== 0;
+    reportDialogSounds(action,
+        failed ? completed.error?.message || completed.stderr?.trim() || `PowerShell exited ${completed.status}` : '',
+        completed.stderr?.trim());
+}
+
+// The worker's process: it silences the sounds, serves cases, and puts the
+// sounds back when the worker ends, however it ends short of being killed.
+// Its reports come back as lines on its output, and their notices with them
+// rather than on stderr, where they would be taken for the next case's.
+function workerCommand(casesPerInstance) {
+    return String.raw`$ErrorActionPreference = 'Stop'
+    ${dialogSoundsFunction()}
+    function Send-OracleDialogSounds([string]$Action) {
+        $notices = New-Object IO.StringWriter
+        $stderr = [Console]::Error
+        [Console]::SetError($notices)
+        try { $why = Invoke-OracleDialogSounds $Action }
+        catch { $why = ($_ | Out-String).Trim() }
+        finally { [Console]::SetError($stderr) }
+        # Nothing returned is no failure: an empty string, not null.
+        if (-not $why) { $why = '' }
+        $report = [pscustomobject]@{ action = $Action; why = [string]$why; notice = $notices.ToString().Trim() } | ConvertTo-Json -Compress
+        # Escaped to ASCII, as the worker's results are.
+        $report = [regex]::Replace($report, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
+        [Console]::Out.WriteLine('${SOUNDS_PREFIX}' + $report)
+        [Console]::Out.Flush()
+    }
+    # Set when an earlier worker of this run did not report its silence in time.
+    $silence = -not $env:XLIDE_SOUNDS_SKIP
+    if ($silence) { Send-OracleDialogSounds 'silence' }
+    try { & $env:XLIDE_ORACLE_WORKER -Serve -CasesPerInstance ${Number(casesPerInstance)} }
+    finally { if ($silence) { Send-OracleDialogSounds 'restore' } }`;
+}
+
+// One process answers for every Office host on the first probe of a run, and
+// the answers are kept: registered or not, and the build where it can be read
+// (the same lookup as registeredHostBuild). comRegistered and
+// registeredHostBuild take a host's answer from it. A host with no answer (the
+// process timed out, say), or with no build where one is needed, is probed on
+// its own, as before, so failures keep their messages.
+let hostAnswers;
+
+function probedHost(progId) {
+    hostAnswers ??= probeHosts();
+    return hostAnswers.get(progId);
+}
+
+function probeHosts() {
+    const answers = new Map();
+    const progIds = Object.values(OFFICE_HOSTS).map((host) => host.progId);
+    const completed = spawnSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `$ErrorActionPreference = 'Stop'
+        foreach ($progId in @(${progIds.map((progId) => `'${progId}'`).join(', ')})) {
+            try {
+                $type = [type]::GetTypeFromProgID($progId)
+                if ($null -eq $type) {
+                    [Console]::Out.WriteLine("XLIDE-ORACLE-HOST $progId unregistered")
+                    continue
+                }
+                [Console]::Out.WriteLine("XLIDE-ORACLE-HOST $progId registered")
+                $path = "CLSID\\" + $type.GUID.ToString('B') + "\\LocalServer32"
+                $key = [Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($path)
+                # 32-bit Office may register only in the 32-bit view.
+                if ($null -eq $key) {
+                    $key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('ClassesRoot', [Microsoft.Win32.RegistryView]::Registry32).OpenSubKey($path)
+                }
+                $command = [string]$key.GetValue('')
+                if ($command -notmatch '^\\s*(?:"([^"]+[.]exe)"|(.+?[.]exe))(?:\\s|$)') { continue }
+                $exe = $matches[1]
+                if (-not $exe) { $exe = $matches[2] }
+                $v = [Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
+                if ($v.FileMajorPart -le 0) { continue }
+                [Console]::Out.WriteLine(("XLIDE-ORACLE-HOST $progId build {0}.{1}.{2}.{3}" -f $v.FileMajorPart, $v.FileMinorPart, $v.FileBuildPart, $v.FilePrivatePart))
+            } catch { }
+        }`,
+    ], { encoding: 'utf8', timeout: 15_000 });
+    // Only whole lines: the last one may have been cut short.
+    for (const line of String(completed.stdout ?? '').split(/\r?\n/).slice(0, -1)) {
+        const match = /^XLIDE-ORACLE-HOST (\S+) (?:(unregistered)|(registered)|build (\d+\.\d+\.\d+\.\d+))$/.exec(line);
+        const progId = match?.[1];
+        if (!match || !progIds.includes(progId)) { continue; }
+        const answer = answers.get(progId);
+        if (match[2] && !answer) {
+            answers.set(progId, { registered: false });
+        } else if (match[3] && !answer) {
+            answers.set(progId, { registered: true, build: null });
+        } else if (match[4] && answer?.registered && !answer.build) {
+            answers.set(progId, { registered: true, build: match[4] });
+        }
+    }
+    return answers;
+}
+
 function comRegistered(progId) {
+    const answer = probedHost(progId);
+    if (answer) { return answer.registered; }
     const completed = spawnSync('powershell.exe', [
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
         `$type = [type]::GetTypeFromProgID("${progId}"); if ($null -eq $type) { exit 2 }`,
@@ -250,8 +391,12 @@ function comRegistered(progId) {
 // One process serves both checks: the marker line, flushed after the null check,
 // confirms registration even when the build probe times out. With no marker,
 // registration falls back to comRegistered's 5 s, so a lookup that never
-// completes takes up to 20 s.
+// completes takes up to 20 s here, after up to 15 s in probeHosts on a run's
+// first lookup.
 function registeredHostBuild(progId) {
+    const answer = probedHost(progId);
+    if (answer && !answer.registered) { return { registered: false, build: null }; }
+    if (answer?.build) { return { registered: true, build: answer.build }; }
     const completed = spawnSync('powershell.exe', [
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
         `$ErrorActionPreference = 'Stop'
@@ -393,6 +538,22 @@ function phaseMatches(kase, result) {
 
 function isOracleInfrastructureFailure(outcome) {
     return outcome !== 'skipped' && !EVIDENCE_OUTCOMES.has(outcome);
+}
+
+// An observe-only case asserts nothing, so a worker error while the host runs
+// its entry point is reported and the run goes on: Excel's Run refuses
+// issue609_13_runtime with E_INVALIDARG, say. That includes a host that
+// crashes during the run, a macro Run cannot find and a dialog not captured;
+// a harness fault there that recurs stops the next asserted run case. It is
+// still no verdict: not evidence, not reused from a checkpoint, not
+// promotable (pull request #1402). A case with no entry point, a timeout, a
+// failure at any other stage and, with --checkpoint, a result from another
+// build still stop the run.
+function isObserveWithoutVerdict(kase, result, expectedBuild) {
+    return String(kase.expected ?? 'observe') === 'observe' && Boolean(kase.entryPoint)
+        && String(result.outcome ?? '') === 'worker_error'
+        && String(result.stage ?? '') === 'run'
+        && (!expectedBuild || result.hostBuild === expectedBuild);
 }
 
 function evidencePhaseForCase(kase) {
@@ -553,6 +714,11 @@ class OracleWorker {
         this.hostProcess = undefined;
         // Each host's registered build, for checkpoint runs.
         this.hostBuilds = null;
+        // Set once a worker did not report silencing the sounds in time: the
+        // run goes on without silencing them, as when it could not.
+        this.soundsSkipped = false;
+        this.silenced = null;
+        this.lastEnd = null;
     }
 
     start() {
@@ -560,9 +726,11 @@ class OracleWorker {
         const left = this.owned.sweep();
         if (left.length) { throw new HostCleanupError(left); }
         const child = spawn('powershell.exe', [
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WORKER,
-            '-Serve', '-CasesPerInstance', String(this.casesPerInstance),
-        ], { stdio: ['pipe', 'pipe', 'pipe'] });
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', workerCommand(this.casesPerInstance),
+        ], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: { ...process.env, ...dialogSoundsEnv(), XLIDE_ORACLE_WORKER: WORKER, XLIDE_SOUNDS_SKIP: this.soundsSkipped ? '1' : '' },
+        });
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
         child.stdin.on('error', () => { /* reported through exit */ });
@@ -572,6 +740,9 @@ class OracleWorker {
         readline.createInterface({ input: child.stdout }).on('line', (line) => {
             if (this.child === child && line.startsWith(RESULT_PREFIX)) {
                 this.settle({ line: line.slice(RESULT_PREFIX.length) });
+            } else if (this.child === child && line.startsWith(SOUNDS_PREFIX)) {
+                const report = reportWorkerSounds(line.slice(SOUNDS_PREFIX.length));
+                if (report?.action === 'silence') { this.silenced?.(); }
             }
         });
         const ended = (error, code) => {
@@ -579,6 +750,8 @@ class OracleWorker {
             this.child = null;
             // A worker that did not exit cleanly did not quit its host instance.
             if (error || code !== 0) { this.owned.sweep(); }
+            this.lastEnd = { error, code };
+            this.silenced?.();
             this.settle({ exited: true, error, code });
         };
         child.on('error', (error) => ended(error, null));
@@ -598,15 +771,43 @@ class OracleWorker {
         pending({ ...reply, stderr });
     }
 
-    request(message, timeoutMs) {
-        if (!this.child) { this.start(); }
+    // Starts a worker, and waits for it to silence the sounds before a case's
+    // time starts. One that gives no answer in time is replaced by one that
+    // does not try, so the sounds never cost a case its time or its result.
+    async startSilenced() {
+        this.start();
+        if (this.soundsSkipped) { return; }
+        const child = this.child;
+        const answered = await new Promise((resolve) => {
+            const timer = setTimeout(() => resolve(false), SOUNDS_SILENCE_MS);
+            this.silenced = () => { clearTimeout(timer); resolve(true); };
+        });
+        this.silenced = null;
+        if (answered || this.child !== child) { return; }
+        reportDialogSounds('silence', `no answer within ${SOUNDS_SILENCE_MS / 1000} seconds`, '');
+        this.kill();
+        this.soundsSkipped = true;
+        this.start();
+    }
+
+    async request(message, timeoutMs) {
+        if (!this.child) {
+            await this.startSilenced();
+            // A worker that ended while silencing is reported as one that
+            // ended during the case.
+            if (!this.child) {
+                const stderr = this.stderr.trim();
+                this.stderr = '';
+                return { exited: true, ...this.lastEnd, stderr };
+            }
+        }
         return new Promise((resolve) => {
             const timer = setTimeout(() => this.settle({ timedOut: true }), timeoutMs);
             this.pending = (reply) => {
                 clearTimeout(timer);
                 resolve(reply);
             };
-            // Escaped to ASCII so a path survives the console code page.
+            // Escaped to ASCII so a path or a case's source survives the console code page.
             const json = JSON.stringify(message).replace(
                 /[\u0080-\uffff]/g,
                 (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`,
@@ -634,7 +835,15 @@ class OracleWorker {
                 this.owned.sweep();
                 resolve();
             }, 30_000);
-            child.once('close', () => { clearTimeout(timer); resolve(); });
+            child.once('close', () => {
+                clearTimeout(timer);
+                // What the worker wrote after its last case has no case to go
+                // with, such as a setting it could not put back.
+                const left = this.stderr.trim();
+                this.stderr = '';
+                if (left) { console.error(left); }
+                resolve();
+            });
             child.stdin.end();
         });
     }
@@ -670,11 +879,9 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
     }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vbe-oracle-'));
     ACTIVE_CASE_DIRS.add(tmpDir);
-    const casePath = path.join(tmpDir, 'case.json');
     const pidPath = path.join(tmpDir, 'host.pid');
     const stagePath = path.join(tmpDir, 'stage.txt');
     const dialogPath = path.join(tmpDir, 'vbe_dialog.json');
-    fs.writeFileSync(casePath, JSON.stringify(kase), 'utf8');
 
     // The watch window is an upper bound, not a wait. A compile case ends when
     // its error dialog is recorded or the Compile command turns disabled, and a
@@ -692,7 +899,7 @@ async function runCaseOnceUnchecked(worker, kase, timeoutSeconds, dialogHoldSeco
         let reply;
         try {
             reply = await worker.request({
-                casePath, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
+                case: kase, pidPath, stagePath, dialogPath, dialogWatchSeconds, dialogHoldSeconds,
                 host, hostProgId: OFFICE_HOSTS[host].progId, hostImage: OFFICE_HOSTS[host].image,
             }, timeoutSeconds * 1000);
         } catch (error) {
@@ -1083,11 +1290,13 @@ async function main(argv) {
     let skippedCount = 0;
     let failures = 0;
     let oracleFailures = 0;
+    let noVerdictCount = 0;
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
     const worker = new OracleWorker(args.casesPerInstance, owned);
     worker.hostBuilds = args.checkpoint ? hostBuilds : null;
-    // Ctrl-C, closing the console and a normal end all put the sounds back,
-    // unless Windows ends the process first; the next run then does.
+    // The worker silences the sounds and puts them back. Ctrl-C, closing the
+    // console and a normal end also put back any it left, unless Windows ends
+    // the process first; the next run then does.
     let restored = false;
     const restoreSounds = () => {
         if (restored) { return; }
@@ -1112,7 +1321,6 @@ async function main(argv) {
     const signals = [['SIGINT', interrupt(130)], ['SIGBREAK', interrupt(149)], ['SIGTERM', interrupt(143)], ['SIGHUP', interrupt(129)]];
     for (const [signal, handler] of signals) { process.once(signal, handler); }
     process.once('exit', cleanUp);
-    setDialogSounds('silence');
     try {
         for (const kase of cases) {
             const hash = caseHash(kase, hostBuilds.get(caseHost(kase)) ?? null);
@@ -1136,13 +1344,16 @@ async function main(argv) {
                 && phaseMatches(kase, result);
             result.description = kase.description ?? '';
             const outcome = String(result.outcome ?? '');
-            if (isOracleInfrastructureFailure(outcome)) {
+            if (isObserveWithoutVerdict(kase, result, worker.hostBuilds?.get(caseHost(kase)))) {
+                result.noVerdict = true;
+                noVerdictCount += 1;
+            } else if (isOracleInfrastructureFailure(outcome)) {
                 oracleFailures += 1;
             } else if (outcome !== 'skipped' && !result.matched) {
                 failures += 1;
             }
             results.push(result);
-            if (isOracleInfrastructureFailure(outcome)) { break; }
+            if (isOracleInfrastructureFailure(outcome) && !result.noVerdict) { break; }
         }
     } finally {
         try { await worker.close(); }
@@ -1186,11 +1397,12 @@ async function main(argv) {
             failureCount: failures,
             oracleFailureCount: oracleFailures,
             skippedCount,
+            noVerdictCount,
         }, null, 2));
     } else {
         for (const result of results) {
-            const marker = isOracleInfrastructureFailure(String(result.outcome ?? ''))
-                ? 'ORACLE-FAIL'
+            const marker = result.noVerdict ? 'NO-VERDICT'
+                : isOracleInfrastructureFailure(String(result.outcome ?? '')) ? 'ORACLE-FAIL'
                 : (result.outcome === 'skipped' ? 'SKIP' : (result.matched ? 'PASS' : 'FAIL'));
             console.log(
                 `${marker} ${result.caseId}: outcome=${result.outcome} `
@@ -1201,7 +1413,8 @@ async function main(argv) {
         }
         console.log(
             `\n${results.length} oracle case(s), ${failures} expectation failure(s), `
-            + `${oracleFailures} oracle infrastructure failure(s), ${skippedCount} skipped case(s).`,
+            + `${oracleFailures} oracle infrastructure failure(s), ${skippedCount} skipped case(s), `
+            + `${noVerdictCount} observe-only case(s) without a verdict.`,
         );
     }
 

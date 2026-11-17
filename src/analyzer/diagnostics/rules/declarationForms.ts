@@ -155,7 +155,8 @@ function checkBracketedName(source: string, name: string, nameSpan: Span | undef
 function checkDeftype(source: string, span: Span, claimed: Map<string, string>, push: PushFn): void {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const head = tokenText(toks[0]);
-	if (!DEFTYPE_KEYWORDS.has(head)) {
+	// DefDec gives no letter a type: it is no Def statement at all.
+	if (!DEFTYPE_KEYWORDS.has(head) || head === 'defdec') {
 		return;
 	}
 	const statement = toks[0].canonicalText ?? toks[0].rawText;

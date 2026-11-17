@@ -1247,6 +1247,9 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				ctx.opts.projectClassMembers,
 				ownObjectMemberNames(ctx.opts),
 				hasUnreadProjectReference(ctx.opts),
+				ctx.opts.implicitMembers,
+				ctx.opts.moduleKind,
+				ctx.opts.host,
 			);
 		},
 	},

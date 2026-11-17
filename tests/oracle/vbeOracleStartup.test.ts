@@ -7,7 +7,7 @@ import { OFFICE_HOST_APPS } from '../../src/officeHostApps';
 
 const source = readFileSync(join(process.cwd(), 'syntax_corpus/oracle/run_vbe_oracle.mjs'), 'utf8');
 const names = ['comRegistered', 'registeredHostBuild', 'caseHost', 'unsupportedHost', 'malformedReferences', 'hostsNeedingBuilds',
-    'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure'];
+    'knownHostCrashResult', 'expectedMatches', 'isOracleInfrastructureFailure', 'isObserveWithoutVerdict'];
 const functions = names.map((name) => {
     const start = source.indexOf(`function ${name}(`);
     return source.slice(start, source.indexOf('\n}', start) + 2);
@@ -22,7 +22,16 @@ const timeoutError = new Error('spawnSync powershell.exe ETIMEDOUT');
 type Case = { id: string; host?: string; crashesHostBuilds?: string[] };
 type Completed = { status: number | null; stdout?: string | null; stderr?: string | null; error?: Error };
 
-function setup(cases: Case[] = [], checkpoint = false) {
+// The combined probe and its kept answers.
+const probeSource = ['let hostAnswers;', ...['probedHost', 'probeHosts'].map((name) => {
+    const start = source.indexOf(`function ${name}(`);
+    return source.slice(start, source.indexOf('\n}', start) + 2);
+})].join('\n');
+
+// Unless realProbe is set, the combined probe answers nothing, so each host is
+// probed on its own, as when the combined probe fails; 'the combined host
+// probe' below runs the real one.
+function setup(cases: Case[] = [], checkpoint = false, realProbe = false) {
     const spawnSync = vi.fn((_command: string, _args: string[], _options: object): Completed => ({ status: 0 }));
     const errors: string[] = [];
     const output: string[] = [];
@@ -31,8 +40,9 @@ function setup(cases: Case[] = [], checkpoint = false) {
         const DEFAULT_HOST = 'excel';
         const EVIDENCE_OUTCOMES = new Set(['accepted', 'rejected']);
         ${functions}
+        ${realProbe ? probeSource : 'const probedHost = () => undefined;'}
         ${mainSource}
-        ({ main, comRegistered, registeredHostBuild })`, {
+        ({ main, comRegistered, registeredHostBuild, probeHosts: typeof probeHosts === 'function' ? probeHosts : undefined })`, {
         spawnSync,
         OFFICE_HOSTS: Object.fromEntries(hosts.map(([host, info]) => [host,
             { progId: info.progId, image: info.processName, noun: info.noun }])),
@@ -271,4 +281,126 @@ describe('VBE oracle startup messages and exit codes', () => {
         ]);
         expect(probe.spawnSync).toHaveBeenCalledTimes(2);
     });
+});
+
+const progIds = hosts.map(([, info]) => info.progId);
+const answer = (progId: string, what: string) => `XLIDE-ORACLE-HOST ${progId} ${what}\r\n`;
+const registered = (progId: string, version = build) => answer(progId, 'registered') + answer(progId, `build ${version}`);
+
+describe('VBE oracle combined host probe', () => {
+    it('starts one PowerShell for all four hosts, and no other probe', async () => {
+        const probe = setup([{ id: 'excel', crashesHostBuilds: [build] }, { id: 'word', host: 'word' },
+            { id: 'powerpoint', host: 'powerpoint' }, { id: 'access', host: 'access' }], false, true);
+        probe.spawnSync.mockReturnValue({ status: 0, stdout: progIds.map((progId) => registered(progId)).join('') });
+        expect(await probe.main([])).toBe(0);
+        expect(probe.spawnSync).toHaveBeenCalledExactlyOnceWith('powershell.exe', [
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', expect.any(String),
+        ], { encoding: 'utf8', timeout: 15_000 });
+        expect(probe.spawnSync.mock.calls[0][1][4]).toContain(`foreach ($progId in @(${progIds.map((progId) => `'${progId}'`).join(', ')})) {`);
+        expect(probe.ran).toEqual(['word', 'powerpoint', 'access']);
+        expect(JSON.parse(probe.output[0])).toMatchObject({ skippedCount: 1 });
+    });
+
+    it.each([false, true])('reads every build from the one process, checkpoint=%s', async (checkpoint) => {
+        const probe = setup(hosts.map(([host]) => ({ id: host, host, crashesHostBuilds: [] })), checkpoint, true);
+        probe.spawnSync.mockReturnValue({ status: 0, stdout: progIds.map((progId) => registered(progId)).join('') });
+        expect(await probe.main([])).toBe(0);
+        expect(probe.spawnSync).toHaveBeenCalledOnce();
+        expect(probe.errors).toEqual([]);
+    });
+
+    it('starts nothing when no case is selected', async () => {
+        const probe = setup([], true, true);
+        expect(await probe.main([])).toBe(0);
+        expect(probe.spawnSync).not.toHaveBeenCalled();
+    });
+
+    it('takes an unregistered answer without asking again, and names that host', async () => {
+        const probe = setup([{ id: 'excel' }, { id: 'word', host: 'word' }, { id: 'access', host: 'access' }], true, true);
+        probe.spawnSync.mockReturnValue({ status: 0, stdout: registered('Excel.Application') + answer('Word.Application', 'unregistered')
+            + registered('Access.Application') });
+        expect(await probe.main([])).toBe(2);
+        expect(probe.errors).toEqual(['VBE oracle cases for word require Microsoft Word COM registration.']);
+        expect(probe.spawnSync).toHaveBeenCalledOnce();
+    });
+
+    it('confirms registration before it reads a build, and goes on past an unregistered host', () => {
+        const probe = setup([], false, true);
+        probe.comRegistered('Excel.Application');
+        const script: string = probe.spawnSync.mock.calls[0][1][4];
+        const unregistered = script.indexOf('[Console]::Out.WriteLine("XLIDE-ORACLE-HOST $progId unregistered")');
+        expect(unregistered).toBeGreaterThan(script.indexOf('if ($null -eq $type) {'));
+        expect(script.slice(unregistered, script.indexOf('}', unregistered))).toContain('continue');
+        const confirmed = script.indexOf('[Console]::Out.WriteLine("XLIDE-ORACLE-HOST $progId registered")');
+        expect(confirmed).toBeGreaterThan(unregistered);
+        expect(script.indexOf('[Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($path)')).toBeGreaterThan(confirmed);
+        // A failure answers nothing more for that host, which is then probed on its own.
+        expect(script).toMatch(/\} catch \{ \}\n\s*\}$/);
+    });
+
+    it('probes on their own only the hosts the combined probe left without an answer, with the single-host messages', async () => {
+        const probe = setup([{ id: 'excel' }, { id: 'word', host: 'word' }, { id: 'powerpoint', host: 'powerpoint' }], true, true);
+        // Excel answered in full, Word's build could not be read, and the
+        // process timed out before PowerPoint.
+        probe.spawnSync.mockReturnValueOnce({ status: null, stdout: registered('Excel.Application') + answer('Word.Application', 'registered'), error: timeoutError })
+            .mockReturnValueOnce({ status: 2, stdout: `${marker}\n` })
+            .mockReturnValue({ status: 0, stdout: `${marker}\n${build}\n` });
+        expect(await probe.main([])).toBe(2);
+        expect(probe.errors).toEqual(['--checkpoint requires a readable file version for the registered WINWORD.EXE: PowerShell exited 2']);
+        expect(probe.spawnSync.mock.calls.map((call) => call[1][4].match(/GetTypeFromProgID\("([^"]+)"\)/)?.[1] ?? 'combined'))
+            .toEqual(['combined', 'Word.Application', 'PowerPoint.Application']);
+    });
+
+    it('answers registration alone from a host whose build could not be read', async () => {
+        const probe = setup([{ id: 'word', host: 'word' }], false, true);
+        probe.spawnSync.mockReturnValue({ status: 0, stdout: answer('Word.Application', 'registered') });
+        expect(await probe.main([])).toBe(0);
+        expect(probe.spawnSync).toHaveBeenCalledOnce();
+    });
+
+    const malformed: [string, string][] = [
+        ['a line cut short', `${answer('Excel.Application', 'registered')}XLIDE-ORACLE-HOST Excel.Application build ${build}`],
+        ['a build with no registration before it', answer('Excel.Application', `build ${build}`)],
+        ['a host not asked for', registered('Other.Application')],
+        ['a three-part build', `${answer('Excel.Application', 'registered')}${answer('Excel.Application', 'build 16.0.1')}`],
+        ['text before the answer', `noise ${registered('Excel.Application')}`],
+        ['a bare CR before the answer', `noise\r${registered('Excel.Application')}`],
+    ];
+    it.each(malformed)('probes the build again on its own after %s', (_name, stdout) => {
+        const probe = setup([], false, true);
+        probe.spawnSync.mockReturnValueOnce({ status: 0, stdout }).mockReturnValue({ status: 2, stdout: `${marker}\n` });
+        expect(probe.registeredHostBuild('Excel.Application')).toEqual({ registered: true, build: null, why: 'PowerShell exited 2' });
+        expect(probe.spawnSync).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps the first answer for a host, and asks the one process only once', () => {
+        const probe = setup([], false, true);
+        probe.spawnSync.mockReturnValue({ status: 0, stdout: registered('Excel.Application') + answer('Excel.Application', 'unregistered')
+            + answer('Excel.Application', 'build 1.2.3.4') + answer('Word.Application', 'unregistered') + answer('Word.Application', 'registered') });
+        expect(probe.registeredHostBuild('Excel.Application')).toEqual({ registered: true, build });
+        expect(probe.comRegistered('Word.Application')).toBe(false);
+        expect(probe.comRegistered('Excel.Application')).toBe(true);
+        expect(probe.spawnSync).toHaveBeenCalledOnce();
+    });
+});
+
+// The script itself, on Windows. CI's runner has no Office, so every host is
+// unregistered there; with Office each gives its build, unless it cannot be
+// read. One start.
+describe.skipIf(process.platform !== 'win32')('executed combined host probe', () => {
+    it('answers every host, with a build only after its registration', async () => {
+        const { spawnSync: realSpawnSync } = await import('node:child_process');
+        const probeHosts = runInNewContext(`${probeSource}\nprobeHosts`, {
+            spawnSync: realSpawnSync,
+            OFFICE_HOSTS: Object.fromEntries(hosts.map(([host, info]) => [host, { progId: info.progId }])),
+        });
+        const answers: [string, { registered: boolean; build?: string | null }][] = [...probeHosts()];
+        // Each host is answered: a missing one would cost a start of its own.
+        expect(answers.map(([progId]) => progId)).toEqual(progIds);
+        for (const [progId, one] of answers) {
+            // A build that cannot be read leaves registration alone.
+            expect(one, progId).toEqual(one.registered
+                ? { registered: true, build: one.build === null ? null : expect.stringMatching(/^\d+\.\d+\.\d+\.\d+$/) } : { registered: false });
+        }
+    }, 20_000);
 });

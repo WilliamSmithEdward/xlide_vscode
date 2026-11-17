@@ -158,9 +158,39 @@ public static class XlideVbeDialogWatcher {
     private static volatile bool stopRequested;
     private static volatile bool dialogSeen;
     private static readonly ManualResetEvent stopEvent = new ManualResetEvent(false);
+    // What one start's watcher recorded, so the worker need not read the file
+    // back. Each start has its own: a watcher that outlives Stop() writes only
+    // to its own, never to a later case's.
+    private static volatile Recording current;
+
+    private sealed class Recording {
+        public readonly string Path;
+        public readonly ManualResetEvent Written = new ManualResetEvent(false);
+        public volatile string Json;
+
+        public Recording(string path) {
+            Path = path;
+        }
+    }
 
     public static bool DialogSeen {
         get { return dialogSeen; }
+    }
+
+    // The dialog result the watcher wrote to resultPath, as JSON, or null.
+    public static string ResultFor(string resultPath) {
+        Recording recording = current;
+        return recording != null && recording.Path == resultPath ? recording.Json : null;
+    }
+
+    // Waits up to the given time for the result to be written to resultPath.
+    public static string WaitForResult(string resultPath, int milliseconds) {
+        Recording recording = current;
+        if (recording == null || recording.Path != resultPath) {
+            return null;
+        }
+        recording.Written.WaitOne(Math.Max(0, milliseconds));
+        return recording.Json;
     }
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -245,6 +275,7 @@ public static class XlideVbeDialogWatcher {
     // finished with it, 6 to 10 s later.
     public static void Start(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
         Stop();
+        current = null;
         if (hostProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
             return;
         }
@@ -252,8 +283,10 @@ public static class XlideVbeDialogWatcher {
         stopRequested = false;
         dialogSeen = false;
         stopEvent.Reset();
+        Recording recording = new Recording(resultPath);
+        current = recording;
         watcherThread = new Thread(delegate() {
-            Watch(hostProcessId, resultPath, stagePath, maxSeconds, holdSeconds, endHostAfterDialog);
+            Watch(hostProcessId, recording, stagePath, maxSeconds, holdSeconds, endHostAfterDialog);
         });
         watcherThread.IsBackground = true;
         watcherThread.Start();
@@ -313,7 +346,7 @@ public static class XlideVbeDialogWatcher {
         return GetForegroundWindow() == hWnd;
     }
 
-    private static void Watch(uint hostProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
+    private static void Watch(uint hostProcessId, Recording recording, string stagePath, int maxSeconds, int holdSeconds, bool endHostAfterDialog) {
         DateTime deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, maxSeconds));
         while (!stopRequested && DateTime.UtcNow < deadline) {
             DialogInfo dialog = FindVbeDialog(hostProcessId);
@@ -329,14 +362,15 @@ public static class XlideVbeDialogWatcher {
                 }
                 HoldDialogForInspection(dialog.Handle, holdSeconds);
                 if (DismissDialog(dialog.Handle)) {
-                    WriteDialogResult(resultPath, dialog);
+                    WriteDialogResult(recording, dialog);
                     if (endHostAfterDialog) {
                         EndProcess(hostProcessId);
                     }
                     return;
                 }
             }
-            stopEvent.WaitOne(100);
+            // A cheap scan, so a dialog is seen soon after it appears.
+            stopEvent.WaitOne(15);
         }
     }
 
@@ -547,7 +581,8 @@ public static class XlideVbeDialogWatcher {
         PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
     }
 
-    private static void WriteDialogResult(string resultPath, DialogInfo dialog) {
+    // The file stays: the coordinator reads it if the worker dies.
+    private static void WriteDialogResult(Recording recording, DialogInfo dialog) {
         StringBuilder json = new StringBuilder();
         json.Append("{");
         json.Append("\"kind\":").Append(JsonString(dialog.Kind)).Append(",");
@@ -562,7 +597,9 @@ public static class XlideVbeDialogWatcher {
             json.Append(JsonString(dialog.Texts[i]));
         }
         json.Append("]}");
-        File.WriteAllText(resultPath, json.ToString(), Encoding.UTF8);
+        File.WriteAllText(recording.Path, json.ToString(), Encoding.UTF8);
+        recording.Json = json.ToString();
+        recording.Written.Set();
     }
 
     private static string JsonString(string value) {
@@ -665,16 +702,18 @@ function Remove-ComObjectReference($Value) {
 function Set-Stage($Name) {
     $script:stage = $Name
     if ($StagePath) {
-        try { Set-Content -LiteralPath $StagePath -Value $Name -Encoding ascii } catch { }
+        try { [IO.File]::WriteAllText($StagePath, $Name, [Text.Encoding]::ASCII) } catch { }
     }
 }
 
+# The watcher hands over what it wrote to this case's dialog file.
 function Read-DialogResult {
-    if (-not $DialogPath -or -not (Test-Path -LiteralPath $DialogPath)) {
+    $json = if ($DialogPath) { [XlideVbeDialogWatcher]::ResultFor($DialogPath) } else { $null }
+    if ($null -eq $json) {
         return $null
     }
     try {
-        return Get-Content -LiteralPath $DialogPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        return $json | ConvertFrom-Json
     }
     catch {
         return $null
@@ -734,10 +773,10 @@ function Resolve-DialogAfterStop($Dialog) {
 # --dialog-hold-seconds hold and up to 5 s of dismissing. A dialog that was
 # seen but never recorded must not count as no dialog.
 function Wait-ForSeenDialogResult {
-    $deadline = [DateTime]::UtcNow.AddSeconds($DialogHoldSeconds + 10)
     $dialog = Read-DialogResult
-    while ($null -eq $dialog -and [DateTime]::UtcNow -lt $deadline) {
-        Start-Sleep -Milliseconds 10
+    if ($null -eq $dialog -and $DialogPath) {
+        $milliseconds = [int][Math]::Min(([double]$DialogHoldSeconds + 10) * 1000, [int]::MaxValue)
+        $null = [XlideVbeDialogWatcher]::WaitForResult($DialogPath, $milliseconds)
         $dialog = Read-DialogResult
     }
     if ($null -eq $dialog) {
@@ -748,7 +787,8 @@ function Wait-ForSeenDialogResult {
 
 # The Compile command is disabled once the project has compiled, and stays
 # enabled when compiling fails with an error dialog. A disabled command with no
-# dialog is the accept signal, so accepted cases don't wait out the window.
+# dialog is the accept signal, so accepted cases don't wait out the window. A
+# window that ends with neither signal is not evidence either way.
 function Wait-ForCompileResult($Control, $HostPid) {
     $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(1, $DialogWatchSeconds))
     while ([DateTime]::UtcNow -lt $deadline) {
@@ -779,7 +819,10 @@ function Wait-ForCompileResult($Control, $HostPid) {
         }
         Start-Sleep -Milliseconds 50
     }
-    return $null
+    if ([XlideVbeDialogWatcher]::DialogSeen) {
+        return Wait-ForSeenDialogResult
+    }
+    throw "No compile result within $DialogWatchSeconds s: no VBE dialog appeared and the Compile command was not seen disabled. No signal is not VBA evidence."
 }
 
 # A host's Run returns only after a dialog it raised has been dismissed, so
@@ -1223,6 +1266,7 @@ function Invoke-VbeCompileCommand($App) {
 # its database asks whether to save the case's modules.
 $script:app = $null
 $script:appPid = 0
+$script:appProcess = $null
 $script:appBuild = $null
 $script:appBuildPid = 0
 $script:appCases = 0
@@ -1259,7 +1303,11 @@ function Get-WindowProcessId([long]$Hwnd) {
 function Start-OracleHost {
     $script:appBuild = $null
     $script:appBuildPid = 0
-    $before = Get-HostProcessIds
+    # Only Word and PowerPoint need to know which instances were running.
+    $before = @()
+    if ($script:hostName -eq "word" -or $script:hostName -eq "powerpoint") {
+        $before = Get-HostProcessIds
+    }
     # Word and PowerPoint can hand an automation request to an instance that
     # is already running, and PowerPoint always does: that instance is
     # someone's, and the oracle would compile into it and then quit it.
@@ -1289,6 +1337,18 @@ function Start-OracleHost {
         throw "Could not tell which $($script:hostNoun) process the oracle started."
     }
     $script:appPid = $processId
+    # Held until the host has exited, so the stop can wait on it and the id
+    # cannot be reused meanwhile. Without it the stop only polls the id.
+    $script:appProcess = $null
+    $process = $null
+    try {
+        $process = [Diagnostics.Process]::GetProcessById($processId)
+        $null = $process.Handle
+        $script:appProcess = $process
+    }
+    catch {
+        if ($null -ne $process) { $process.Dispose() }
+    }
     $script:appHost = $script:hostName
     $script:appCases = 0
 }
@@ -1299,7 +1359,7 @@ function Start-OracleHost {
 # taken for it. Written as soon as the host is started, and before each case.
 function Write-HostRecord {
     $start = (Get-Process -Id $script:appPid -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc()
-    Set-Content -LiteralPath $PidPath -Value "$($script:appPid) $($script:hostImageOfApp) $start" -Encoding ascii
+    [IO.File]::WriteAllText($PidPath, "$($script:appPid) $($script:hostImageOfApp) $start", [Text.Encoding]::ASCII)
 }
 
 function Stop-OracleHost {
@@ -1327,6 +1387,11 @@ function Stop-OracleHost {
         # Gone before the next case looks, or the next Word or PowerPoint case
         # would take this worker's own exiting instance for someone else's.
         $deadline = [DateTime]::UtcNow.AddSeconds(10)
+        # The exit signals the held handle at once; the loop then normally
+        # finds the process gone at its first look.
+        if ($null -ne $script:appProcess) {
+            $null = $script:appProcess.WaitForExit(10000)
+        }
         while ([DateTime]::UtcNow -lt $deadline -and $null -ne (Get-Process -Id $script:appPid -ErrorAction SilentlyContinue)) {
             Start-Sleep -Milliseconds 50
         }
@@ -1335,6 +1400,10 @@ function Stop-OracleHost {
         $left = Get-Process -Id $script:appPid -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -eq $script:hostImageOfApp }
         if ($null -ne $left) {
             throw "The $($script:hostNoun) instance the oracle started, pid $($script:appPid), did not exit."
+        }
+        if ($null -ne $script:appProcess) {
+            $script:appProcess.Dispose()
+            $script:appProcess = $null
         }
         $script:appPid = 0
     }
@@ -1592,6 +1661,104 @@ function Test-MacroNotFound([string]$Message) {
     return $false
 }
 
+# Office's older client telemetry is set up at every host start, even with no
+# network, and makes Access, PowerPoint and Word start much slower: an Access
+# compile case took about 4.0 s with it and 1.5 s without. A served run turns
+# it off for the user (DisableTelemetry in the user's own Office settings, not
+# a policy, so no administrator is needed) and puts back what was there when
+# the worker ends. What was there is saved first, so a run whose worker is
+# killed before putting it back (a case that timed out, Ctrl-C, a killed run)
+# leaves it for the next run's worker to put back.
+$TelemetryKey = 'Software\Microsoft\Office\Common\ClientTelemetry'
+$TelemetryProfile = [Environment]::GetFolderPath('UserProfile')
+$TelemetryBackup = if ($TelemetryProfile) { Join-Path $TelemetryProfile '.xlide-vbe-oracle-telemetry.json' } else { $null }
+
+# A saved value Office could have held: a string for the string kinds, a
+# whole number in range for the number kinds.
+function Test-TelemetryBackup($Saved) {
+    if ($null -eq $Saved -or $Saved.present -isnot [bool]) { return $false }
+    if (-not $Saved.present) { return $true }
+    $value = $Saved.value
+    switch ([string]$Saved.kind) {
+        'String' { return $value -is [string] }
+        'ExpandString' { return $value -is [string] }
+        'DWord' { return ($value -is [int] -or $value -is [long]) -and $value -ge [int]::MinValue -and $value -le [int]::MaxValue }
+        'QWord' { return $value -is [int] -or $value -is [long] }
+    }
+    return $false
+}
+
+# Puts back the value a backup holds, if the value is still the DWORD 1 a run
+# set: any other value is the user's and stays. Then removes the backup.
+function Restore-OracleTelemetry {
+    if (-not $TelemetryBackup -or -not (Test-Path -LiteralPath $TelemetryBackup)) {
+        return
+    }
+    $saved = $null
+    try { $saved = Get-Content -Raw -Encoding UTF8 -LiteralPath $TelemetryBackup | ConvertFrom-Json } catch { }
+    if (-not (Test-TelemetryBackup $saved)) {
+        # Set aside where the user can find it, and go on.
+        $aside = $TelemetryBackup + '.unreadable-' + [DateTime]::UtcNow.Ticks
+        [IO.File]::Move($TelemetryBackup, $aside)
+        [Console]::Error.WriteLine("The saved Office telemetry setting could not be read; it was moved to $aside. DisableTelemetry may stay set to 1.")
+        return
+    }
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($TelemetryKey, $true)
+    if ($null -ne $key) {
+        try {
+            if ($key.GetValueNames() -contains 'DisableTelemetry' -and
+                $key.GetValueKind('DisableTelemetry') -eq 'DWord' -and $key.GetValue('DisableTelemetry') -eq 1) {
+                if ($saved.present) {
+                    $key.SetValue('DisableTelemetry', $saved.value, [Microsoft.Win32.RegistryValueKind]$saved.kind)
+                }
+                else {
+                    $key.DeleteValue('DisableTelemetry', $false)
+                }
+            }
+        }
+        finally {
+            $key.Close()
+        }
+    }
+    Remove-Item -Force -LiteralPath $TelemetryBackup
+}
+
+function Disable-OracleTelemetry {
+    if (-not $TelemetryBackup) {
+        throw "there is no user profile folder to save the setting in."
+    }
+    # A killed run's value first, so its backup is not taken for the user's.
+    Restore-OracleTelemetry
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($TelemetryKey)
+    try {
+        $saved = [pscustomobject]@{ present = $false }
+        if ($key.GetValueNames() -contains 'DisableTelemetry') {
+            $saved = [pscustomobject]@{ present = $true; kind = [string]$key.GetValueKind('DisableTelemetry')
+                value = $key.GetValue('DisableTelemetry', $null, 'DoNotExpandEnvironmentNames') }
+            if (-not (Test-TelemetryBackup $saved)) {
+                # A value it could not put back exactly is left alone.
+                [Console]::Error.WriteLine("Office telemetry was left on for this run: DisableTelemetry holds a $($saved.kind) value it could not put back exactly.")
+                return
+            }
+        }
+        # Saved, and flushed to disk, before the change, so a killed run can
+        # always be put right.
+        $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($saved | ConvertTo-Json -Compress))
+        $stream = [IO.File]::Open($TelemetryBackup, 'Create', 'Write', 'None')
+        try {
+            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Flush($true)
+        }
+        finally {
+            $stream.Dispose()
+        }
+        $key.SetValue('DisableTelemetry', 1, 'DWord')
+    }
+    finally {
+        $key.Close()
+    }
+}
+
 # The build of the running host, read from its own executable once per host
 # process. A failed read is not kept, so the next case reads it again.
 function Get-HostBuild($HostPid) {
@@ -1612,10 +1779,7 @@ function Get-HostBuild($HostPid) {
     return $null
 }
 
-function Invoke-OracleCase {
-    # The coordinator writes the case as UTF-8; Windows PowerShell would
-    # otherwise read it in the ANSI code page and garble non-ASCII source.
-    $case = Get-Content -LiteralPath $CasePath -Raw -Encoding UTF8 | ConvertFrom-Json
+function Invoke-OracleCase($case) {
     $app = $null
     $appPid = 0
     $container = $null
@@ -1817,8 +1981,12 @@ function Invoke-OracleCase {
                 Set-DialogOutcome $dialog $false
             }
         }
-
-        elseif ($mode -ne "run") {
+        elseif ($mode -eq "run") {
+            # Nothing ran, so nothing may be recorded as accepted.
+            Set-Stage "run"
+            throw "run oracle cases require entryPoint."
+        }
+        else {
             throw "Unsupported oracle mode: $mode"
         }
 
@@ -1874,18 +2042,21 @@ function Invoke-OracleCase {
         Remove-ComObjectReference $vbProject
         Remove-ComObjectReference $container
 
+        # What is still open is asked only of an instance that would
+        # otherwise be kept.
+        $evidence = $result.outcome -eq "accepted" -or $result.outcome -eq "rejected"
+        $keep = $evidence -and $mode -eq "compile" -and $script:hostName -ne "access" -and $script:appCases -lt $CasesPerInstance
         # A macro can open files of its own; they must not outlive the case.
-        if ($closed -and $null -ne $script:app) {
+        if ($keep -and $closed -and $null -ne $script:app) {
             try { $closed = (Get-OpenContainerCount $script:app) -eq 0 } catch { $closed = $false }
         }
         # PowerPoint drops the provider's add-in when the case's presentation
         # closes. An instance that still lists an add-in, that one or another,
         # is not kept.
-        if ($closed -and $script:providerPath -and $script:hostName -eq "powerpoint") {
+        if ($keep -and $closed -and $script:providerPath -and $script:hostName -eq "powerpoint") {
             try { $closed = $script:app.AddIns.Count -eq 0 } catch { $closed = $false }
         }
-        $evidence = $result.outcome -eq "accepted" -or $result.outcome -eq "rejected"
-        if (-not $closed -or -not $evidence -or $mode -ne "compile" -or $script:hostName -eq "access" -or $script:appCases -ge $CasesPerInstance) {
+        if (-not $closed -or -not $keep) {
             Stop-OracleHost
         }
 
@@ -1910,26 +2081,42 @@ function Invoke-OracleCase {
 }
 
 if ($Serve) {
+    # Telemetry only costs time, so a failure here never stops a run. Notices
+    # are kept for the end: on stderr now they would only reach the first
+    # case's result, which the text report does not show.
+    $telemetryNotices = New-Object IO.StringWriter
+    $stderr = [Console]::Error
+    [Console]::SetError($telemetryNotices)
+    try { Disable-OracleTelemetry } catch { [Console]::Error.WriteLine("Could not turn off Office telemetry for this run: $($_.Exception.Message)") }
+    finally { [Console]::SetError($stderr) }
     try {
         while ($null -ne ($line = [Console]::In.ReadLine())) {
             if (-not $line.Trim()) {
                 continue
             }
             $request = $line | ConvertFrom-Json
-            $script:CasePath = [string]$request.casePath
             $script:PidPath = [string]$request.pidPath
             $script:StagePath = [string]$request.stagePath
             $script:DialogPath = [string]$request.dialogPath
             $script:DialogWatchSeconds = [int]$request.dialogWatchSeconds
             $script:DialogHoldSeconds = [int]$request.dialogHoldSeconds
             Set-OracleHost $request.host $request.hostProgId $request.hostImage
-            $output = @(Invoke-OracleCase)
+            # The case comes in the request, escaped to ASCII like the rest.
+            if ($null -eq $request.case) {
+                throw "The request carries no case."
+            }
+            $output = @(Invoke-OracleCase $request.case)
             [Console]::Out.WriteLine("XLIDE-ORACLE-RESULT " + (Write-ResultJson $output[-1]))
             [Console]::Out.Flush()
         }
     }
     finally {
-        Stop-OracleHost
+        try { Stop-OracleHost }
+        finally {
+            $notices = $telemetryNotices.ToString().Trim()
+            if ($notices) { [Console]::Error.WriteLine($notices) }
+            try { Restore-OracleTelemetry } catch { [Console]::Error.WriteLine("Could not put back the Office telemetry setting: $($_.Exception.Message) The next oracle run tries again.") }
+        }
     }
 }
 else {
@@ -1937,7 +2124,9 @@ else {
         throw "-CasePath and -PidPath are required without -Serve."
     }
     Set-OracleHost $HostName $HostProgId $HostImage
-    $output = @(Invoke-OracleCase)
+    # Read as UTF-8; Windows PowerShell would otherwise read it in the ANSI
+    # code page and garble non-ASCII source.
+    $output = @(Invoke-OracleCase (Get-Content -LiteralPath $CasePath -Raw -Encoding UTF8 | ConvertFrom-Json))
     Stop-OracleHost
     Write-ResultJson $output[-1]
 }

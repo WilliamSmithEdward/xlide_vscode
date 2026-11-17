@@ -8,7 +8,10 @@
 // are built by the type-inference module.
 
 import type { VbaToken } from '../lexer/tokenKinds';
+import { tokenizeCached } from '../lexer/tokenize';
 import type { Span } from '../parser/nodes';
+import { matchParenFrom } from '../lexer/tokenHelpers';
+import { isThenOrElseKeywordAt } from '../parser/parserState';
 import { bareCallStatementTarget as callStatementTarget } from '../call/callContext';
 import { qualifiedProcedureKey } from '../symbols/symbolModel';
 import type { PushFn, VbaDiagnosticData } from './analysisContext';
@@ -157,6 +160,18 @@ function tokensInsideParens(toks: readonly VbaToken[], openIndex: number): VbaTo
 }
 
 /**
+ * A statement's tokens up to its first colon or a one-line If's Else, which
+ * no argument holds: in `If ok Then Beep: Beep Else Beep` the first Beep ends
+ * at the colon, and the second at Else. A member named Else, `d.Else` or
+ * `d!Else`, is a name, but `x! Else` is a Single and then Else, as the
+ * parser reads it.
+ */
+function untilColonOrElse(toks: VbaToken[]): VbaToken[] {
+	const end = toks.findIndex((tok, i) => tok.kind === 'colon' || isThenOrElseKeywordAt(toks, i, 'else'));
+	return end < 0 ? toks : toks.slice(0, end);
+}
+
+/**
  * If the statement spanning `span` is a bare call statement, returns the callee
  * and its top-level argument slots; otherwise undefined. Reuses
  * {@link callStatementTarget} for the safe call-detection gating, then peels off
@@ -194,7 +209,7 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 			argToks = []; // `Call Foo` with no parameter list
 		}
 	} else {
-		argToks = toks.slice(calleeIdx + 1);
+		argToks = untilColonOrElse(toks.slice(calleeIdx + 1));
 	}
 
 	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, sliceStart);
@@ -208,9 +223,18 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 	};
 }
 
+/** Whether only blanks and a line number stand between `offset` and the start of its line, past a CR or an LF. */
+function atLineStart(source: string, offset: number): boolean {
+	let i = offset - 1;
+	while (i >= 0 && source[i] !== '\n' && source[i] !== '\r') {
+		i--;
+	}
+	return /^[ \t]*(?:\d+[ \t]+)?$/.test(source.slice(i + 1, offset));
+}
+
 /**
- * `Kill "a", "b"`: one of the statements the call extractor leaves to rules
- * of their own, read as the call it also is, for its argument count.
+ * `Kill "a", "b"`, `Load c, c`: one of the statements the call extractor does
+ * not read as calls, read as the call it also is, for its argument count.
  */
 export function argumentListStatementCall(
 	source: string,
@@ -218,22 +242,39 @@ export function argumentListStatementCall(
 	names: ReadonlySet<string>,
 ): CallArguments | undefined {
 	const toks = statementTokens(source, span);
-	const at = firstExecutableTokenIndex(toks);
+	let at = firstExecutableTokenIndex(toks);
+	// `Call Load` with no argument list is the statement's call too.
+	const explicitCall = tokenText(toks[at]) === 'call';
+	if (explicitCall) {
+		at++;
+	}
 	const name = tokenName(toks[at]);
 	const next = toks[at + 1]?.rawText;
-	if (!name || !names.has(name.toLowerCase()) || next === '=' || next === '.' || next === '(' || next === ':') {
+	if (!name || !names.has(name.toLowerCase()) || next === '=' || next === '.' || next === ':' || (explicitCall && next !== undefined)) {
 		return undefined;
 	}
-	// `Kill:` is a line label of that name (issue #272); the colon ends the
-	// statement's span, so look past it in the source.
-	if (/^[ \t]*:/.test(source.slice(span.start + toks[at].end, span.start + toks[at].end + 64))) {
+	// `Kill("a")` and `Load (o)` are one parenthesized argument, which the
+	// expression rules read; `Load (o), o` goes on past it, a list of two.
+	if (next === '(') {
+		const close = matchParenFrom(toks, at + 1);
+		if (close < 0 || close === toks.length - 1) {
+			return undefined;
+		}
+	}
+	// `Kill:` at the start of a line is a line label of that name (issue
+	// #272), and the colon ends the statement's span, so look past it in the
+	// source. After another statement and a colon, `Beep: Load: Beep`, it is
+	// the statement.
+	const nameStart = span.start + toks[at].start;
+	if (/^[ \t]*:/.test(source.slice(span.start + toks[at].end, span.start + toks[at].end + 64)) && atLineStart(source, nameStart)) {
 		return undefined;
 	}
-	const argToks = toks.slice(at + 1);
+	const argToks = untilColonOrElse(toks.slice(at + 1));
 	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, span.start);
 	return {
 		name,
-		nameSpan: { start: span.start + toks[at].start, end: span.start + toks[at].end },
+		nameSpan: { start: nameStart, end: span.start + toks[at].end },
+		...(explicitCall ? { explicitCall: true } : {}),
 		slots: split.slots,
 		slotSpans: split.spans,
 		sliceStart: span.start,
@@ -579,7 +620,7 @@ export function validateArity(
 			if (missing) {
 				push(
 					'argumentCount',
-					`Parameter '${stripHeaderBrackets(missing.name)}' of '${displayName}' is not Optional, and the call gives it no argument, by position or by name. This is a VBE compile error: Argument not optional.`,
+					`Parameter '${stripHeaderBrackets(missing.name)}' of '${displayName}' is not Optional, and the call gives it no argument, by position or by name. This is a VBE compile error: ${syntaxWhenShort(source, sig, call) ? 'Syntax error' : 'Argument not optional'}.`,
 					call.nameSpan,
 				);
 			}
@@ -630,17 +671,150 @@ export function validateArity(
 		return;
 	}
 	if (n < required || n > max) {
+		// `Call MsgBox "hello"`: an explicit Call with its arguments outside
+		// parentheses is a Syntax error, whatever the count. As a statement of
+		// its own call-requires-parens reports it. In a one-line If's branch,
+		// where that rule does not run, it is reported here when its count is
+		// short too; a branch Call to a procedure with no required parameter,
+		// or to a member, goes unreported, as before.
+		const outside = call.explicitCall && n === 0 ? callArgumentsOutsideParentheses(source, call) : undefined;
+		if (outside === 'statement') {
+			return;
+		}
+		if (outside === 'branch') {
+			push('argumentCount', `The Call to '${displayName}' gives its arguments outside parentheses. This is a VBE compile error: Syntax error.`, call.nameSpan);
+			return;
+		}
 		const missingParam = n < required ? params[n] : undefined;
 		const placeholder = missingParam
 			? trailingMissingArgumentPlaceholderData(source, call, missingParam)
 			: undefined;
-		push(
-			'argumentCount',
-			`Wrong number of arguments to '${displayName}': expected ${describeArity(required, max)}, but got ${n}.`,
-			call.nameSpan,
-			placeholder,
-		);
+		// Too few is "Argument not optional", except for the VBA functions
+		// the VBE parses as its own syntax, where it is a Syntax error
+		// (measured in Excel, Word, PowerPoint and Access 16.0).
+		const message = !missingParam
+			? `Wrong number of arguments to '${displayName}': expected ${describeArity(required, max)}, but got ${n}.`
+			: syntaxWhenShort(source, sig, call)
+				? `The call to '${displayName}' gives ${n} of its ${required} required argument${required === 1 ? '' : 's'}. This is a VBE compile error: Syntax error.`
+				: `'${stripHeaderBrackets(missingParam.name)}' is required by '${displayName}', which got ${n} argument${n === 1 ? '' : 's'}. This is a VBE compile error: Argument not optional.`;
+		push('argumentCount', message, call.nameSpan, placeholder);
 	}
+}
+
+/**
+ * VBA's functions that the VBE parses as its own syntax, so that a call with
+ * too few arguments is a Syntax error, not "Argument not optional": `CInt()`,
+ * `Len()`, `InStr("a")`. Measured in Excel, Word, PowerPoint and Access 16.0
+ * (build 20527), where the other VBA functions measured with a required
+ * parameter give "Argument not optional", but for CallByName and MIRR, whose
+ * arguments' types are checked first ("Type mismatch"), and FileAttr, whose
+ * second argument the VBE does not require.
+ */
+const SYNTAX_WHEN_SHORT: ReadonlySet<string> = new Set([
+	'len', 'lenb', 'instr', 'instrb', 'strcomp', 'string$',
+	'cbool', 'cbyte', 'ccur', 'cdate', 'cdbl', 'cint', 'clng', 'clnglng', 'clngptr', 'csng', 'cstr', 'cvar', 'cverr',
+	'abs', 'int', 'fix', 'sgn', 'lbound', 'ubound',
+]);
+
+/**
+ * Whether a call with too few arguments is a Syntax error in the VBE: a bare
+ * call of one of SYNTAX_WHEN_SHORT (`VBA.CLng()` is "Argument not optional"),
+ * a Mid statement's target, `Mid(s) = "x"`, and `Debug.Assert` (measured in
+ * Excel, Word, PowerPoint and Access 16.0). Read from the module's tokens, so
+ * spacing, line numbers, continuations and strings don't mislead.
+ */
+function syntaxWhenShort(source: string, sig: CallableTypeSignature, call: CallArguments): boolean {
+	const lower = sig.name.toLowerCase();
+	// A bracketed name, `[Len]()`, is an ordinary identifier, not the VBE's syntax.
+	if (source[call.nameSpan.start] === '[') {
+		return false;
+	}
+	if (sig.runtime && !call.qualifier && !call.vbaLibrary && SYNTAX_WHEN_SHORT.has(lower)) {
+		return true;
+	}
+	const isAssert = lower === 'assert';
+	const isMid = /^midb?\$?$/.test(lower) && !call.qualifier;
+	if (!isAssert && !isMid) {
+		return false;
+	}
+	const toks = tokenizeCached(source);
+	const at = tokenIndexAt(toks, call.nameSpan.start);
+	if (at < 0) {
+		return false;
+	}
+	if (isAssert) {
+		// VBA's Debug object, not a member reached through one: `h.Debug.Assert`.
+		return toks[at - 1]?.rawText === '.' && toks[at - 2]?.rawText.toLowerCase() === 'debug'
+			&& toks[at - 3]?.rawText !== '.' && toks[at - 3]?.rawText !== '!';
+	}
+	// A Mid statement: Mid heads its statement, and `(...) =` follows it.
+	if (!statementHeadBefore(toks, at)) {
+		return false;
+	}
+	// `Mid$` lexes as Mid and a `$` of its own.
+	const open = toks[at + 1]?.rawText === '$' ? at + 2 : at + 1;
+	const close = matchingParenthesis(toks, open);
+	return close >= 0 && toks[close + 1]?.rawText === '=';
+}
+
+/**
+ * Where an explicit Call with an argument after its name, outside
+ * parentheses, stands: heading a statement of its own, or as a one-line If's
+ * branch. Undefined when the Call has no such argument.
+ */
+function callArgumentsOutsideParentheses(source: string, call: CallArguments): 'statement' | 'branch' | undefined {
+	const toks = tokenizeCached(source);
+	const at = tokenIndexAt(toks, call.nameSpan.start);
+	const next = at < 0 ? undefined : toks[at + 1];
+	if (next === undefined || next.kind === 'newline' || next.kind === 'colon' || next.kind === 'comment'
+		|| next.rawText === '(' || (next.kind === 'keyword' && next.rawText.toLowerCase() === 'else')) {
+		return undefined;
+	}
+	let callAt = at;
+	while (callAt > 0 && toks[callAt].rawText.toLowerCase() !== 'call' && toks[callAt].kind !== 'newline') {
+		callAt--;
+	}
+	if (toks[callAt].rawText.toLowerCase() !== 'call') {
+		return undefined;
+	}
+	const before = toks[callAt - 1];
+	return before?.kind === 'keyword' && ['then', 'else'].includes(before.rawText.toLowerCase()) ? 'branch' : 'statement';
+}
+
+/** The index of the token that starts at `offset`, or -1. */
+function tokenIndexAt(toks: readonly VbaToken[], offset: number): number {
+	for (let low = 0, high = toks.length - 1; low <= high;) {
+		const mid = (low + high) >> 1;
+		if (toks[mid].start < offset) { low = mid + 1; } else if (toks[mid].start > offset) { high = mid - 1; } else { return mid; }
+	}
+	return -1;
+}
+
+/** Whether the token at `at` heads a statement: after a line's start, a line number, a colon, or a one-line If's Then or Else. */
+function statementHeadBefore(toks: readonly VbaToken[], at: number): boolean {
+	let prev = at - 1;
+	if (toks[prev]?.kind === 'integerLiteral' && (prev === 0 || toks[prev - 1].kind === 'newline')) {
+		prev--;
+	}
+	const tok = toks[prev];
+	if (tok === undefined || tok.kind === 'newline' || tok.kind === 'colon') {
+		return true;
+	}
+	return tok.kind === 'keyword' && ['then', 'else'].includes(tok.rawText.toLowerCase())
+		&& toks[prev - 1]?.rawText !== '.' && toks[prev - 1]?.rawText !== '!';
+}
+
+/** The index of the `)` closing the `(` at `open`, or -1. */
+function matchingParenthesis(toks: readonly VbaToken[], open: number): number {
+	if (toks[open]?.rawText !== '(') {
+		return -1;
+	}
+	for (let i = open, depth = 0; i < toks.length; i++) {
+		if (toks[i].kind === 'newline') { return -1; }
+		if (toks[i].rawText === '(') { depth++; }
+		if (toks[i].rawText === ')' && --depth === 0) { return i; }
+	}
+	return -1;
 }
 
 /** VBA's parameterless functions whose result `Now(1)` indexes (measured in Excel 16.0). */

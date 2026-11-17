@@ -58,7 +58,7 @@ a published release.
 - **Workflows:** zizmor audits the GitHub Actions workflows; a finding fails
   Security.
 - **Dependencies:** `npm audit` over every dependency, production and
-  development; any vulnerability fails it.
+  development; any advisory not reviewed below fails it.
 - **Malware:** ClamAV, with signatures freshclam fetches and verifies on
   every run, and YARA-X, with the YARA Forge rules pinned to a release and
   its SHA-256, scan every tracked file, every dependency npm installs from the
@@ -104,6 +104,11 @@ where `*` matches within one path segment. An entry that no longer matches
 any result fails its scan, so remove it in the change that makes it stale.
 On a pull request CodeQL reports only the changed code, so a CodeQL entry
 outside it is listed there but not failed; the run on `main` fails on it.
+An npm audit advisory is accepted in
+[`.github/security/npm-audit-reviewed.json`](.github/security/npm-audit-reviewed.json)
+for one advisory, package and installed version, until a review date. A new
+version of the package, a passed date or an advisory no longer reported
+fails the audit.
 zizmor keeps its exceptions in
 `.github/zizmor.yml` or inline beside the line they excuse, each with its
 reason.

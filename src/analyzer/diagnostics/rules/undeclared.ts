@@ -12,6 +12,7 @@ import {
 } from '../../../vbaSourceScan';
 import { getExcelObjectModel, type HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
+import { STDOLE_CONSTANT_NAMES, STDOLE_FUNCTION_SIGNATURES } from '../../host/stdoleLibrary';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
 import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, resolveMemberPresenceSurfaceAt, type MemberCompletionContext } from '../../completion/memberAccess';
@@ -25,6 +26,7 @@ import {
 } from '../../host/hostModel';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
 import type { VbaToken } from '../../lexer/tokenKinds';
+import { tokenizeCached } from '../../lexer/tokenize';
 import type {
 	BodyNode,
 	ModuleNode,
@@ -32,6 +34,7 @@ import type {
 	Span,
 } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
+import { isThenOrElseKeywordAt } from '../../parser/parserState';
 import {
 	resolveExpressionType,
 	type ExpressionTypeContext,
@@ -46,6 +49,7 @@ import {
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { referencedProjectNames as indexedReferencedProjectNames, type ReferencedProjectSurface } from '../../symbols/referencedProjects';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
+import type { FormControlInfo } from '../../symbols/projectIndex';
 import {
 	type ModuleSymbolKind,
 	type VbaProcedureSignature,
@@ -408,7 +412,11 @@ export function checkUnknownCallStatement(
 	projectTypes?: readonly VbaProjectClassMembers[],
 	ownMembers: ReadonlySet<string> = new Set(),
 	unreadProject = false,
+	controls: readonly FormControlInfo[] = [],
+	moduleKind?: ModuleSymbolKind,
+	host?: string,
 ): ProcedureStatementVisitor {
+	const calledControl = controlCallMessage(controls, moduleKind, designerClass, host);
 	// The host injects Application's members into the global scope, so a bare
 	// call may legitimately bind to one of them (Calculate, Volatile, ...).
 	const appMembers = applicationMemberNames(hostModel);
@@ -449,15 +457,36 @@ export function checkUnknownCallStatement(
 			resolveHostEnum(name, hostModel) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined ||
+			// stdole's LoadPicture and SavePicture (stdoleLibrary.ts).
+			STDOLE_FUNCTION_SIGNATURES.has(lower) ||
 			// A referenced project XLIDE did not read may hold it (issue #1621).
 			unreadProject
 		);
 	};
 
+	// What the module and the procedure declare themselves, which a control
+	// does not override. A procedure elsewhere in the project does not take
+	// the name from a control either: the control is the module's own, so
+	// `CommandButton1` stays the control with a Public Sub CommandButton1 in
+	// Module1 (measured in Excel 16.0, build 20527).
+	const moduleNames = new Set(symbols.all
+		.filter((symbol) => !symbol.containerName || symbol.kind === 'enumMember')
+		.map((symbol) => symbol.name.toLowerCase()));
+
 	return (member) => {
 		const procSym = procedureSymbolFor(symbols, member);
+		const procedureNames = calledControl
+			? new Set([...member.params.map((param) => param.name), ...(procSym?.children ?? []).map((child) => child.name)].map((name) => name.toLowerCase()))
+			: undefined;
 		return (stmt) => {
 			const hit = callStatementTarget(source, stmt.span);
+			const control = hit && procedureNames && !procedureNames.has(hit.name.toLowerCase()) && !moduleNames.has(hit.name.toLowerCase())
+				? calledControl?.(hit.name)
+				: undefined;
+			if (hit && control) {
+				push(control.rule, control.message, hit.span);
+				return;
+			}
 			if (hit && !isKnown(hit.name, procSym)) {
 				const call = extractCall(source, stmt.span);
 				// A module's name alone is not a call: `Foo` with a module named
@@ -478,6 +507,45 @@ export function checkUnknownCallStatement(
 				);
 			}
 		};
+	};
+}
+
+const MEASURED_CONTROL_HOSTS: ReadonlySet<string> = new Set(['excel', 'word', 'powerpoint', 'access']);
+
+/**
+ * What the VBE says when a statement calls one of the module's controls, as
+ * `CommandButton1`, `Call CommandButton1` or `CommandButton1 1`, measured in
+ * Excel, Word, PowerPoint and Access 16.0 (build 20527) through the VBE oracle.
+ * A control on a sheet, document or slide is a variable of the module, so
+ * that is "Expected procedure, not variable". A UserForm's controls, and an
+ * Access form's or report's controls and sections, are properties of it, so
+ * that is "Invalid use of property". Undefined for a module with no controls,
+ * or one of a host not measured, such as VB6. No host means Excel, as it
+ * does throughout the analyzer.
+ */
+function controlCallMessage(
+	controls: readonly FormControlInfo[],
+	moduleKind: ModuleSymbolKind | undefined,
+	designerClass: string | undefined,
+	host: string | undefined,
+): ((name: string) => { rule: 'nonCallableCallStatement' | 'invalidPropertyUse'; message: string } | undefined) | undefined {
+	const office = host === undefined || MEASURED_CONTROL_HOSTS.has(host.toLowerCase());
+	const access = designerClass?.startsWith('Access.') === true;
+	const asVariable = moduleKind === 'document' && !access;
+	const asProperty = access || (moduleKind === 'userform' && designerClass === undefined);
+	if (controls.length === 0 || !office || (!asVariable && !asProperty)) {
+		return undefined;
+	}
+	const byName = new Map(controls.map((control) => [control.name.toLowerCase(), control]));
+	return (name) => {
+		const control = byName.get(name.toLowerCase());
+		if (!control) {
+			return undefined;
+		}
+		const what = control.type === 'Access.Section' ? 'a section' : 'a control';
+		return asVariable
+			? { rule: 'nonCallableCallStatement', message: `Cannot call '${name}' because it is ${what}, not a Sub or Function. This is a VBE compile error: Expected procedure, not variable.` }
+			: { rule: 'invalidPropertyUse', message: `'${name}' is ${what}, and a statement cannot call one. This is a VBE compile error: Invalid use of property.` };
 	};
 }
 
@@ -716,6 +784,18 @@ export function checkUndeclaredVariables(
 	// left unjudged: the project may supply it (issue #1621).
 	const unreadProject = hasUnreadProjectReference(project);
 	const standsBeforeDot = (span: Span): boolean => BEFORE_DOT.test(source.slice(span.end, span.end + 256));
+	// A stdole constant or LoadPicture read as a value. Written to, it is the
+	// VBE's "Assignment to constant not permitted" or "Variable required"
+	// (`Color = 1`, `For Gray = 1 To 3`, `Input #1, Color`), which main
+	// reported as undeclared and still does; so is a constant called as a
+	// one-line If's branch, `If v Then Checked`. LoadPicture's result is no
+	// constant, so a Const's value, which comes without a span, may not use it.
+	const stdoleValueAt = (lower: string, context: BareIdentifierContext, span: Span | undefined): boolean => {
+		if (context === 'assignmentTarget') { return false; }
+		if (span === undefined) { return lower !== 'loadpicture'; }
+		const use = stdoleNameUse(source, span);
+		return use === 'read' || (use === 'branchCall' && lower === 'loadpicture');
+	};
 	// A form's controls are declared by its DESIGNER, not its text, and the seed
 	// has three states, not two: a list, a vouched-for-empty list, and no answer
 	// at all. Reading no answer as an empty one claimed every control the form's
@@ -785,6 +865,16 @@ export function checkUndeclaredVariables(
 			resolveVbaLibraryQualifier(name) !== undefined ||
 			// A read referenced project's modules and members (issue #1503).
 			referencedNames.has(lower) ||
+			// stdole's own names, which stand bare in the default references of
+			// every host (stdoleLibrary.ts): `Set p = LoadPicture(path)`,
+			// `v = Checked`. SavePicture is a Sub, so it has no value to read, and
+			// is the call rule's, but a call inside a one-line If is read here as
+			// an expression, so its place counts. The StdFunctions module
+			// qualifies LoadPicture, `StdFunctions.LoadPicture(path)`; bare, it is
+			// "Expected variable or procedure, not module".
+			(STDOLE_VALUE_NAMES.has(lower) && stdoleValueAt(lower, context, span)) ||
+			(lower === 'savepicture' && context === 'expression' && span !== undefined && stdoleNameUse(source, span) === 'branchCall') ||
+			(lower === 'stdfunctions' && span !== undefined && STDOLE_FUNCTION_AFTER.test(source.slice(span.end, span.end + 256))) ||
 			unreadProject
 		);
 	};
@@ -838,7 +928,15 @@ export function checkUndeclaredVariables(
 			const scalarTarget = bareAssignmentTarget(source, span);
 			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, span);
 			const target = scalarTarget ?? objectTarget;
-			if (target) {
+			// `Date = #1/1/2020#` is VBA's Date statement, which sets the
+			// system date, as `Time = t` sets the time. `Date` is a keyword, so
+			// no declaration names it. `Let Date = d` and `Set Date = o` are
+			// Syntax errors and still reach the report (measured in Excel, Word,
+			// PowerPoint and Access 16.0). The tokens, not the text, say whether
+			// a `Let` comes first: `Let _` continues onto the next line.
+			const dateStatement = scalarTarget !== undefined && scalarTarget.name.toLowerCase() === 'date'
+				&& !startsWithLet(statementTokens(source, span));
+			if (target && !dateStatement) {
 				// A THUNK, called past the isKnown guard inside `report`. Typing
 				// the right-hand side costs a bind of the module, and running it
 				// for every assignment made a module whose variables are all
@@ -1004,6 +1102,11 @@ function redimTargetNamesIn(
 	return out;
 }
 
+/** Whether a statement's first executable token, past a line number or label, is `Let`. */
+function startsWithLet(toks: readonly VbaToken[]): boolean {
+	return tokenText(toks[firstExecutableTokenIndex(toks)]) === 'let';
+}
+
 /**
  * Lower-cased names that may qualify a global in an expression: the libraries
  * whose types the host model carries (its own and the shared ones merged into
@@ -1013,6 +1116,89 @@ function redimTargetNamesIn(
 const libraryQualifierModels = new WeakMap<HostObjectModel, {
 	types: HostObjectModel['types']; enums: HostObjectModel['enums']; names: ReadonlySet<string>;
 }>();
+
+/** stdole's names with a value: LoadPicture's result and the enum members. SavePicture is a Sub. */
+const STDOLE_VALUE_NAMES: ReadonlySet<string> = new Set(['loadpicture', ...STDOLE_CONSTANT_NAMES]);
+/**
+ * A one-line If's Then or Else, not a member of that name (`v.Then`,
+ * `v!Else`), as the parser reads it: `x! Then` is a Single and then Then.
+ */
+function isBranchKeyword(toks: readonly VbaToken[], i: number): boolean {
+	return isThenOrElseKeywordAt(toks, i, 'then') || isThenOrElseKeywordAt(toks, i, 'else');
+}
+
+/**
+ * How a stdole name is used where it stands, read from the tokens of its
+ * statement, so strings, nesting and line continuations don't mislead:
+ *
+ * - `write`: an assignment's target, indexed or not (`Color = 1`,
+ *   `Color(1) = 1`, `Set Default = p`), an LSet, RSet or Mid statement's
+ *   target, a For or For Each counter, or a variable Input #, Line Input # or
+ *   Get # reads into;
+ * - `branchCall`: called as a one-line If's branch, `If v Then Checked` or
+ *   `Else Call SavePicture(p, "x")`, which the undeclared walk reads as an
+ *   expression;
+ * - `read`: anything else.
+ */
+function stdoleNameUse(source: string, span: Span): 'read' | 'write' | 'branchCall' {
+	const toks = tokenizeCached(source);
+	let at = -1;
+	for (let low = 0, high = toks.length - 1; low <= high;) {
+		const mid = (low + high) >> 1;
+		if (toks[mid].start < span.start) { low = mid + 1; } else if (toks[mid].start > span.start) { high = mid - 1; } else { at = mid; break; }
+	}
+	if (at < 0) { return 'read'; }
+	// The statement's head: past a newline, a colon, or a one-line If's Then or Else.
+	let head = at;
+	while (head > 0 && toks[head - 1].kind !== 'newline' && toks[head - 1].kind !== 'colon'
+		&& !isBranchKeyword(toks, head - 1)) {
+		head--;
+	}
+	const branch = head > 0 && isBranchKeyword(toks, head - 1);
+	if (head < at && toks[head].kind === 'integerLiteral') { head++; }
+	const before = toks.slice(head, at).map((tok) => tok.rawText.toLowerCase());
+	// Past the name's own argument list, at the same depth.
+	let after = at + 1;
+	if (toks[after]?.rawText === '(') {
+		for (let depth = 0; after < toks.length; after++) {
+			if (toks[after].rawText === '(') { depth++; }
+			if (toks[after].rawText === ')' && --depth === 0) { after++; break; }
+			if (toks[after].kind === 'newline') { break; }
+		}
+	}
+	const next = toks[after]?.rawText;
+	const atHead = before.length === 0 || (before.length === 1 && ['set', 'let'].includes(before[0]));
+	if (atHead && next === '=') { return 'write'; }
+	if ((before.length === 1 && ['lset', 'rset'].includes(before[0]))
+		|| /^midb?\$?\($/.test(before.join(''))
+		|| before[before.length - 1] === 'for' || (before.length >= 2 && before[before.length - 2] === 'for' && before[before.length - 1] === 'each')) {
+		return 'write';
+	}
+	// Input # and Line Input # read into every variable after the file number,
+	// Get # into its third argument; at the statement's own depth only.
+	const io = before[0] === 'line' && before[1] === 'input' ? 'input' : before[0];
+	if ((io === 'input' || io === 'get') && before.includes('#')) {
+		let depth = 0;
+		let commas = 0;
+		for (const text of before) {
+			if (text === '(') { depth++; } else if (text === ')') { depth--; } else if (text === ',' && depth === 0) { commas++; }
+		}
+		if (depth === 0 && commas >= (io === 'input' ? 1 : 2)) {
+			return 'write';
+		}
+	}
+	if (branch && (before.length === 0 || (before.length === 1 && before[0] === 'call')) && next !== '.' && next !== '!') {
+		return 'branchCall';
+	}
+	return 'read';
+}
+
+/**
+ * `.LoadPicture` after StdFunctions, bracketed or not, past spaces and line
+ * continuations. `StdFunctions.SavePicture` stays unknown: a qualified call's
+ * arguments are not checked against stdole's signature.
+ */
+const STDOLE_FUNCTION_AFTER = /^[ \t]*(?:_[ \t]*\r?\n[ \t]*)*\.[ \t]*(?:loadpicture\b|\[loadpicture\])/i;
 
 /** What the project's dir stream says qualifies a name, where it was read. */
 export interface ProjectQualifiers {
