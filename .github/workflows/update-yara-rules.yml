@@ -28,7 +28,9 @@ concurrency:
 jobs:
   prepare:
     name: Work out the YARA pin update
-    if: github.ref == 'refs/heads/main'
+    # A fork runs neither job: it has no App key, so `propose` would fail
+    # every week on whatever its older main still pins.
+    if: github.repository_owner == 'WilliamSmithEdward' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
