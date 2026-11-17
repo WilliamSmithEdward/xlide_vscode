@@ -233,6 +233,25 @@ oracle infrastructure failure, aborts the remaining run, and exits non-zero.
 If the compile command cannot be invoked, or any COM operation fails before a
 VBE dialog is captured, the case is not treated as a VBA rejection.
 
+The one exception is an observe-only case (`expected: "observe"`), which
+asserts nothing. When it ends in a `worker_error` at stage `run`, while its
+host runs its entry point, the run reports it and goes on. Excel refuses
+`Run` for `issue609_13_runtime` and `issue609_17_runtime` with E_INVALIDARG
+(pull request #1402), which would otherwise stop every full run. The same
+holds for a host that crashes during the run, a macro `Run` cannot find and
+a dialog that was not captured: the coordinator cannot tell them apart, and
+a harness fault there that recurs stops the next asserted run case. The result
+stays a `worker_error` with `matched: false` and its message. The text
+output marks it `NO-VERDICT` and `--json` marks it `noVerdict: true`, and it
+is counted as an observe-only case without a verdict (`noVerdictCount`), not
+as an infrastructure or expectation failure, so it does not change the exit
+code, with `--strict` or without. It is still no verdict: a checkpoint
+records it but never reuses it, so a resumed run tries it again, and
+`--promote-observed` refuses it. The worker has ended its host before
+reporting it, as after any case that is not evidence. An observe-only case
+with no `entryPoint`, a timeout, a failure at any other stage and, with
+`--checkpoint`, a result from another build or none stop the run as before.
+
 For extension development, `ORACLE-FAIL` is a stop-the-line signal for the AI
 agent. Do not continue adding or promoting oracle cases after it appears. First
 perform a deep application inspection: check for lingering Office/VBE processes,
@@ -306,8 +325,10 @@ a bogus "accepted" control). Guard against it with the controls below.
    watcher then sees no dialog, which used to be recorded as `accepted`. Before
    accepting, the worker now checks that the host process it started is still
    running and answers a COM call; if not, the case is a `worker_error` and the
-   run stops. A host that hangs instead, for example behind a crash report,
-   blocks that call, and the case ends as a `timeout`.
+   run stops, unless the case is observe-only and was running its entry point
+   (see the exception above, under the evidence outcomes). A host that hangs
+   instead, for example behind a crash report, blocks that call, and the case
+   ends as a `timeout`.
    A fixture may name exact four-part builds in `crashesHostBuilds`, for
    example `["16.0.20430.20182"]`. On a listed registered build of its host,
    the coordinator does not run it: it reports `skipped` at `known_host_crash`
@@ -316,7 +337,8 @@ a bogus "accepted" control). Guard against it with the controls below.
    Skips are never checkpointed and cannot be promoted with `--promote-observed`.
    Without `--checkpoint`, the build is read only for hosts whose selected
    fixtures carry the field. If that lookup fails, the fixture runs as usual.
-   Other builds run as usual too, and an unlisted crash still stops the run.
+   Other builds run as usual too, and an unlisted crash still stops the run,
+   except during the run of an observe-only case.
    The two `#Const O = Nothing` condition fixtures crash all four hosts,
    measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).
 

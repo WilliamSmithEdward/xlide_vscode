@@ -395,6 +395,22 @@ function isOracleInfrastructureFailure(outcome) {
     return outcome !== 'skipped' && !EVIDENCE_OUTCOMES.has(outcome);
 }
 
+// An observe-only case asserts nothing, so a worker error while the host runs
+// its entry point is reported and the run goes on: Excel's Run refuses
+// issue609_13_runtime with E_INVALIDARG, say. That includes a host that
+// crashes during the run, a macro Run cannot find and a dialog not captured;
+// a harness fault there that recurs stops the next asserted run case. It is
+// still no verdict: not evidence, not reused from a checkpoint, not
+// promotable (pull request #1402). A case with no entry point, a timeout, a
+// failure at any other stage and, with --checkpoint, a result from another
+// build still stop the run.
+function isObserveWithoutVerdict(kase, result, expectedBuild) {
+    return String(kase.expected ?? 'observe') === 'observe' && Boolean(kase.entryPoint)
+        && String(result.outcome ?? '') === 'worker_error'
+        && String(result.stage ?? '') === 'run'
+        && (!expectedBuild || result.hostBuild === expectedBuild);
+}
+
 function evidencePhaseForCase(kase) {
     return String(kase.mode ?? 'compile') === 'run' ? 'runtime' : 'compile';
 }
@@ -1083,6 +1099,7 @@ async function main(argv) {
     let skippedCount = 0;
     let failures = 0;
     let oracleFailures = 0;
+    let noVerdictCount = 0;
     const checkpoint = args.checkpoint ? loadCheckpoint(args.checkpoint) : null;
     const worker = new OracleWorker(args.casesPerInstance, owned);
     worker.hostBuilds = args.checkpoint ? hostBuilds : null;
@@ -1136,13 +1153,16 @@ async function main(argv) {
                 && phaseMatches(kase, result);
             result.description = kase.description ?? '';
             const outcome = String(result.outcome ?? '');
-            if (isOracleInfrastructureFailure(outcome)) {
+            if (isObserveWithoutVerdict(kase, result, worker.hostBuilds?.get(caseHost(kase)))) {
+                result.noVerdict = true;
+                noVerdictCount += 1;
+            } else if (isOracleInfrastructureFailure(outcome)) {
                 oracleFailures += 1;
             } else if (outcome !== 'skipped' && !result.matched) {
                 failures += 1;
             }
             results.push(result);
-            if (isOracleInfrastructureFailure(outcome)) { break; }
+            if (isOracleInfrastructureFailure(outcome) && !result.noVerdict) { break; }
         }
     } finally {
         try { await worker.close(); }
@@ -1186,11 +1206,12 @@ async function main(argv) {
             failureCount: failures,
             oracleFailureCount: oracleFailures,
             skippedCount,
+            noVerdictCount,
         }, null, 2));
     } else {
         for (const result of results) {
-            const marker = isOracleInfrastructureFailure(String(result.outcome ?? ''))
-                ? 'ORACLE-FAIL'
+            const marker = result.noVerdict ? 'NO-VERDICT'
+                : isOracleInfrastructureFailure(String(result.outcome ?? '')) ? 'ORACLE-FAIL'
                 : (result.outcome === 'skipped' ? 'SKIP' : (result.matched ? 'PASS' : 'FAIL'));
             console.log(
                 `${marker} ${result.caseId}: outcome=${result.outcome} `
@@ -1201,7 +1222,8 @@ async function main(argv) {
         }
         console.log(
             `\n${results.length} oracle case(s), ${failures} expectation failure(s), `
-            + `${oracleFailures} oracle infrastructure failure(s), ${skippedCount} skipped case(s).`,
+            + `${oracleFailures} oracle infrastructure failure(s), ${skippedCount} skipped case(s), `
+            + `${noVerdictCount} observe-only case(s) without a verdict.`,
         );
     }
 
