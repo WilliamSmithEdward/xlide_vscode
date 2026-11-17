@@ -14,6 +14,9 @@ import {
 	writeProjectSettings,
 } from '../../src/projectSettings';
 
+// An absolute folder on every platform; 'C:/repo' is absolute only on Windows.
+const ABSOLUTE_FOLDER = path.resolve('/repo');
+
 const tempRoots: string[] = [];
 
 afterEach(() => {
@@ -48,13 +51,13 @@ describe('project module sync settings', () => {
 	it('reports project sync overrides with project provenance', async () => {
 		const { project } = tempWorkbook();
 		await writeProjectSettings(project, {
-			exportFolder: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			exportFolder: ABSOLUTE_FOLDER,
 			exportMode: 'trueUp',
 			importMode: 'trueUpStandardClass',
 		});
 
 		await expect(effectiveProjectModuleSyncSettings(project)).resolves.toEqual({
-			folderPath: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			folderPath: ABSOLUTE_FOLDER,
 			folderPathSource: 'project',
 			exportMode: 'trueUp',
 			exportModeSource: 'project',
@@ -67,7 +70,7 @@ describe('project module sync settings', () => {
 	it('updates only provided sync settings and preserves unrelated project settings', async () => {
 		const { project } = tempWorkbook();
 		await writeProjectSettings(project, {
-			exportFolder: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			exportFolder: ABSOLUTE_FOLDER,
 			analysis: {
 				visibleSeverities: ['error', 'information'],
 				untrackedRules: ['option-explicit-missing'],
@@ -75,14 +78,14 @@ describe('project module sync settings', () => {
 		});
 
 		await expect(updateProjectModuleSyncSettings(project, { exportMode: 'trueUp' })).resolves.toMatchObject({
-			folderPath: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			folderPath: ABSOLUTE_FOLDER,
 			exportMode: 'trueUp',
 			exportModeSource: 'project',
 			importMode: 'updateOnly',
 			importModeSource: 'default',
 		});
 		expect(await readProjectSettings(project)).toEqual({
-			exportFolder: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			exportFolder: ABSOLUTE_FOLDER,
 			exportMode: 'trueUp',
 			analysis: {
 				visibleSeverities: ['error', 'information'],
@@ -94,7 +97,7 @@ describe('project module sync settings', () => {
 	it('sets export mode through the module sync settings owner', async () => {
 		const { project } = tempWorkbook();
 		await writeProjectSettings(project, {
-			exportFolder: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			exportFolder: ABSOLUTE_FOLDER,
 			exportMode: 'exportAll',
 			importMode: 'trueUpStandardClass',
 			analysis: {
@@ -104,14 +107,14 @@ describe('project module sync settings', () => {
 		});
 
 		await expect(setProjectModuleSyncExportMode(project, 'trueUp')).resolves.toMatchObject({
-			folderPath: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			folderPath: ABSOLUTE_FOLDER,
 			exportMode: 'trueUp',
 			exportModeSource: 'project',
 			importMode: 'trueUpStandardClass',
 			importModeSource: 'project',
 		});
 		expect(await readProjectSettings(project)).toEqual({
-			exportFolder: path.join(path.root, 'repo'), // path.join is better than 'C:/repo', as the latter is an absolute path only on Windows
+			exportFolder: ABSOLUTE_FOLDER,
 			exportMode: 'trueUp',
 			importMode: 'trueUpStandardClass',
 			analysis: {
