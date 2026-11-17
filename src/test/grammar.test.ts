@@ -276,6 +276,25 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[11], [`ExitSub ${NAME}`, `Exit_Sub ${NAME}`]);
 	});
 
+	// The VBE accepts Static before the scope and stores Static Public Sub as
+	// Public Static Sub, in every host.
+	test('colors Static before Public, Private or Friend as it colors Public Static', async () => {
+		const STATIC = 'storage.modifier.static.vba';
+		const SCOPE = 'storage.modifier.vba';
+		const lines = await lineTokens([
+			'Static Public Sub S1()',
+			'Public Static Sub S1()',
+			'Static Private Function F1() As Long',
+			'Static Friend Property Get P1() As Long',
+			'Static Public Property Let P1(ByVal v As Long)',
+		]);
+		assert.deepEqual(lines[0], [`Static ${STATIC}`, `Public ${SCOPE}`, 'Sub storage.type.function.vba', 'S1 entity.name.function.vba']);
+		assert.deepEqual(lines[1], [`Public ${SCOPE}`, `Static ${STATIC}`, 'Sub storage.type.function.vba', 'S1 entity.name.function.vba']);
+		assert.deepEqual(lines[2].slice(0, 4), [`Static ${STATIC}`, `Private ${SCOPE}`, 'Function storage.type.function.vba', 'F1 entity.name.function.vba']);
+		assert.deepEqual(lines[3].slice(0, 5), [`Static ${STATIC}`, `Friend ${SCOPE}`, 'Property storage.type.property.vba', 'Get storage.type.property.vba', 'P1 entity.name.function.property.vba']);
+		assert.deepEqual(lines[4].slice(0, 5), [`Static ${STATIC}`, `Public ${SCOPE}`, 'Property storage.type.property.vba', 'Let storage.type.property.vba', 'P1 entity.name.function.property.vba']);
+	});
+
 	// Issue #1614. One-line procedures and blocks compile in every host (oracle
 	// one_line_procedures_types_and_do_colon_<host>_runtime), and the VBE shows both
 	// words of their closer as keywords. MS-VBAL 5.3.1.6, 5.3.1.7, 5.2.3.3 and 5.2.3.4.
