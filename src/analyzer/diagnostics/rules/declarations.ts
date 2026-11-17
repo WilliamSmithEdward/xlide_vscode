@@ -55,6 +55,8 @@ import { libraryTypeNames } from '../../host/libraryTypeNames';
 import {
 	declarationNameHit,
 	DEFTYPE_KEYWORDS,
+	defDecHead,
+	defDecMessage,
 	leadingDeclarationModifierCount,
 	moduleDeclarationStatementInProcedure,
 	NameTokenHit,
@@ -414,6 +416,21 @@ export function checkModuleDeclarationsInProcedureBodies(
 	push: PushFn,
 ): void {
 	const inspectStatement = (stmt: LeafStatementNode): void => {
+		// DefDec in a one-line If's branch: `If v Then DefDec A-Z`.
+		for (const span of stmt.kind === 'Statement' ? stmt.singleLineIfBranches ?? [] : []) {
+			const branch = defDecHead(source, span);
+			if (branch) {
+				push('malformedStatement', defDecMessage(false), absoluteSpan(span, branch.token));
+			}
+		}
+		const defDec = defDecHead(source, stmt.span);
+		if (defDec) {
+			// A `DefDec:` label is the reserved-label check's.
+			if (!defDec.label) {
+				push('malformedStatement', defDecMessage(false), absoluteSpan(stmt.span, defDec.token));
+			}
+			return;
+		}
 		const hit = moduleDeclarationStatementInProcedure(source, stmt.span);
 		if (!hit) {
 			return;
@@ -513,9 +530,13 @@ export function checkModuleLevelStatementsOutsideProcedures(
 ): void {
 	const active = new Set<ModuleMember>(activeModuleMembers(mod, activity));
 	let procedureEnd: Span | undefined;
+	const proceduresAbove: Span[] = [];
 	for (const member of mod.members) {
 		if (member.kind === 'Procedure') {
 			procedureEnd = { start: Math.max(member.span.start, member.span.end - 1), end: member.span.end };
+			if (active.has(member)) {
+				proceduresAbove.push(member.span);
+			}
 		}
 		if (member.kind !== 'Statement' || !active.has(member)) {
 			continue;
@@ -525,6 +546,15 @@ export function checkModuleLevelStatementsOutsideProcedures(
 		// compiles this arm (issue #1315, measured in Excel 16.0).
 		if (procedureEnd && activity?.mutuallyExclusive(procedureEnd, member.span)
 			&& /^\s*End\s+(?:Sub|Function|Property)\b/i.test(source.slice(member.span.start, member.span.end))) {
+			continue;
+		}
+		// The reserved-label check reads procedure bodies only, so a module-level
+		// `DefDec:` is reported here too, with the same message as the statement.
+		const defDec = defDecHead(source, member.span);
+		if (defDec) {
+			// Above every procedure compiled beside it: one in another #If arm doesn't count.
+			const above = !proceduresAbove.some((span) => !activity?.mutuallyExclusive(span, member.span));
+			push('malformedStatement', defDecMessage(above), absoluteSpan(member.span, defDec.token));
 			continue;
 		}
 		const hit = moduleLevelStatementOutsideProcedureHit(source, member.span);
@@ -648,7 +678,8 @@ function deftypeModuleDeclarationHit(
 ): { label: string; span: Span } | undefined {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const first = toks[0];
-	if (!first || !DEFTYPE_KEYWORDS.has(tokenText(first))) {
+	// DefDec is no Def statement; checkModuleLevelStatementsOutsideProcedures reports it.
+	if (!first || !DEFTYPE_KEYWORDS.has(tokenText(first)) || tokenText(first) === 'defdec') {
 		return undefined;
 	}
 	return {
