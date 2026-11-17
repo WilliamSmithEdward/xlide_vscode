@@ -66,6 +66,17 @@ identity, unique allowed events, supported string registry kinds and nonempty
 string sound paths. Malformed backups are quarantined intact rather than
 restored or discarded.
 
+While it runs, the worker also turns off Office's older client telemetry for
+your user (`DisableTelemetry` under
+`HKCU\Software\Microsoft\Office\Common\ClientTelemetry`, a normal user
+setting rather than a policy). Office sets that telemetry up at every start,
+even with no network, and it slows the start of Access, PowerPoint and Word.
+The worker saves the previous value in `~/.xlide-vbe-oracle-telemetry.json`
+first and puts it back when it ends, if the value is still the 1 it set. A run
+whose worker is killed first (a case that times out, Ctrl-C, a killed run)
+leaves it for the next run, and a file that cannot be read is moved aside with
+a message.
+
 Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
 `run_vbe_oracle.mjs` invocations in parallel, even for different cases.
 The harness drives the VBE through a single-user COM/UI automation surface;

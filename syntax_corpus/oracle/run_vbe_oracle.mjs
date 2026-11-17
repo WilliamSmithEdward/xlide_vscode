@@ -835,7 +835,15 @@ class OracleWorker {
                 this.owned.sweep();
                 resolve();
             }, 30_000);
-            child.once('close', () => { clearTimeout(timer); resolve(); });
+            child.once('close', () => {
+                clearTimeout(timer);
+                // What the worker wrote after its last case has no case to go
+                // with, such as a setting it could not put back.
+                const left = this.stderr.trim();
+                this.stderr = '';
+                if (left) { console.error(left); }
+                resolve();
+            });
             child.stdin.end();
         });
     }
