@@ -115,11 +115,14 @@ jobs:
           node-version: '24.22.0'
           package-manager-cache: false
       # Production and development dependencies both: the build and test
-      # toolchain runs on the maintainer's machine and in CI.
+      # toolchain runs on the maintainer's machine and in CI. An advisory
+      # passes only when .github/security/npm-audit-reviewed.json names it for
+      # that package version, with a reason, until its review date.
       - name: Audit
         run: |
           npm audit --json > npm-audit.json || true
-          node -e "const a=require('./npm-audit.json').metadata.vulnerabilities; console.log(a); if (a.total) { console.error('npm audit reports ' + a.total + ' vulnerabilities'); process.exit(1); }"
+          node -e "console.log(require('./npm-audit.json').metadata.vulnerabilities)"
+          node .github/scripts/npm-audit-gate.mjs npm-audit.json package-lock.json .github/security/npm-audit-reviewed.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
