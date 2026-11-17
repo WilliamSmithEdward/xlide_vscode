@@ -7,6 +7,7 @@
     { "include": "#line-continuation" },
     { "include": "#comments" },
     { "include": "#attributes" },
+    { "include": "#type-blocks" },
     { "include": "#directives" },
     { "include": "#strings" },
     { "include": "#numbers" },
@@ -25,6 +26,39 @@
     "line-continuation": {
       "name": "punctuation.separator.continuation.vba",
       "match": "\\s+_[ \\t]*$"
+    },
+    "type-blocks": {
+      "comment": "A Type block, so that a field named like a keyword (Next As Long, Sub As Long) is read as a name, as the VBE shows it in every host (MS-VBAL 5.2.3.3). Rem As Long stays a comment. A Type left without End Type ends at the next procedure or declaration",
+      "begin": "(?i)^\\s*((?:Public|Private|Global)\\s+)?(Type)\\s+(?!As\\b)([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+      "beginCaptures": {
+        "1": { "name": "storage.modifier.vba" },
+        "2": { "name": "storage.type.vba" },
+        "3": { "name": "entity.name.type.vba" }
+      },
+      "end": "(?i)(?:^\\s*|(?<=:)\\s*)(End)\\s+(Type)\\b|(?=^\\s*(?:(?:Public|Private|Friend|Global|Static)\\s+)*(?:Sub|Function|Property|Enum|Declare|Event)\\s+(?!As\\b)[\\p{L}_])",
+      "endCaptures": {
+        "1": { "name": "keyword.control.end.vba" },
+        "2": { "name": "keyword.control.end.vba" }
+      },
+      "patterns": [
+        {
+          "comment": "A field: a name and As, at the start of a line or after a colon",
+          "match": "(?i)(?:^|(?<=:))\\s*(?!Rem\\b)([\\p{L}_][\\p{L}\\p{M}0-9_]*)(?=\\s+As\\b)",
+          "captures": {
+            "1": { "name": "variable.other.vba" }
+          }
+        },
+        {
+          "comment": "A second header, as in #If Win64 Then / Private Type Rec / #Else / Private Type Rec / #End If, does not open a block inside this one",
+          "match": "(?i)^\\s*((?:Public|Private|Global)\\s+)?(Type)\\s+(?!As\\b)([\\p{L}_][\\p{L}\\p{M}0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" },
+            "2": { "name": "storage.type.vba" },
+            "3": { "name": "entity.name.type.vba" }
+          }
+        },
+        { "include": "$self" }
+      ]
     },
     "comments": {
       "patterns": [
