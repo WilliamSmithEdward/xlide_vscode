@@ -72,6 +72,7 @@ FROM = re.compile(
     r"@sha256:(?P<digest>[0-9a-f]{64})(?P<stage> +AS +[A-Za-z0-9_.-]+)?$", re.M)
 SHA256 = re.compile(r"[0-9a-f]{64}")
 TIMEOUT = 60
+RETRIES = 3
 
 Api = Callable[..., Any]
 Fetch = Callable[..., tuple[bytes, dict[str, str]]]
@@ -114,12 +115,14 @@ def gh_api(endpoint: str, method: str = "GET", payload: Any = None) -> Any:
 
 
 def http_get(url: str, headers: dict[str, str], head: bool = False) -> tuple[bytes, dict[str, str]]:
-    """GET (or HEAD) `url` with curl, HTTPS only; the body and the response headers."""
+    """GET (or HEAD) `url` with curl, HTTPS only; the body and the response headers.
+    A transient failure, such as a 504 from the registry, is retried."""
     args = ["curl", "--fail", "--silent", "--show-error", "--proto", "=https",
+            "--retry", str(RETRIES), "--retry-all-errors",
             "--max-time", str(TIMEOUT), "--head" if head else "--dump-header", *([] if head else ["-"]), url]
     for name, value in headers.items():
         args[1:1] = ["--header", f"{name}: {value}"]
-    result = subprocess.run(args, capture_output=True, timeout=TIMEOUT + 10)
+    result = subprocess.run(args, capture_output=True, timeout=(TIMEOUT + 10) * (RETRIES + 1))
     if result.returncode != 0:
         raise ApiError(f"GET {url}: {result.stderr.decode('utf-8', 'replace').strip()}")
     head_part, _, payload = result.stdout.partition(b"\r\n\r\n")
