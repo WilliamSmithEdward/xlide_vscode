@@ -86,6 +86,7 @@ import {
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
+	topLevelOperatorIndex,
 	type ProcedureStatementVisitor,
 } from '../walker';
 
@@ -1872,7 +1873,28 @@ export function checkEraseTargets(
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
 		return (stmt) => {
+			const elements = eraseElementTargets(source, stmt.span, member.name, (name) => {
+				// Only a variable or parameter: what a call returns is left alone.
+				const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, 'expression');
+				return binding.scope !== 'ambiguous' && binding.definitions.length > 0
+					&& binding.definitions.every((definition) => ERASE_ELEMENT_KINDS.has(definition.kind))
+					? declaredShapeForSourceBinding(symbols, procSym, projectVisibleSymbols, name, 'assignmentTarget').shape
+					: undefined;
+			});
+			for (const hit of elements) {
+				push(
+					'eraseRequiresArray',
+					hit.isArray
+						? `Erase target '${hit.text}' is one element of the array '${hit.name}', and Erase takes the whole array, as in Erase ${hit.name}. This is a VBE compile error: Expected array.`
+						: `Erase target '${hit.text}' gives a subscript to '${hit.name}', which is declared As ${hit.asType} and is no array. This is a VBE compile error: Expected array.`,
+					hit.span,
+				);
+			}
+			// An element the check above reports is no arbitrary expression.
 			for (const hit of invalidEraseTargets(source, stmt.span)) {
+				if (elements.some((element) => element.span.start === hit.span.start)) {
+					continue;
+				}
 				push(
 					'invalidEraseTarget',
 					`Erase target must be a variable or array name, not an arbitrary expression.`,
@@ -1899,6 +1921,57 @@ export function checkEraseTargets(
 			}
 		};
 	};
+}
+
+/** What an Erase target's name may be for its subscript to be read as an element's. */
+const ERASE_ELEMENT_KINDS: ReadonlySet<string> = new Set(['localVariable', 'moduleVariable', 'parameter']);
+
+/**
+ * `Erase a(1)` with `a(2) As Long`, and `Erase n(1)` with `n As Long`: Erase
+ * takes a whole array, and an element of an array whose elements are no
+ * Variant, or a number, string, date or Boolean given a subscript, is the VBE
+ * compile error Expected array (measured in Excel, Word, PowerPoint and
+ * Access 16.0). A Variant's element may hold an array and compiles, and so
+ * do an Object's default member and members: `Erase v(1)`, `Erase o(1)`,
+ * `Erase c(1)`, `Erase o.x(1)`. A call, `Erase F(1)`, is left alone, and so
+ * is the procedure's own name, which is a call there.
+ * MS-VBAL 5.4.3.4:
+ * https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f7958382-95a7-47fa-91bd-42262ab9ad32
+ */
+function eraseElementTargets(
+	source: string,
+	span: Span,
+	procedureName: string,
+	variableShape: (name: string) => DeclaredValueShape | undefined,
+): Array<{ text: string; name: string; span: Span; asType: string; isArray: boolean }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'erase') {
+		return [];
+	}
+	const out: Array<{ text: string; name: string; span: Span; asType: string; isArray: boolean }> = [];
+	for (const group of splitTopLevelTokenGroups(toks.slice(1), ',')) {
+		const content = group.filter((tok) => tok.kind !== 'comment');
+		const name = tokenName(content[0]);
+		// The name, a type character if any (`a&(1)`), then one subscript that is
+		// not empty and ends the target. `Erase a(1 To 2)`, `Erase a(1,)` and
+		// `Erase a(,)` are Syntax errors instead, and `Erase a(x:=1)` Named
+		// arguments not allowed: left to the VBE.
+		const open = content[1] && content[1].start === content[0].end && /^[%&^@!#$]$/.test(content[1].rawText) ? 2 : 1;
+		if (!name || content[open]?.rawText !== '(' || content.length < open + 3 || matchParenFrom(content, open) !== content.length - 1
+			|| content.some((_, i) => isKeywordAt(content, i, 'to'))
+			|| splitTopLevelTokenGroups(content.slice(open + 1, -1), ',').some((slot) => slot.length === 0 || topLevelOperatorIndex(slot, ':=') >= 0)
+			|| name.toLowerCase() === procedureName.toLowerCase()) {
+			continue;
+		}
+		const shape = variableShape(name);
+		const normalized = shape?.asType ? normalizeType(shape.asType) : undefined;
+		if (!shape || !normalized || normalized === 'variant' || (!shape.isArray && !isKnownScalarType(normalized))) {
+			continue;
+		}
+		const at = tokenGroupSpan(span, content);
+		out.push({ text: oneLineText(source, at), name, span: at, asType: shape.asType!, isArray: shape.isArray });
+	}
+	return out;
 }
 
 function invalidEraseTargets(source: string, span: Span): Array<{ span: Span }> {
@@ -2015,6 +2088,16 @@ function splitTopLevelTokenGroups(
 	}
 	groups.push(current);
 	return groups;
+}
+
+/** `word` at `toks[i]` as a keyword: a member's name, `o.To` or `o!As`, is none. */
+function isKeywordAt(toks: readonly VbaToken[], i: number, word: string): boolean {
+	return tokenText(toks[i]) === word && toks[i - 1]?.rawText !== '.' && toks[i - 1]?.rawText !== '!';
+}
+
+/** The text at `span` for a message, a line continuation read as a space. */
+function oneLineText(source: string, span: Span): string {
+	return source.slice(span.start, span.end).replace(/[ \t]+_[ \t]*\r?\n[ \t]*/g, ' ');
 }
 
 /** One dimension of an array whose bounds the code fixes. */
