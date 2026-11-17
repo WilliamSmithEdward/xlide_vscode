@@ -276,6 +276,25 @@ suite('VBA grammar', () => {
 		assert.deepEqual(lines[11], [`ExitSub ${NAME}`, `Exit_Sub ${NAME}`]);
 	});
 
+	// The VBE accepts Static before the scope and stores Static Public Sub as
+	// Public Static Sub, in every host.
+	test('colors Static before Public, Private or Friend as it colors Public Static', async () => {
+		const STATIC = 'storage.modifier.static.vba';
+		const SCOPE = 'storage.modifier.vba';
+		const lines = await lineTokens([
+			'Static Public Sub S1()',
+			'Public Static Sub S1()',
+			'Static Private Function F1() As Long',
+			'Static Friend Property Get P1() As Long',
+			'Static Public Property Let P1(ByVal v As Long)',
+		]);
+		assert.deepEqual(lines[0], [`Static ${STATIC}`, `Public ${SCOPE}`, 'Sub storage.type.function.vba', 'S1 entity.name.function.vba']);
+		assert.deepEqual(lines[1], [`Public ${SCOPE}`, `Static ${STATIC}`, 'Sub storage.type.function.vba', 'S1 entity.name.function.vba']);
+		assert.deepEqual(lines[2].slice(0, 4), [`Static ${STATIC}`, `Private ${SCOPE}`, 'Function storage.type.function.vba', 'F1 entity.name.function.vba']);
+		assert.deepEqual(lines[3].slice(0, 5), [`Static ${STATIC}`, `Friend ${SCOPE}`, 'Property storage.type.property.vba', 'Get storage.type.property.vba', 'P1 entity.name.function.property.vba']);
+		assert.deepEqual(lines[4].slice(0, 5), [`Static ${STATIC}`, `Public ${SCOPE}`, 'Property storage.type.property.vba', 'Let storage.type.property.vba', 'P1 entity.name.function.property.vba']);
+	});
+
 	// Issue #1614. One-line procedures and blocks compile in every host (oracle
 	// one_line_procedures_types_and_do_colon_<host>_runtime), and the VBE shows both
 	// words of their closer as keywords. MS-VBAL 5.3.1.6, 5.3.1.7, 5.2.3.3 and 5.2.3.4.
@@ -304,6 +323,65 @@ suite('VBA grammar', () => {
 			const held = (await tokensOf(file)).filter((token) => token.c.includes('End Sub'));
 			assert.deepEqual(held.map((token) => /\b(string|comment)\./.exec(token.t)?.[1]), ['string', 'comment']);
 		});
+	});
+
+	// A Type field may be named like a keyword (oracle
+	// reserved_member_name_every_reserved_word_type_fields_compile), and the VBE
+	// shows every such field as a name, in every host. MS-VBAL 5.2.3.3
+	// https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a5fe374b-eddf-4808-9e73-477914940dba
+	test('colors a Type field named like a keyword as a name', async () => {
+		const AS = 'As keyword.other.vba';
+		const LONG = 'Long storage.type.primitive.vba';
+		const lines = await lineTokens([
+			'Private Type Rec',
+			'    Next As Long',
+			'    Sub As Long',
+			'    Type As Long',
+			'    DefBool As Long',
+			'    Implements As Long',
+			'    Left As Long',
+			'    As As Long',
+			'    Rem As Long',
+			'End Type',
+			'Private Type Pair: Loop As Long: End Type',
+			'Sub Main()',
+			'    For i = 1 To 2: Next',
+			'    Name a As b',
+			'    Open f For Binary _',
+			'        Shared As #1',
+		]);
+		for (const [index, field] of ['Next', 'Sub', 'Type', 'DefBool', 'Implements', 'Left', 'As'].entries()) {
+			assert.deepEqual(lines[index + 1], [`${field} ${NAME}`, AS, LONG], field);
+		}
+		assert.deepEqual(lines[8], ['Rem As Long comment.line.rem.vba']);
+		assert.deepEqual(lines[10].slice(3, 6), [`Loop ${NAME}`, AS, LONG]);
+		assert.deepEqual(lines[11], ['Sub storage.type.function.vba', 'Main entity.name.function.vba']);
+		assert.equal(lines[12].at(-1), `Next ${KEYWORD}`);
+		assert.equal(lines[13][0], `Name ${KEYWORD}`);
+		assert.equal(lines[15][0], 'Shared storage.modifier.vba');
+		// A header under #If and again under #Else opens one block, and a Type left
+		// without End Type ends at the next procedure; the code after either is as before.
+		const after = await lineTokens([
+			'#If Win64 Then',
+			'Private Type Rec',
+			'#Else',
+			'Private Type Rec',
+			'#End If',
+			'    Next As Long',
+			'End Type',
+			'    Open f For Binary _',
+			'        Shared As #1',
+			'Private Type Unfinished',
+			'    Sub As Long',
+			'Sub Main()',
+			'    Open f For Binary _',
+			'        Shared As #1',
+		]);
+		assert.deepEqual(after[5], [`Next ${NAME}`, AS, LONG]);
+		assert.equal(after[8][0], 'Shared storage.modifier.vba');
+		assert.deepEqual(after[10], [`Sub ${NAME}`, AS, LONG]);
+		assert.deepEqual(after[11], ['Sub storage.type.function.vba', 'Main entity.name.function.vba']);
+		assert.equal(after[13][0], 'Shared storage.modifier.vba');
 	});
 
 	test('colors a name after . or ! as a member, whatever it is spelled like (issue #1574)', async () => {
@@ -493,7 +571,7 @@ suite('VBA grammar', () => {
 	// after 1. MS-VBAL 5.4.1.2.
 	test('colors Rem glued to a number as a comment, with the number before it', async () => {
 		const REM = 'comment.line.rem.vba';
-		const glued = ['1Rem n', '1.5Rem n', '&H1Rem n', '&HFRem n', '&O7Rem n', '1D2Rem n', '.5Rem n'];
+		const glued = ['1Rem n', '1.5Rem n', '&H1Rem n', '&HFRem n', '&O7Rem n', '1D2Rem n', '.5Rem n', '2!Rem n', '2.5!Rem n', '2E5!Rem n', '3.Rem n', '3.!Rem n', '3.E2!Rem n'];
 		await withProbe([
 			...glued.map((text) => `If a Then b = ${text}`),
 			'If a Then b = 1Rem note _',
@@ -507,7 +585,7 @@ suite('VBA grammar', () => {
 				assert.ok(token, `no token is ${JSON.stringify(text)}`);
 				return token.t.split(' ').at(-1) ?? '';
 			};
-			for (const number of ['1', '1.5', '&H1', '&HF', '&O7', '1D2', '.5']) {
+			for (const number of ['1', '1.5', '&H1', '&HF', '&O7', '1D2', '.5', '2!', '2.5!', '2E5!', '3.', '3.!', '3.E2!']) {
 				assert.match(scopeOf(number), /^constant\.numeric\./, number);
 			}
 			// VS Code joins Rem and the comment after it into one token.
@@ -580,10 +658,10 @@ suite('VBA grammar', () => {
 		});
 	});
 
-	// Issue #1616. The VBE shows Then, And, Or, Not and Is as keywords in #If, #ElseIf and
-	// #Const lines, in Excel, Word, PowerPoint and Access, and names as names. The other
-	// operators of MS-VBAL 5.6.16.2 were not measured there and keep the directive scope.
-	test('colors Then, And, Or, Not and Is in a directive with their scopes outside one', async () => {
+	// Issue #1616. The VBE shows Then, And, Or, Not, Is, Xor, Eqv, Imp, Mod and Like as
+	// keywords in #If, #ElseIf and #Const lines, in Excel, Word, PowerPoint and Access, and
+	// names as names. MS-VBAL 5.6.16.2.
+	test('colors Then and the operators in a directive with their scopes outside one', async () => {
 		const DIRECTIVE = 'meta.preprocessor.vba';
 		const LOGICAL = 'keyword.other.operator.vba';
 		const lines = await lineTokens([
@@ -592,14 +670,19 @@ suite('VBA grammar', () => {
 			'#ElseIf Nothing Is Nothing then',
 			'#Const X = a AND b Or NOT c',
 			'#If a Xor b Then',
+			'#ElseIf a Eqv b Or a Imp b Then',
+			'#Const Y = 5 Mod 2 Xor "a" Like "a"',
 			'#Const Andy = Thence',
 		]);
 		assert.deepEqual(lines[0], [`Win64 ${DIRECTIVE}`, `And ${LOGICAL}`, `VBA7 ${DIRECTIVE}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[1], [`Not ${LOGICAL}`, `Mac ${DIRECTIVE}`, `Or ${LOGICAL}`, `A = ${DIRECTIVE}`, `Then ${KEYWORD}`]);
 		assert.deepEqual(lines[2].slice(1), ['Is keyword.other.operator.vba', 'Nothing keyword.other.literal.vba', `then ${KEYWORD}`]);
 		assert.deepEqual(lines[3].map((word) => word.split(' ').at(-1)), [DIRECTIVE, LOGICAL, DIRECTIVE, LOGICAL, LOGICAL, DIRECTIVE]);
-		assert.deepEqual(lines[4], [`a Xor b ${DIRECTIVE}`, `Then ${KEYWORD}`]);
-		assert.deepEqual(lines[5], [`Andy = Thence ${DIRECTIVE}`]);
+		assert.deepEqual(lines[4], [`a ${DIRECTIVE}`, `Xor ${LOGICAL}`, `b ${DIRECTIVE}`, `Then ${KEYWORD}`]);
+		assert.deepEqual(lines[5].map((word) => word.split(' ')[0]), ['a', 'Eqv', 'b', 'Or', 'a', 'Imp', 'b', 'Then']);
+		assert.deepEqual(lines[5].filter((word) => word.endsWith(LOGICAL)), [`Eqv ${LOGICAL}`, `Or ${LOGICAL}`, `Imp ${LOGICAL}`]);
+		assert.deepEqual(lines[6].filter((word) => word.endsWith(LOGICAL)), [`Mod ${LOGICAL}`, `Xor ${LOGICAL}`, `Like ${LOGICAL}`]);
+		assert.deepEqual(lines[7], [`Andy = Thence ${DIRECTIVE}`]);
 	});
 
 	// Every host compiles accented Latin names (oracle nonascii_names_<host>_runtime). The other
