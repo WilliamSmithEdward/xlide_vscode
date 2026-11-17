@@ -128,6 +128,8 @@ reference/
 # A workbook holding one of every form control Excel offers, each with a
 # linked cell, for the tests that pin what a shape edit must leave alone.
 !tests/fixtures/binaries/ControlsFixture.xlsm
+!tests/fixtures/binaries/ExcelControlsFixture.xls
+!tests/fixtures/binaries/ExcelControlsFixture.xlsb
 # The shape fixtures after each application set a fill, an outline, a font,
 # a rotation, hidden and a new stacking order on them and saved: the markup
 # the shape formatting reader and writer are held to.
