@@ -160,7 +160,7 @@ describe('diagnostic message wording', () => {
 	it('pins the message for argument-count', () => {
 		const src = 'Sub Main()\n    MsgBox()\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits[0].message).toBe("Wrong number of arguments to 'MsgBox': expected between 1 and 5 arguments, but got 0.");
+		expect(hits[0].message).toBe("'Prompt' is required by 'MsgBox', which got 0 arguments. This is a VBE compile error: Argument not optional.");
 	});
 
 	it('pins the message for argument-object-type-mismatch', () => {
