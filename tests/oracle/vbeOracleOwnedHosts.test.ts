@@ -179,6 +179,8 @@ describe('the coordinator and worker use one ownership contract', () => {
 });
 
 describe.runIf(process.platform === 'win32')('Windows process identity', () => {
+	// Each identity() call starts PowerShell, which on a slow or loaded machine
+	// takes seconds; the two of them overran the 5-second default.
 	it('reads this process\'s image and start time, and nothing for an id with no process', () => {
 		expect(windowsHostSystem.alive(process.pid)).toBe(true);
 		const me = windowsHostSystem.identity(process.pid);
@@ -187,5 +189,5 @@ describe.runIf(process.platform === 'win32')('Windows process identity', () => {
 		expect(windowsHostSystem.identity(process.pid)).toEqual(me);
 		// Windows process ids are multiples of four; this one is never handed out.
 		expect(windowsHostSystem.alive(4_294_967_292)).toBe(false);
-	});
+	}, 40_000);
 });
