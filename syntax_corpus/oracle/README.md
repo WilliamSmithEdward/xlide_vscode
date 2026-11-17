@@ -340,7 +340,7 @@ a bogus "accepted" control). Guard against it with the controls below.
    Other builds run as usual too, and an unlisted crash still stops the run,
    except during the run of an observe-only case.
    The two `#Const O = Nothing` condition fixtures crash all four hosts,
-   measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).
+   measured in Excel, Word, PowerPoint and Access 16.0 (builds 20430 and 20527).
 
 ## Automation Policy
 

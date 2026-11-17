@@ -115888,9 +115888,10 @@
       "id": "nothing_condition_skipped_const_nothing_compile",
       "crashesHostBuilds": [
         "16.0.20430.20146",
-        "16.0.20430.20182"
+        "16.0.20430.20182",
+        "16.0.20527.20196"
       ],
-      "description": "In a skipped #If False arm: #Const O = Nothing / #If O Then: compiles (issue #1351). Crashes the host, measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).",
+      "description": "In a skipped #If False arm: #Const O = Nothing / #If O Then: compiles (issue #1351). Crashes the host, measured in Excel, Word, PowerPoint and Access 16.0 (builds 20430 and 20527).",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
@@ -115942,9 +115943,10 @@
       "id": "nothing_condition_compiled_const_nothing_compile",
       "crashesHostBuilds": [
         "16.0.20430.20146",
-        "16.0.20430.20182"
+        "16.0.20430.20182",
+        "16.0.20527.20196"
       ],
-      "description": "#Const O = Nothing / #If O Then: compiles (issue #1351). Crashes the host, measured in Excel, Word, PowerPoint and Access 16.0 (build 20430).",
+      "description": "#Const O = Nothing / #If O Then: compiles (issue #1351). Crashes the host, measured in Excel, Word, PowerPoint and Access 16.0 (builds 20430 and 20527).",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
