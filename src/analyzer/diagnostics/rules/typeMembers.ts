@@ -26,7 +26,7 @@ import { fieldChain, isFixedArrayField, isLeadingDot, moduleTypes, typeKey, type
 import { typeMemberStatesAt, type MemberStatesAt } from '../typeMemberState';
 import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType } from '../typeInference';
 import { activeModuleMembers, isInactiveNode, matchParenFrom, statementTokens, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
-import { moduleOptionBase } from './arrays';
+import { moduleOptionBase, redimTargetBounds } from './arrays';
 
 const NOT_SET = `This will raise Run-time error '91': Object variable or With block variable not set.`;
 
@@ -466,7 +466,8 @@ function checkResizes(
 		}
 		const group = toks.slice(from, i).filter((tok) => tok.kind !== 'comment');
 		from = i + 1;
-		if (group.length === 0) {
+		// A ReDim target without bounds is a Syntax error, which the ReDim target rule reports.
+		if (group.length === 0 || (head === 'redim' && redimTargetBounds(group).missing)) {
 			continue;
 		}
 		const at = (last: VbaToken): Span => ({ start: span.start + group[0].start, end: span.start + last.end });

@@ -364,7 +364,15 @@ export function checkInvalidRedimTargets(
 		const localNames = declarationNamesForBody(member.body, activity);
 		const procSym = procedureSymbolFor(symbols, member);
 		return (stmt) => {
+			const withoutBounds = redimTargetsWithoutBounds(source, stmt.span);
+			for (const hit of withoutBounds) {
+				push('malformedStatement', `ReDim target '${hit.text}' is missing a bound: ReDim gives each dimension an upper bound, and a lower bound before any To, as in ${hit.example}. This is a VBE compile error: Syntax error.`, hit.span);
+			}
 			for (const target of redimTargets(source, stmt.span)) {
+				// A target without bounds is a Syntax error, which the VBE reports first.
+				if (withoutBounds.some((hit) => hit.span.start === target.span.start)) {
+					continue;
+				}
 				const lower = target.name.toLowerCase();
 				// A Const or Enum member is no array (issue #255): "Expected array".
 				const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, target.name, 'expression');
@@ -487,6 +495,130 @@ function redimBlockedDeclarationKind(decl: VariableDeclNode): RedimBlockedDeclar
 		return 'scalar';
 	}
 	return decl.arrayBounds ? 'fixedArray' : undefined;
+}
+
+/**
+ * `ReDim a()`, `ReDim a`, `ReDim m(1, )` and `ReDim a(1 To )`: each ReDim
+ * target ends in its bounds, a list with an upper bound for each dimension
+ * and, with To, a lower bound before it, and a target without them is a
+ * Syntax error (measured in Excel, Word, PowerPoint and
+ * Access 16.0). MS-VBAL 5.4.3.3:
+ * https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/22b5d372-0a54-4617-9462-4934b5edc88c
+ */
+function redimTargetsWithoutBounds(source: string, span: Span): Array<{ text: string; example: string; span: Span }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'redim') {
+		return [];
+	}
+	const out: Array<{ text: string; example: string; span: Span }> = [];
+	for (const group of splitTopLevelTokenGroups(toks.slice(tokenText(toks[1]) === 'preserve' ? 2 : 1), ',')) {
+		const { target, name, missing } = redimTargetBounds(group.filter((tok) => tok.kind !== 'comment'));
+		if (missing) {
+			out.push({
+				text: oneLineText(source, tokenGroupSpan(span, target)),
+				example: `${oneLineText(source, tokenGroupSpan(span, name))}(1 To 3)`,
+				span: tokenGroupSpan(span, target),
+			});
+		}
+	}
+	return out;
+}
+
+/**
+ * One ReDim target, its comments left out: the target without its As
+ * clause, the name before its bounds, and whether the bounds are missing.
+ * An empty target is left to other checks.
+ */
+export function redimTargetBounds(content: readonly VbaToken[]): { target: VbaToken[]; name: VbaToken[]; missing: boolean } {
+	// The As clause starts at an `As` outside parentheses that is no member's name.
+	let depth = 0;
+	let end = content.length;
+	for (let i = 0; i < content.length; i++) {
+		const raw = content[i].rawText;
+		depth += raw === '(' ? 1 : raw === ')' ? -1 : 0;
+		if (depth === 0 && isKeywordAt(content, i, 'as')) {
+			end = i;
+			break;
+		}
+	}
+	const target = content.slice(0, end);
+	// A target with no parentheses has no bounds. One whose parentheses do not
+	// balance, `ReDim a(1` while typing, is the unbalanced-parentheses check's,
+	// and one that goes on after them, `ReDim a(1) = 2`, is left alone.
+	const open = target.at(-1)?.rawText === ')' ? matchingOpenParen(target, target.length - 1) : -1;
+	if (target.some((tok) => tok.rawText === '(' || tok.rawText === ')') && (open <= 0 || !parenthesesBalance(target))) {
+		return { target, name: target, missing: false };
+	}
+	const name = open > 0 ? target.slice(0, open) : target;
+	// What comes before the bounds is a name or a member: `ReDim a b` is left alone.
+	if (!isNameChain(name)) {
+		return { target, name, missing: false };
+	}
+	const bounds = open > 0 ? splitTopLevelTokenGroups(target.slice(open + 1, -1), ',') : [];
+	const missing = !(open > 0 && bounds.every((dimension) => dimension.length > 0 && !hasEmptyToSide(dimension)));
+	return { target, name, missing };
+}
+
+/** `To 3` or `1 To`: a dimension's To with nothing on one side. A member named To, `o.To`, is no To. */
+function hasEmptyToSide(dimension: readonly VbaToken[]): boolean {
+	let depth = 0;
+	return dimension.some((tok, i) => {
+		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		return depth === 0 && isKeywordAt(dimension, i, 'to') && (i === 0 || i === dimension.length - 1);
+	});
+}
+
+/**
+ * `a`, `a$`, `t.x`, `.x`, `o!x` or `u(1).x`: names joined by `.` or `!`, each
+ * but the last may take a subscript, a type character after the last.
+ */
+function isNameChain(toks: readonly VbaToken[]): boolean {
+	let i = toks[0]?.rawText === '.' ? 1 : 0;
+	for (;;) {
+		if (!tokenName(toks[i])) {
+			return false;
+		}
+		if (toks[i + 1]?.rawText === '(') {
+			const close = matchParenFrom(toks, i + 1);
+			if (close < 0 || (toks[close + 1]?.rawText !== '.' && toks[close + 1]?.rawText !== '!') || !toks[close + 2]) {
+				return false;
+			}
+			i = close + 2;
+			continue;
+		}
+		const next = toks[i + 1];
+		if (next && (next.rawText === '.' || next.rawText === '!') && toks[i + 2]) {
+			i += 2;
+			continue;
+		}
+		const suffix = next && next.start === toks[i].end && /^[%&^@!#$]$/.test(next.rawText) ? 1 : 0;
+		return i + 1 + suffix === toks.length;
+	}
+}
+
+/** Every `)` closes a `(` before it, and every `(` is closed. */
+function parenthesesBalance(toks: readonly VbaToken[]): boolean {
+	let depth = 0;
+	for (const tok of toks) {
+		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		if (depth < 0) {
+			return false;
+		}
+	}
+	return depth === 0;
+}
+
+/** The index of the `(` that the `)` at `close` closes, or -1. */
+function matchingOpenParen(toks: readonly VbaToken[], close: number): number {
+	let depth = 0;
+	for (let i = close; i >= 0; i--) {
+		if (toks[i].rawText === ')') {
+			depth++;
+		} else if (toks[i].rawText === '(' && --depth === 0) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 function redimTargets(source: string, span: Span): Array<{ name: string; span: Span }> {

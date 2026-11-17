@@ -230227,6 +230227,3102 @@
       "host": "access"
     },
     {
+      "id": "redim_bounds_excel_empty_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_preserve_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim Preserve a() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_preserve_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim Preserve a() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_preserve_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim Preserve a() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_preserve_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim Preserve a() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_as_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a() As Long / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_as_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a() As Long / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_as_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a() As Long / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_as_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a() As Long / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_variant_compile",
+      "description": "Excel: Sub Main() / Dim v As Variant / ReDim v() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_variant_compile",
+      "description": "Word: Sub Main() / Dim v As Variant / ReDim v() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_variant_compile",
+      "description": "PowerPoint: Sub Main() / Dim v As Variant / ReDim v() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_variant_compile",
+      "description": "Access: Sub Main() / Dim v As Variant / ReDim v() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_undeclared_compile",
+      "description": "Excel: Sub Main() / ReDim x() / End Sub, with no Option Explicit, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\n    ReDim x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_undeclared_compile",
+      "description": "Word: Sub Main() / ReDim x() / End Sub, with no Option Explicit, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\n    ReDim x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_undeclared_compile",
+      "description": "PowerPoint: Sub Main() / ReDim x() / End Sub, with no Option Explicit, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\n    ReDim x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_undeclared_compile",
+      "description": "Access: Sub Main() / ReDim x() / End Sub, with no Option Explicit, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Sub Main()\r\n    ReDim x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_long_compile",
+      "description": "Excel: Sub Main() / Dim n As Long / ReDim n() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_long_compile",
+      "description": "Word: Sub Main() / Dim n As Long / ReDim n() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_long_compile",
+      "description": "PowerPoint: Sub Main() / Dim n As Long / ReDim n() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_long_compile",
+      "description": "Access: Sub Main() / Dim n As Long / ReDim n() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_second_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_second_compile",
+      "description": "Word: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_second_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_second_compile",
+      "description": "Access: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_first_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long, b() As Long / ReDim a(), b(1) / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(), b(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_first_compile",
+      "description": "Word: Sub Main() / Dim a() As Long, b() As Long / ReDim a(), b(1) / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(), b(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_first_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long, b() As Long / ReDim a(), b(1) / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(), b(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_first_compile",
+      "description": "Access: Sub Main() / Dim a() As Long, b() As Long / ReDim a(), b(1) / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(), b(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_spaced_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a ( ) / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a ( )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_spaced_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a ( ) / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a ( )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_spaced_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a ( ) / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a ( )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_spaced_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a ( ) / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a ( )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_udt_field_compile",
+      "description": "Excel: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_udt_field_compile",
+      "description": "Word: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_udt_field_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_udt_field_compile",
+      "description": "Access: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_line_number_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / 10 ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    10 ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_line_number_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / 10 ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    10 ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_line_number_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / 10 ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    10 ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_line_number_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / 10 ReDim a() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    10 ReDim a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_colon_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a(): Beep / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(): Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_colon_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a(): Beep / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(): Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_colon_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a(): Beep / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(): Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_colon_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a(): Beep / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(): Beep\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_comment_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a() ' note / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_comment_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a() ' note / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_comment_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a() ' note / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_comment_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a() ' note / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() ' note\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_continued_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), _ / a() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), _\r\n        a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_continued_compile",
+      "description": "Word: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), _ / a() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), _\r\n        a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_continued_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), _ / a() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), _\r\n        a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_continued_compile",
+      "description": "Access: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), _ / a() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), _\r\n        a()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_inactive_if_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / #If False Then / ReDim a() / #End If / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n#If False Then\r\n    ReDim a()\r\n#End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_inactive_if_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / #If False Then / ReDim a() / #End If / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n#If False Then\r\n    ReDim a()\r\n#End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_inactive_if_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / #If False Then / ReDim a() / #End If / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n#If False Then\r\n    ReDim a()\r\n#End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_inactive_if_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / #If False Then / ReDim a() / #End If / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n#If False Then\r\n    ReDim a()\r\n#End If\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_bounds_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a(1) / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_bounds_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a(1) / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_bounds_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a(1) / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_bounds_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a(1) / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_range_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim Preserve a(0 To 1) / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a(0 To 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_range_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim Preserve a(0 To 1) / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a(0 To 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_range_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim Preserve a(0 To 1) / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a(0 To 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_range_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim Preserve a(0 To 1) / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a(0 To 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_no_parens_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_no_parens_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_no_parens_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_no_parens_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_second_dim_compile",
+      "description": "Excel: Sub Main() / Dim m() As Long / ReDim m(1, ) / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_second_dim_compile",
+      "description": "Word: Sub Main() / Dim m() As Long / ReDim m(1, ) / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_second_dim_compile",
+      "description": "PowerPoint: Sub Main() / Dim m() As Long / ReDim m(1, ) / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_second_dim_compile",
+      "description": "Access: Sub Main() / Dim m() As Long / ReDim m(1, ) / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_dim_empty_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / Dim b() / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    Dim b()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_dim_empty_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / Dim b() / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    Dim b()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_dim_empty_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / Dim b() / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    Dim b()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_dim_empty_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / Dim b() / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    Dim b()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_first_dim_compile",
+      "description": "Excel: Sub Main() / Dim m() As Long / ReDim m(, 1) / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_first_dim_compile",
+      "description": "Word: Sub Main() / Dim m() As Long / ReDim m(, 1) / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_first_dim_compile",
+      "description": "PowerPoint: Sub Main() / Dim m() As Long / ReDim m(, 1) / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_first_dim_compile",
+      "description": "Access: Sub Main() / Dim m() As Long / ReDim m(, 1) / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(, 1)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_to_none_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_to_none_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_to_none_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_to_none_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_no_parens_preserve_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim Preserve a / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_no_parens_preserve_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim Preserve a / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_no_parens_preserve_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim Preserve a / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_no_parens_preserve_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim Preserve a / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim Preserve a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_no_parens_as_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a As Long / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_no_parens_as_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a As Long / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_no_parens_as_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a As Long / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_no_parens_as_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a As Long / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a As Long\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_no_parens_variant_compile",
+      "description": "Excel: Sub Main() / Dim v As Variant / ReDim v / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_no_parens_variant_compile",
+      "description": "Word: Sub Main() / Dim v As Variant / ReDim v / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_no_parens_variant_compile",
+      "description": "PowerPoint: Sub Main() / Dim v As Variant / ReDim v / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_no_parens_variant_compile",
+      "description": "Access: Sub Main() / Dim v As Variant / ReDim v / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim v As Variant\r\n    ReDim v\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_no_parens_udt_field_compile",
+      "description": "Excel: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_no_parens_udt_field_compile",
+      "description": "Word: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_no_parens_udt_field_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_no_parens_udt_field_compile",
+      "description": "Access: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / ReDim t.x / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_second_no_parens_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_second_no_parens_compile",
+      "description": "Word: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_second_no_parens_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_second_no_parens_compile",
+      "description": "Access: Sub Main() / Dim a() As Long, b() As Long / ReDim b(1), a / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, b() As Long\r\n    ReDim b(1), a\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_with_field_empty_compile",
+      "description": "Excel: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x() / End With / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x()\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_with_field_empty_compile",
+      "description": "Word: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x() / End With / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x()\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_with_field_empty_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x() / End With / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x()\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_with_field_empty_compile",
+      "description": "Access: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x() / End With / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x()\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_with_field_ok_compile",
+      "description": "Excel: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x(1) / End With / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x(1)\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_with_field_ok_compile",
+      "description": "Word: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x(1) / End With / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x(1)\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_with_field_ok_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x(1) / End With / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x(1)\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_with_field_ok_compile",
+      "description": "Access: Private Type T / x() As Long / End Type / Sub Main() / Dim t As T / With t / ReDim .x(1) / End With / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    With t\r\n        ReDim .x(1)\r\n    End With\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_two_dims_ok_compile",
+      "description": "Excel: Sub Main() / Dim m() As Long / ReDim m(1, 0 To 2) / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, 0 To 2)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_two_dims_ok_compile",
+      "description": "Word: Sub Main() / Dim m() As Long / ReDim m(1, 0 To 2) / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, 0 To 2)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_two_dims_ok_compile",
+      "description": "PowerPoint: Sub Main() / Dim m() As Long / ReDim m(1, 0 To 2) / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, 0 To 2)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_two_dims_ok_compile",
+      "description": "Access: Sub Main() / Dim m() As Long / ReDim m(1, 0 To 2) / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim m() As Long\r\n    ReDim m(1, 0 To 2)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_to_lower_none_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a(To 3) / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(To 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_to_lower_none_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a(To 3) / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(To 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_to_lower_none_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a(To 3) / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(To 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_to_lower_none_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a(To 3) / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a(To 3)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_member_to_bound_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long, o As Object / ReDim a(o.To) / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_member_to_bound_compile",
+      "description": "Word: Sub Main() / Dim a() As Long, o As Object / ReDim a(o.To) / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_member_to_bound_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long, o As Object / ReDim a(o.To) / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_member_to_bound_compile",
+      "description": "Access: Sub Main() / Dim a() As Long, o As Object / ReDim a(o.To) / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_member_to_range_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long, o As Object / ReDim a(1 To o.To) / End Sub, compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(1 To o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_member_to_range_compile",
+      "description": "Word: Sub Main() / Dim a() As Long, o As Object / ReDim a(1 To o.To) / End Sub, compiles. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(1 To o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_member_to_range_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long, o As Object / ReDim a(1 To o.To) / End Sub, compiles. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(1 To o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_member_to_range_compile",
+      "description": "Access: Sub Main() / Dim a() As Long, o As Object / ReDim a(1 To o.To) / End Sub, compiles. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long, o As Object\r\n    ReDim a(1 To o.To)\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_udt_scalar_field_empty_compile",
+      "description": "Excel: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.n() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_udt_scalar_field_empty_compile",
+      "description": "Word: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.n() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_udt_scalar_field_empty_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.n() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_udt_scalar_field_empty_compile",
+      "description": "Access: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.n() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.n()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_udt_fixed_field_empty_compile",
+      "description": "Excel: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_udt_fixed_field_empty_compile",
+      "description": "Word: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_udt_fixed_field_empty_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_udt_fixed_field_empty_compile",
+      "description": "Access: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_udt_fixed_field_to_none_compile",
+      "description": "Excel: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_udt_fixed_field_to_none_compile",
+      "description": "Word: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_udt_fixed_field_to_none_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_udt_fixed_field_to_none_compile",
+      "description": "Access: Private Type T / x() As Long / y() As Variant / n As Long / f(2) As Long / End Type / Sub Main() / Dim t As T / ReDim t.f(1 To ) / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    y() As Variant\r\n    n As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim t As T\r\n    ReDim t.f(1 To )\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_type_change_compile",
+      "description": "Excel: Sub Main() / Dim a() As Long / ReDim a() As String / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As String\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_type_change_compile",
+      "description": "Word: Sub Main() / Dim a() As Long / ReDim a() As String / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As String\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_type_change_compile",
+      "description": "PowerPoint: Sub Main() / Dim a() As Long / ReDim a() As String / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As String\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_type_change_compile",
+      "description": "Access: Sub Main() / Dim a() As Long / ReDim a() As String / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim a() As Long\r\n    ReDim a() As String\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_no_parens_long_compile",
+      "description": "Excel: Sub Main() / Dim n As Long / ReDim n / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_no_parens_long_compile",
+      "description": "Word: Sub Main() / Dim n As Long / ReDim n / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_no_parens_long_compile",
+      "description": "PowerPoint: Sub Main() / Dim n As Long / ReDim n / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_no_parens_long_compile",
+      "description": "Access: Sub Main() / Dim n As Long / ReDim n / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim n As Long\r\n    ReDim n\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_empty_const_compile",
+      "description": "Excel: Private Const c As Long = 1 / Sub Main() / ReDim c() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const c As Long = 1\r\nSub Main()\r\n    ReDim c()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_empty_const_compile",
+      "description": "Word: Private Const c As Long = 1 / Sub Main() / ReDim c() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const c As Long = 1\r\nSub Main()\r\n    ReDim c()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_empty_const_compile",
+      "description": "PowerPoint: Private Const c As Long = 1 / Sub Main() / ReDim c() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const c As Long = 1\r\nSub Main()\r\n    ReDim c()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_empty_const_compile",
+      "description": "Access: Private Const c As Long = 1 / Sub Main() / ReDim c() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const c As Long = 1\r\nSub Main()\r\n    ReDim c()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_object_member_empty_compile",
+      "description": "Excel: Sub Main() / Dim o As Object / ReDim o.x() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_object_member_empty_compile",
+      "description": "Word: Sub Main() / Dim o As Object / ReDim o.x() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_object_member_empty_compile",
+      "description": "PowerPoint: Sub Main() / Dim o As Object / ReDim o.x() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_object_member_empty_compile",
+      "description": "Access: Sub Main() / Dim o As Object / ReDim o.x() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_object_member_no_parens_compile",
+      "description": "Excel: Sub Main() / Dim o As Object / ReDim o.x / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_object_member_no_parens_compile",
+      "description": "Word: Sub Main() / Dim o As Object / ReDim o.x / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_object_member_no_parens_compile",
+      "description": "PowerPoint: Sub Main() / Dim o As Object / ReDim o.x / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_object_member_no_parens_compile",
+      "description": "Access: Sub Main() / Dim o As Object / ReDim o.x / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim o As Object\r\n    ReDim o.x\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_element_member_empty_compile",
+      "description": "Excel: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).x() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_element_member_empty_compile",
+      "description": "Word: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).x() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_element_member_empty_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).x() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_element_member_empty_compile",
+      "description": "Access: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).x() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).x()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_excel_element_fixed_member_empty_compile",
+      "description": "Excel: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).f() / End Sub, is rejected: Compile error: Syntax error. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "host": "excel",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_word_element_fixed_member_empty_compile",
+      "description": "Word: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).f() / End Sub, is rejected: Compile error: Syntax error. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "host": "word",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_powerpoint_element_fixed_member_empty_compile",
+      "description": "PowerPoint: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).f() / End Sub, is rejected: Compile error: Syntax error. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "host": "powerpoint",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
+      "id": "redim_bounds_access_element_fixed_member_empty_compile",
+      "description": "Access: Private Type T / x() As Long / f(2) As Long / End Type / Sub Main() / Dim u(2) As T / ReDim u(1).f() / End Sub, is rejected: Compile error: Syntax error. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "host": "access",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type T\r\n    x() As Long\r\n    f(2) As Long\r\nEnd Type\r\nSub Main()\r\n    Dim u(2) As T\r\n    ReDim u(1).f()\r\nEnd Sub\r\n"
+        }
+      ]
+    },
+    {
       "id": "referenced_class_qualified_type_compile",
       "description": "Referencing ProbeLibrary, whose class Widget is exposed (VB_Exposed), Solo exposed with a default instance and Thing private: an exposed class as a type compiles. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
       "provenance": "vbe-oracle-verified",

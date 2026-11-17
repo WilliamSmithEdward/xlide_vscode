@@ -393,6 +393,186 @@ describe('analyzeModule - array ReDim', () => {
 	});
 });
 
+// A ReDim target ends in its bounds, an upper bound for each dimension and a
+// lower bound before any To; without them it is a Syntax error in Excel,
+// Word, PowerPoint and Access 16.0 (redim_bounds_<host>_* oracle cases).
+describe('analyzeModule - ReDim target without bounds', () => {
+	const RULE = 'malformed-statement';
+
+	it('flags empty parentheses, no parentheses, an empty dimension and an empty side of To', () => {
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim a() As Long, b() As Long, m() As Long, v As Variant, t As T\n' +
+			'    ReDim a()\n' +
+			'    ReDim Preserve a() As Long\n' +
+			'    ReDim b(1), a, v\n' +
+			'    ReDim m(1, ), m(, 1)\n' +
+			'    ReDim a(1 To ), a(To 3)\n' +
+			'    ReDim t.x()\n' +
+			'    With t\n' +
+			'        ReDim .x\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), RULE);
+
+		expectDiagnostics(src, hits, RULE, [
+			{ severity: 'error', span: 'a()', message: ["ReDim target 'a()' is missing a bound", 'a(1 To 3)', 'Syntax error'] },
+			{ span: 'a()' },
+			{ span: 'a' },
+			{ span: 'v' },
+			{ span: 'm(1, )' },
+			{ span: 'm(, 1)' },
+			{ span: 'a(1 To )' },
+			{ span: 'a(To 3)' },
+			{ span: 't.x()', message: 't.x(1 To 3)' },
+			{ span: '.x' },
+		]);
+	});
+
+	it('reads the ReDim after a line number, before a colon or comment, and across a continuation', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim a() As Long, b() As Long\n' +
+			'10  ReDim a()\n' +
+			'    ReDim a(): Beep\n' +
+			'    ReDim a() \' note\n' +
+			'    ReDim b(1), _\n' +
+			'        a()\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), RULE).map((hit) => spanText(src, hit))).toEqual(['a()', 'a()', 'a()', 'a()']);
+	});
+
+	it('reports only the missing bounds of a scalar or constant given no parentheses or empty ones', () => {
+		const src =
+			'Private Const c As Long = 1\n' +
+			'Sub Main()\n' +
+			'    Dim n As Long\n' +
+			'    ReDim n\n' +
+			'    ReDim c()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, RULE).map((hit) => spanText(src, hit))).toEqual(['n', 'c()']);
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+	});
+
+	it('leaves a target whose parentheses do not balance, or that goes on after them, to other checks', () => {
+		// `ReDim a(1` is what the line holds while `ReDim a(1)` is typed.
+		for (const line of ['ReDim a(1', 'ReDim a(1))', 'ReDim a(1) = 2', 'ReDim b(1), a(']) {
+			const src = 'Sub Main()\n    Dim a() As Long, b() As Long\n    ' + line + '\nEnd Sub\n';
+			expect(byCode(analyzeModule(src), RULE).filter((hit) => hit.message.includes('missing a bound')), line).toHaveLength(0);
+		}
+	});
+
+	it('keeps the element-type report beside the missing bound', () => {
+		// The VBE shows the Syntax error alone.
+		const src =
+			'Sub Main()\n' +
+			'    Dim a() As Long\n' +
+			'    ReDim a() As String\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expectDiagnostic(src, byCode(diagnostics, RULE), RULE, { span: 'a()' });
+		expect(byCode(diagnostics, 'redim-type-change')).toHaveLength(1);
+	});
+
+	it('leaves a target that is no name or member before its bounds alone', () => {
+		// A Syntax error in the VBE, which no message here describes.
+		const src =
+			'Sub Main()\n' +
+			'    Dim a() As Long, b As Long\n' +
+			'    ReDim a b\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), RULE).filter((hit) => hit.message.includes('missing a bound'))).toHaveLength(0);
+	});
+
+	it('reads a member named As as a member, not as an As clause', () => {
+		// The VBE refuses ReDim o.As(1) with Invalid ReDim, which is another rule's.
+		const src =
+			'Sub Main()\n' +
+			'    Dim o As Object\n' +
+			'    ReDim o.As(1)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), RULE)).toHaveLength(0);
+	});
+
+	it('reads a member reached through a subscript, and reports only its missing bounds', () => {
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'    f(2) As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim u(2) As T\n' +
+			'    ReDim u(1).x(), u(1).f()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, RULE).map((hit) => spanText(src, hit))).toEqual(['u(1).x()', 'u(1).f()']);
+		expect(byCode(diagnostics, 'fixed-array-redim')).toHaveLength(0);
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+	});
+
+	it('reports only the missing bounds of a Type member given none', () => {
+		const src =
+			'Private Type T\n' +
+			'    n As Long\n' +
+			'    f(2) As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim t As T\n' +
+			'    ReDim t.n(), t.f(), t.f(1 To )\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, RULE).map((hit) => spanText(src, hit))).toEqual(['t.n()', 't.f()', 't.f(1 To )']);
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+		expect(byCode(diagnostics, 'fixed-array-redim')).toHaveLength(0);
+	});
+
+	it('reports only the missing bounds of a scalar given empty parentheses', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim n As Long\n' +
+			'    ReDim n()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expectDiagnostic(src, byCode(diagnostics, RULE), RULE, { span: 'n()' });
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+	});
+
+	it('accepts targets with their bounds, a member named To, and an inactive #If arm', () => {
+		// Each compiles in the four hosts.
+		const src =
+			'Private Type T\n' +
+			'    x() As Long\n' +
+			'End Type\n' +
+			'Sub Main()\n' +
+			'    Dim a() As Long, m() As Long, o As Object, t As T, b()\n' +
+			'    ReDim a(1), m(1, 0 To 2)\n' +
+			'    ReDim Preserve a(0 To 1)\n' +
+			'    ReDim a(o.To), a(1 To o.To)\n' +
+			'    ReDim t.x(1)\n' +
+			'    With t\n' +
+			'        ReDim .x(1)\n' +
+			'    End With\n' +
+			'#If False Then\n' +
+			'    ReDim a()\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), RULE)).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - array declaration impossible bounds', () => {
 	const CODE = 'array-declaration-impossible-bounds';
 
