@@ -239203,7 +239203,7 @@
     },
     {
       "id": "date_statement_excel_literal_compile",
-      "description": "Excel: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Excel: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "excel",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239215,13 +239215,13 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = #1/1/2020#\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
     {
       "id": "date_statement_word_literal_compile",
-      "description": "Word: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Word: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "word",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239233,13 +239233,13 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = #1/1/2020#\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
     {
       "id": "date_statement_powerpoint_literal_compile",
-      "description": "PowerPoint: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "PowerPoint: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "powerpoint",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239251,13 +239251,13 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = #1/1/2020#\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
     {
       "id": "date_statement_access_literal_compile",
-      "description": "Access: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Access: Date = #1/1/2020#, the Date statement, compiles, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "access",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239269,7 +239269,7 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date = #1/1/2020#\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date = #1/1/2020#\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
@@ -239419,7 +239419,7 @@
     },
     {
       "id": "date_statement_excel_dollar_compile",
-      "description": "Excel: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle.",
+      "description": "Excel: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Excel 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "excel",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239431,13 +239431,13 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date$ = \"1/1/2020\"\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
     {
       "id": "date_statement_word_dollar_compile",
-      "description": "Word: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle.",
+      "description": "Word: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Word 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "word",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239449,13 +239449,13 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date$ = \"1/1/2020\"\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
     {
       "id": "date_statement_powerpoint_dollar_compile",
-      "description": "PowerPoint: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle.",
+      "description": "PowerPoint: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in PowerPoint 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "powerpoint",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239467,13 +239467,13 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date$ = \"1/1/2020\"\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
     {
       "id": "date_statement_access_dollar_compile",
-      "description": "Access: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle.",
+      "description": "Access: Date$ = \"1/1/2020\" compiles, with Option Explicit. Measured in Access 16.0 (build 20527) through the VBE oracle. The statement stands inside If False Then, so it can never set the clock.",
       "host": "access",
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
@@ -239485,7 +239485,7 @@
           "name": "Module1",
           "type": "standard",
           "entry": true,
-          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    Date$ = \"1/1/2020\"\r\nEnd Sub\r\n"
+          "source": "Option Explicit\r\nSub Main()\r\n    Dim d As Date\r\n    If False Then\r\n        Date$ = \"1/1/2020\"\r\n    End If\r\nEnd Sub\r\n"
         }
       ]
     },
