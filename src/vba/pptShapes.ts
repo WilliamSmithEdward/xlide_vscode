@@ -107,6 +107,96 @@ export function presentationSlides(zip: ZipArchive): SlideRef[] {
 	return out;
 }
 
+/**
+ * Each slide's part, by the slide's ID (p:sldId's `id`), which PowerPoint
+ * names the slide's VBA module after. Read from the presentation part and
+ * its relationships only. A listed slide whose part is missing is left
+ * out; undefined when the presentation cannot be read.
+ */
+export function slidePartsById(zip: ZipArchive): Map<number, string> | undefined {
+	try {
+		const pkg = new Package(zip);
+		if (!pkg.has(PRESENTATION)) { return undefined; }
+		const xml = pkg.read(PRESENTATION);
+		const list = findElement(xml, 'p:sldIdLst');
+		if (!list) { return undefined; }
+		const rels = new Map(pkg.relationships(PRESENTATION).filter((rel) => rel.type === SLIDE_REL).map((rel) => [rel.id, rel.path]));
+		const out = new Map<number, string>();
+		for (const [tag] of xml.slice(list.openEnd, list.end).matchAll(/<p:sldId\b[^>]*>/g)) {
+			const id = Number(attr(tag, 'id'));
+			const path = rels.get(attr(tag, 'r:id') ?? '');
+			if (Number.isInteger(id) && path && pkg.has(path)) {
+				out.set(id, path);
+			}
+		}
+		return out;
+	} catch {
+		return undefined;
+	}
+}
+
+/** A control relationship's type, whatever the element's prefix or the attribute's quotes. */
+const CONTROL_REL_RE = /\bType\s*=\s*(["'])http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/control\1/;
+
+/**
+ * The slide part of each slide module, when every module is named as
+ * PowerPoint names a slide's module, `Slide` + (the slide's ID - 255), and
+ * so names a slide of the presentation; undefined when one is not, as a
+ * module renamed in the VBE is not.
+ */
+export function slideModuleParts(moduleNames: readonly string[], slides: ReadonlyMap<number, string>): Map<string, string> | undefined {
+	const out = new Map<string, string>();
+	for (const name of moduleNames) {
+		const match = /^Slide([1-9]\d*)$/i.exec(name);
+		const part = match ? slides.get(Number(match[1]) + 255) : undefined;
+		if (!part) {
+			return undefined;
+		}
+		out.set(name.toLowerCase(), part);
+	}
+	return out;
+}
+
+/**
+ * The ActiveX controls on one slide, in the order the slide lists them.
+ * Each one is a p:control, written twice, in mc:Choice and in mc:Fallback,
+ * with the same r:id. Both copies name it, except in a file saved after a
+ * VBA edit while ActiveX was disabled, where only the fallback's picture
+ * (p:cNvPr) still does. Each control's part is a control relationship of
+ * the slide, so a slide with none is not read. Undefined when the slide
+ * cannot be read, or a control is named in neither copy.
+ */
+export function slideControlNames(zip: ZipArchive, slidePath: string): string[] | undefined {
+	try {
+		const slash = slidePath.lastIndexOf('/');
+		const rels = `${slidePath.slice(0, slash + 1)}_rels/${slidePath.slice(slash + 1)}.rels`;
+		if (!zip.has(rels) || !CONTROL_REL_RE.test(zip.read(rels).toString('utf8'))) {
+			return [];
+		}
+		// By the control's r:id: its name, from whichever copy has one.
+		const byPart = new Map<string, string | undefined>();
+		for (const [, attrs, inner] of zip.read(slidePath).toString('utf8').matchAll(/<p:control\b([^>]*?)(?:\/>|>([\s\S]*?)<\/p:control>)/g)) {
+			const tag = `<p:control${attrs}>`;
+			const picture = inner ? /<p:cNvPr\b[^>]*>/.exec(inner)?.[0] : undefined;
+			const name = attr(tag, 'name') || (picture ? attr(picture, 'name') : undefined) || undefined;
+			const key = attr(tag, 'r:id') ?? tag;
+			byPart.set(key, byPart.get(key) ?? name);
+		}
+		const names: string[] = [];
+		for (const name of byPart.values()) {
+			if (!name) {
+				return undefined;
+			}
+			if (!names.some((known) => known.toLowerCase() === name.toLowerCase())) {
+				names.push(name);
+			}
+		}
+		return names;
+	} catch {
+		return undefined;
+	}
+}
+
 function slideName(xml: string): string | undefined {
 	const tag = /<p:cSld\b[^>]*>/.exec(xml)?.[0];
 	return tag ? attr(tag, 'name') || undefined : undefined;
