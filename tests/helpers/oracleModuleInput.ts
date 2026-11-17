@@ -66,12 +66,15 @@ const DEFAULT_PROJECT_NAMES: Readonly<Record<string, string>> = { excel: 'VBAPro
 
 /**
  * The references and project name the extension reads from the file the
- * oracle compiled the fixture in: the host's defaults, then what the
- * fixture's `references` add.
+ * oracle compiled the fixture in: the host's defaults, what the fixture's
+ * `references` add, and MSForms where the fixture has a UserForm, which the
+ * oracle adds after the references. Adding a UserForm adds the MSForms
+ * reference in Excel, Word, PowerPoint and Access 16.0 (build 20527, measured).
  */
 export function oracleProjectReferences(kase: {
 	host?: string;
 	references?: readonly { guid: string }[];
+	modules?: readonly { type?: string }[];
 	projectReference?: { name: string; modules: readonly OracleFixtureModule[] };
 }): {
 	referencedLibraries: string[];
@@ -87,10 +90,11 @@ export function oracleProjectReferences(kase: {
 		}
 		return name;
 	});
+	const userFormReference = (kase.modules ?? []).some((mod) => mod.type === 'userform') ? ['MSForms'] : [];
 	// A VBA project the oracle referenced, read as the engine reads one (issue #1503).
 	const project = kase.projectReference;
 	return {
-		referencedLibraries: [...new Set([...DEFAULT_REFERENCES[host], ...added, ...(project ? [project.name] : [])])],
+		referencedLibraries: [...new Set([...DEFAULT_REFERENCES[host], ...added, ...(project ? [project.name] : []), ...userFormReference])],
 		projectName: DEFAULT_PROJECT_NAMES[host],
 		...(project ? {
 			referencedProjects: [project.name],
