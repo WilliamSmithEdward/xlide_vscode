@@ -41,7 +41,7 @@ import {
 	parseFormFrx,
 } from './formDesigner';
 import { NoVbaProjectError, openMacroContainer, type AccessContainerDesign, type MacroContainer } from './macroContainer';
-import { sheetsOfBiff, type WorkbookSheet } from './workbookSheets';
+import { sheetsOfBiff, xlsbSheetControls, type WorkbookSheet } from './workbookSheets';
 import { ZipArchive } from './zip';
 import {
 	AccessVbaWriter,
@@ -1172,34 +1172,44 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 /**
  * A worksheet's module, with what the workbook says about it and its text
  * never does: it is a Worksheet, and each ActiveX control on the sheet is a
- * member of it (issue #225). Read from the OOXML package only; a chart sheet,
- * a legacy .xls and a sheet with no code name are left as they were.
+ * member of it (issue #225). Read from the sheet parts of an OOXML package:
+ * the XML parts of an .xlsm, or the binary parts of an .xlsb (issue #1555),
+ * which keep the controls when a save with ActiveX disabled drops them from
+ * the module's header. A chart sheet, a legacy .xls and a sheet with no code
+ * name are left as they were.
  */
 function withSheetControls(container: MacroContainer, entries: ModuleEntry[]): ModuleEntry[] {
-	if (container.kind !== 'excel' || !container.xlsx?.hasSheetSurface()) {
+	const byCodeName = container.kind === 'excel' && container.xlsx ? sheetControlsOf(container.xlsx) : undefined;
+	if (!byCodeName) {
 		return entries;
 	}
-	let sheets: ReturnType<typeof container.xlsx.shapes>;
-	try {
-		sheets = container.xlsx.shapes();
-	} catch {
-		return entries;
-	}
-	const byCodeName = new Map(sheets.flatMap((sheet) => (sheet.codeName ? [[sheet.codeName.toLowerCase(), sheet] as const] : [])));
 	return entries.map((entry) => {
-		const sheet = entry.type === 'document' ? byCodeName.get(entry.name.toLowerCase()) : undefined;
-		if (!sheet || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
+		const controls = entry.type === 'document' ? byCodeName.get(entry.name.toLowerCase()) : undefined;
+		if (!controls || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
 			return entry;
 		}
-		const controls = sheet.shapes.filter((shape) => shape.kind === 'activeX' && shape.name !== '');
 		return {
 			...entry,
 			designerClass: 'Excel.Worksheet',
 			// Typed Object: a control on a sheet answers to its OLEObject's
 			// members as well as its own, which no list here holds.
-			implicitMembers: controls.map((shape) => ({ name: shape.name, type: 'Object' })),
+			implicitMembers: controls.map((name) => ({ name, type: 'Object' })),
 		};
 	});
+}
+
+/** The ActiveX controls on each worksheet, by code name; undefined when the package cannot say. */
+function sheetControlsOf(xlsx: XlsxWorkbook): Map<string, string[]> | undefined {
+	try {
+		if (!xlsx.hasSheetSurface()) {
+			return xlsx.zipArchive().has('xl/workbook.bin') ? xlsbSheetControls(xlsx.zipArchive()) : undefined;
+		}
+		return new Map(xlsx.shapes().flatMap((sheet) => (sheet.codeName
+			? [[sheet.codeName.toLowerCase(), sheet.shapes.filter((shape) => shape.kind === 'activeX' && shape.name !== '').map((shape) => shape.name)] as const]
+			: [])));
+	} catch {
+		return undefined;
+	}
 }
 
 /** The host class a document module with controls is, for the hosts whose controls the module lists. */
