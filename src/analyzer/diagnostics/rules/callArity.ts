@@ -1,6 +1,6 @@
 import {sourceSetterAssignment} from '../setterAssignment';
 import { scalarFunctionCallTarget } from './assignments';
-import {procedureSymbolFor} from '../analysisContext';
+import {applicationMemberNames, procedureSymbolFor} from '../analysisContext';
 // Rule family: call-argument arity (audit #0).
 //
 // Extracted verbatim from analyzeModule.ts: wrong-number-of-arguments
@@ -8,6 +8,7 @@ import {procedureSymbolFor} from '../analysisContext';
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import { STDOLE_FUNCTION_SIGNATURES, STDOLE_MEASURED_HOSTS } from '../../host/stdoleLibrary';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
@@ -51,6 +52,7 @@ import { matchParenFrom, statementAndBranchSpans, statementTokens, tokenName, ty
 import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { resolveHostGlobalMember } from '../../host/hostModel';
+import type { HostObjectModel } from '../../host/excelObjectModel';
 
 /**
  * Rule: a call to a known Sub/Function/Declare must supply an argument count the
@@ -80,6 +82,7 @@ export function checkArgumentCount(
 	const sameModuleSignatures = sameModuleCallableSignatures(symbols);
 	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const applicationMembers = applicationMemberNames(memberCtx.model);
 	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const env = typeEnvironmentFor(symbols, member);
@@ -112,6 +115,8 @@ export function checkArgumentCount(
 					sourceNames,
 					push,
 					objectNames,
+					applicationMembers,
+					memberCtx.model,
 				);
 				recordProjectQualifiedCallSpan(effectiveStatementCall, projectQualifiedCallSpans);
 			}
@@ -120,7 +125,7 @@ export function checkArgumentCount(
 				if (setterNames.has(call.nameSpan.start) || sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
-				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, sourceNames, push, objectNames);
+				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, sourceNames, push, objectNames, applicationMembers, memberCtx.model);
 				recordProjectQualifiedCallSpan(call, projectQualifiedCallSpans);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -161,6 +166,8 @@ export function checkArgumentCount(
 						sourceNames,
 						push,
 						objectNames,
+						applicationMembers,
+						memberCtx.model,
 					);
 					recordProjectQualifiedCallSpan(branchCall, projectQualifiedCallSpans);
 				}
@@ -287,6 +294,8 @@ function validateCallableArity(
 	sourceNames: SourceNameScope | undefined,
 	push: PushFn,
 	objectNames: ReadonlySet<string> = new Set(),
+	applicationMembers: ReadonlySet<string> = new Set(),
+	hostModel?: HostObjectModel,
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
 	const check = (signature: CallableTypeSignature, report: PushFn): void => validateArity(source, signature, call, report);
@@ -346,6 +355,16 @@ function validateCallableArity(
 		const runtimeSignature = runtime ? runtimeAritySignature(runtime) : undefined;
 		if (runtimeSignature) {
 			validateArity(source, runtimeSignature, call, push);
+			return;
+		}
+		// stdole's LoadPicture and SavePicture, unless the host has a global of
+		// the name, as Access's Application.LoadPicture(FileName), which the
+		// VBE takes instead (measured in Access 16.0), or VB6's LoadPicture.
+		// Measured in the four Office hosts only, so only there.
+		const stdole = STDOLE_FUNCTION_SIGNATURES.get(lower);
+		if (stdole && STDOLE_MEASURED_HOSTS.has(hostModel === undefined ? 'Excel' : hostModel.hostName ?? '')
+			&& !applicationMembers.has(lower) && resolveHostGlobalMember(call.name, hostModel) === undefined) {
+			validateArity(source, parseRuntimeDisplaySignature(call.name, stdole), call, push);
 		}
 	}
 }
