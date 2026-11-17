@@ -80,8 +80,10 @@ detail):
    npx ovsx publish --packagePath xlide-X.Y.Z.vsix -p <token>
    ```
 
-4. Register this repository and `publish.yml` under Settings, Trusted
-   Publishers on open-vsx.org, then set `OPEN_VSX_PUBLISH` to `true`. Never
+4. Register this repository, `publish.yml` and the `open-vsx` environment
+   under Settings, Trusted Publishers on open-vsx.org, then set
+   `OPEN_VSX_PUBLISH` to `true`. The environment admits only `main` and `v*`
+   tags, so a dry run of Publish is started from `main`. Never
    add an `OVSX_PAT` secret: `ovsx` would use it in place of trusted
    publishing.
 

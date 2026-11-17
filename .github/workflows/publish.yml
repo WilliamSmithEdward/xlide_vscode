@@ -169,6 +169,11 @@ jobs:
     # one would be skipped along with it.
     if: ${{ !cancelled() && needs.github-release.result == 'success' }}
     runs-on: ubuntu-24.04
+    # Open VSX ties the trusted publisher to this environment as well as to
+    # the repository and workflow file. The environment admits only `main`
+    # (for the dry run) and `v*` tags, so a copy of this workflow on any other
+    # branch cannot publish.
+    environment: open-vsx
     permissions:
       contents: read
       id-token: write # the token Open VSX exchanges for a publishing one
