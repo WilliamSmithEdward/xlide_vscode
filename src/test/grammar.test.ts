@@ -162,6 +162,24 @@ suite('VBA grammar', () => {
 		});
 	});
 
+	// A [ inside a foreign name is a syntax error in Excel, Word, PowerPoint and Access.
+	// Before, every [ of a long run with no ] was searched again to the end of the line, so
+	// the time grew with the square of the line's length: capturing the tokens of these two
+	// lines took 56 s on Windows. They now take well under a second.
+	test('colors a long line of [ in a few seconds at most', async () => {
+		await withProbe(['x = ' + '['.repeat(19990), 'y = 1 \' ' + '['.repeat(19990)], async (file) => {
+			const start = performance.now();
+			const tokens = await tokensOf(file);
+			const elapsed = performance.now() - start;
+			assert.ok(tokens.some((token) => token.c === 'y'), 'both lines are coloured');
+			assert.ok(elapsed < 5000, `colouring took ${Math.round(elapsed)} ms`);
+		});
+		await withProbe(['x = [a b] + [a[b]', 'y = [ab'], async (file) => {
+			const foreign = (await tokensOf(file)).filter((token) => token.t.endsWith('variable.other.foreign.vba'));
+			assert.deepEqual(foreign.map((token) => token.c), ['[a b]', '[b]']);
+		});
+	});
+
 	// Excel accepts these: oracle dim_type_suffix_only_compile, suffix_long_amp_inrange_value_compile,
 	// issue133_q_runtime, issue232_27_runtime, issue1412_l_dim_long_max_compile,
 	// issue1412_l_redim_double_in_range_runtime and issue1412_d_divide_ok_compile; Word,
