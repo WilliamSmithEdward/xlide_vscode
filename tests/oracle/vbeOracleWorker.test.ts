@@ -70,6 +70,19 @@ describe('VBE oracle worker', () => {
         expect(assertBody.match(/throw "/g)).toHaveLength(2);
     });
 
+    it('records no verdict when a compile or run case gives no signal', () => {
+        // The Windows-only tests below run these paths; this keeps them on
+        // every platform. A compile wait that runs out of window must not
+        // return as an accept would, and a run case with no entry point
+        // must not fall through to the accept fallback.
+        const worker = readOracle('vbe_oracle_worker.ps1').replaceAll('\r\n', '\n');
+        const start = worker.indexOf('function Wait-ForCompileResult(');
+        const wait = worker.slice(start, worker.indexOf('\n}', start) + 2);
+        expect(start).toBeGreaterThan(0);
+        expect(wait).toMatch(/\n        Start-Sleep -Milliseconds 50\n    \}\n    if \(\[XlideVbeDialogWatcher\]::DialogSeen\) \{\n        return Wait-ForSeenDialogResult\n    \}\n    throw "No compile result [^\n]*"\n\}$/);
+        expect(worker).toContain('        elseif ($mode -eq "run") {\n            # Nothing ran, so nothing may be recorded as accepted.\n            Set-Stage "run"\n            throw ');
+    });
+
     it('ends the host once a run case has recorded its dialog, whatever the dialog', () => {
         // The dialog is a run case's evidence. In Excel 16.0 (build 20430),
         // after a run-time error in a Function declared As String, Excel
@@ -247,7 +260,7 @@ function Wait-ForRunDialogResult { return $script:dialog }
 function Read-DialogResult { return $script:dialog }
 ` + functions + String.raw`
 $results = foreach ($hostName in @('excel', 'word', 'powerpoint', 'access')) {
-    foreach ($scenario in @('success', 'date', 'argument', 'rpc', 'missing', 'dialog')) {
+    foreach ($scenario in @('success', 'date', 'argument', 'rpc', 'missing', 'dialog', 'noentry', 'emptyentry')) {
         $script:hostName = $hostName
         $script:hostNoun = $hostName
         $script:dialog = if ($scenario -eq 'dialog') { [pscustomobject]@{ kind='vbe_runtime_dialog'; message='Run-time error' } } else { $null }
@@ -257,7 +270,11 @@ $results = foreach ($hostName in @('excel', 'word', 'powerpoint', 'access')) {
         $container = [pscustomobject]@{ Name='Scratch' }
         $component = [pscustomobject]@{ Name='Probe' }
         $vbProject = [pscustomobject]@{ Name='Oracle' }
-        $case = [pscustomobject]@{ entryPoint='Main' }
+        $case = switch ($scenario) {
+            'noentry' { [pscustomobject]@{ } }
+            'emptyentry' { [pscustomobject]@{ entryPoint='' } }
+            default { [pscustomobject]@{ entryPoint='Main' } }
+        }
         $mode = 'run'
         $result = @{ outcome='setup_error'; stage='setup'; message=''; hresult=$null }
         try {
@@ -280,6 +297,107 @@ ConvertTo-Json -InputObject @($results) -Compress
         { host, scenario: 'date', outcome: 'accepted', stage: 'run', macroExecuted: true },
         ...['argument', 'rpc', 'missing'].map(scenario => ({ host, scenario, outcome: 'worker_error', stage: 'run', macroExecuted: false })),
         { host, scenario: 'dialog', outcome: 'rejected', stage: 'runtime_dialog', macroExecuted: false },
+        // A run case that names no entry point runs nothing: no verdict.
+        ...['noentry', 'emptyentry'].map(scenario => ({ host, scenario, outcome: 'worker_error', stage: 'run', macroExecuted: false })),
+    ]);
+    expect(results).toEqual(expected);
+}, 40_000);
+
+it.skipIf(process.platform !== 'win32')('records a compile case with no compile signal as a worker_error, never as accepted', () => {
+    const worker = readOracle('vbe_oracle_worker.ps1').replaceAll('\r\n', '\n');
+    const functions = ['Wait-ForSeenDialogResult', 'Wait-ForCompileResult', 'Assert-HostAlive', 'Resolve-DialogAfterStop', 'Set-DialogOutcome']
+        .map(name => {
+            const start = worker.search(new RegExp(`^function ${name}\\b`, 'm'));
+            expect(start, name).toBeGreaterThanOrEqual(0);
+            return worker.slice(start, worker.indexOf('\n}', start) + 2);
+        }).join('\n');
+    const compileStart = worker.indexOf('        if ($mode -eq "compile") {');
+    const verdict = worker.indexOf('        if ($result.outcome -eq "setup_error")', compileStart);
+    const cleanup = worker.indexOf('\n    finally {', verdict);
+    expect(compileStart).toBeGreaterThan(0);
+    expect(verdict).toBeGreaterThan(compileStart);
+    expect(cleanup).toBeGreaterThan(verdict);
+    // Run the production compile branch, acceptance fallback and outer catch.
+    // Only the COM host, the Compile command and the dialog watcher are fakes.
+    const flow = worker.slice(compileStart, cleanup);
+    const script = String.raw`
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+Add-Type -TypeDefinition @"
+using System.Threading;
+public class OracleCompileProbe {
+    public void Activate() {}
+    public void Show() {}
+    public void SetSelection(int a, int b, int c, int d) {}
+}
+public static class XlideVbeDialogWatcher {
+    public static bool DialogSeen = false;
+    public static void Start(int pid, object result, object stage, object seconds, object hold) {}
+    public static void Stop() {}
+}
+// A dialog first seen as the watch window ends: the one read of the command
+// outlasts the window, and the watcher sees the dialog meanwhile.
+public class OracleLateDialogCommand {
+    public bool Enabled { get { Thread.Sleep(1100); XlideVbeDialogWatcher.DialogSeen = true; return true; } }
+}
+"@
+function Set-Stage($value) { $script:stage = $value }
+# The watcher's recorded dialog. Not $script:dialog: the branch under test,
+# run here at script scope, assigns $dialog itself.
+function Read-DialogResult { if ([XlideVbeDialogWatcher]::DialogSeen) { return $script:watcherDialog } }
+function Get-SelectionAfterDialog($App) { return 'line 1' }
+function Invoke-VbeCompileCommand($App) {
+    if ($script:scenario -eq 'dialog') {
+        [XlideVbeDialogWatcher]::DialogSeen = $true
+    }
+    if ($script:scenario -eq 'late') {
+        return [OracleLateDialogCommand]::new()
+    }
+    # The accept signal is the command turning disabled; without a dialog or
+    # that signal, the watch window ends with nothing observed.
+    return [pscustomobject]@{ Enabled = ($script:scenario -ne 'accept') }
+}
+$DialogWatchSeconds = 1
+$DialogHoldSeconds = 0
+` + functions + String.raw`
+$results = foreach ($hostName in @('excel', 'word', 'powerpoint', 'access')) {
+    foreach ($scenario in @('accept', 'dialog', 'late', 'nosignal')) {
+        $script:hostName = $hostName
+        $script:hostNoun = $hostName
+        $script:scenario = $scenario
+        $script:watcherDialog = [pscustomobject]@{ kind='vbe_compile_dialog'; message='Compile error' }
+        [XlideVbeDialogWatcher]::DialogSeen = $false
+        $app = [pscustomobject]@{ Name='Probe'; VBE=[pscustomobject]@{ MainWindow=[pscustomobject]@{ Visible=$false }; ActiveVBProject=$null } }
+        $appPid = $PID
+        $probe = [OracleCompileProbe]::new()
+        $component = $probe
+        $codeModule = [pscustomobject]@{ CodePane=$probe }
+        $vbProject = [pscustomobject]@{ Name='Oracle' }
+        $case = [pscustomobject]@{ }
+        $mode = 'compile'
+        $stage = 'setup'
+        $result = @{ outcome='setup_error'; stage='setup'; message=''; hresult=$null }
+        try {
+` + flow + String.raw`
+        [pscustomobject]@{ host=$hostName; scenario=$scenario; outcome=$result.outcome; stage=$result.stage; message=$result.message; selection=$result.selectionAfterDialog }
+    }
+}
+ConvertTo-Json -InputObject @($results) -Compress
+`;
+    const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
+        encoding: 'utf8', timeout: 30_000,
+    });
+    expect(run.error).toBeUndefined();
+    expect(run.status, run.stderr).toBe(0);
+    const results = JSON.parse(run.stdout.trim());
+    const expected = Object.keys(OFFICE_HOST_APPS).flatMap(host => [
+        { host, scenario: 'accept', outcome: 'accepted', stage: 'compile', message: '', selection: null },
+        { host, scenario: 'dialog', outcome: 'rejected', stage: 'compile_dialog', message: 'Compile error', selection: 'line 1' },
+        { host, scenario: 'late', outcome: 'rejected', stage: 'compile_dialog', message: 'Compile error', selection: 'line 1' },
+        {
+            host, scenario: 'nosignal', outcome: 'worker_error', stage: 'compile', selection: null,
+            message: 'No compile result within 1 s: no VBE dialog appeared and the Compile command was not seen disabled. No signal is not VBA evidence.',
+        },
     ]);
     expect(results).toEqual(expected);
 }, 40_000);
