@@ -2,6 +2,41 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [11.2.11] - 2026-11-17
+
+More compile errors reported as the VBE reports them, ActiveX controls known
+in more files, and colour fixes. Sam (@swsammy) contributed nearly all of it,
+and Erik Fernandes (@BlenderStick) the export path fix.
+
+- A relative `exportFolder` in `.xlide_settings.json` is read against the
+  project's folder, for export, import and preview (#1694).
+- ActiveX controls are known in more files (issue #1555):
+  - on a sheet of an .xls, .xla, .xlt or .xlsb workbook (#1675, #1676);
+  - on a slide of a presentation saved after a VBA edit while ActiveX was
+    disabled (#1677).
+- An .xlsm sheet's module takes its Worksheet members bare (#1649).
+- Statements the VBE refuses are now reported:
+  - a block header without one of its parts (#1672);
+  - End, Stop, Error and On statements in a wrong shape (#1671);
+  - file statements in a wrong shape, such as `Print #f` and
+    `Name "a" "b"` (#1674);
+  - `DefDec`, and a Declare without `Lib` after its name (#1673);
+  - wrong arguments to Beep, Randomize, Reset, Load and Unload (#1668);
+  - an operand its statement refuses (#1692), a ReDim target without bounds
+    (#1691) and an Erase of one element of an array (#1690).
+- A call with too few arguments is "Argument not optional" (#1667), and a
+  statement that calls a control gets the VBE's message (#1650).
+- No longer reported, as the VBE compiles them: the Date statement under
+  Option Explicit (#1664), a Collection into a Variant member or element
+  (#1666), and stdole's `LoadPicture`, `SavePicture` and constants (#1665).
+- Colour as the VBE does:
+  - a Type field named like a keyword as a name (#1657);
+  - `Static Public Sub` like `Public Static Sub` (#1660);
+  - `Xor`, `Eqv`, `Imp`, `Mod` and `Like` in a directive as operators (#1658);
+  - `Rem` after a number's `!` suffix or trailing dot as a comment (#1659).
+- Long lines of `[`, blanks, `True(` or `CInt(` are coloured in linear time
+  (#1661, #1663).
+
 ## [11.2.10] - 2026-11-07
 
 Three more colour and indentation fixes, all measured by Sam (@swsammy).
