@@ -64,28 +64,26 @@ no token: Open VSX exchanges the run's OIDC token for a short-lived one
 `OPEN_VSX_PUBLISH` repository variable is `true`; otherwise, and on every dry
 run, it installs `ovsx` and finds the vsix and stops there.
 
-Turning it on is the owner's, once, in this order (issue #1693 has the
-detail):
+It is on. The owner owns the `WilliamSmithE` namespace on Open VSX, and this
+repository, `publish.yml` and the `open-vsx` environment are registered
+there as the trusted publisher of `WilliamSmithE.xlide` (11.2.11 was the
+first version, uploaded by hand: Open VSX registers a trusted publisher only
+for an extension that has one). Issue #1693 has the setup.
 
-1. Sign in at open-vsx.org with GitHub, link an Eclipse account with the same
-   GitHub username, and sign the Publisher Agreement.
-2. Create the `WilliamSmithE` namespace and claim its ownership. XLIDE is on
-   the Marketplace, so Open VSX holds an upload "under review" until the
-   uploader owns the namespace.
-3. Upload one release by hand with an access token. Open VSX registers a
-   trusted publisher only for an extension that has a version:
+- The `open-vsx` environment admits only `main` and `v*` tags, so a copy of
+  the workflow on another branch cannot publish, and a dry run of Publish is
+  started from `main`.
+- Renaming `publish.yml` or the environment breaks the registration until
+  the owner registers the new name on open-vsx.org.
+- Never add an `OVSX_PAT` secret: `ovsx` would use it in place of trusted
+  publishing.
+- To stop the uploads, set `OPEN_VSX_PUBLISH` to anything but `true`. A
+  release missed that way is uploaded by hand from the GitHub release:
 
-   ```bash
-   gh release download vX.Y.Z --pattern '*.vsix'
-   npx ovsx publish --packagePath xlide-X.Y.Z.vsix -p <token>
-   ```
-
-4. Register this repository, `publish.yml` and the `open-vsx` environment
-   under Settings, Trusted Publishers on open-vsx.org, then set
-   `OPEN_VSX_PUBLISH` to `true`. The environment admits only `main` and `v*`
-   tags, so a dry run of Publish is started from `main`. Never
-   add an `OVSX_PAT` secret: `ovsx` would use it in place of trusted
-   publishing.
+  ```bash
+  gh release download vX.Y.Z --pattern '*.vsix'
+  npx ovsx publish --packagePath xlide-X.Y.Z.vsix -p <token>
+  ```
 
 ## Every Office host
 
