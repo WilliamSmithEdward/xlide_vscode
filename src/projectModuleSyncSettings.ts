@@ -1,3 +1,4 @@
+import { resolveProjectModuleSyncFolderPath } from './projectModuleSyncSettingsHelper';
 import type { ImportMode, ModuleSyncModeSource } from './moduleSyncPlan';
 import {
     normalizeExportMode,
@@ -57,7 +58,10 @@ export function effectiveProjectModuleSyncSettingsFromConfig(
         ? config.exportFolder
         : undefined;
     return {
-        folderPath: exportFolder,
+        folderPath: resolveProjectModuleSyncFolderPath(
+            projectPath,
+            exportFolder
+        ),
         folderPathSource: exportFolder ? 'project' : 'missing',
         exportMode: exportMode.value,
         exportModeSource: exportMode.source,
