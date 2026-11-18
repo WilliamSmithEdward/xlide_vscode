@@ -54,6 +54,37 @@ gh release download vX.Y.Z --pattern '*.vsix'
 npx @vscode/vsce publish --packagePath xlide-X.Y.Z.vsix
 ```
 
+### Open VSX
+
+VSCodium, Gitpod, Theia and other VS Code builds install from
+[Open VSX](https://open-vsx.org). The last job in Publish uploads the
+release's vsix there with `ovsx`, installed from package-lock.json. It stores
+no token: Open VSX exchanges the run's OIDC token for a short-lived one
+(trusted publishing). The job uploads only on a `v*` tag and only while the
+`OPEN_VSX_PUBLISH` repository variable is `true`; otherwise, and on every dry
+run, it installs `ovsx` and finds the vsix and stops there.
+
+It is on. The owner owns the `WilliamSmithE` namespace on Open VSX, and this
+repository, `publish.yml` and the `open-vsx` environment are registered
+there as the trusted publisher of `WilliamSmithE.xlide` (11.2.11 was the
+first version, uploaded by hand: Open VSX registers a trusted publisher only
+for an extension that has one). Issue #1693 has the setup.
+
+- The `open-vsx` environment admits only `main` and `v*` tags, so a copy of
+  the workflow on another branch cannot publish, and a dry run of Publish is
+  started from `main`.
+- Renaming `publish.yml` or the environment breaks the registration until
+  the owner registers the new name on open-vsx.org.
+- Never add an `OVSX_PAT` secret: `ovsx` would use it in place of trusted
+  publishing.
+- To stop the uploads, set `OPEN_VSX_PUBLISH` to anything but `true`. A
+  release missed that way is uploaded by hand from the GitHub release:
+
+  ```bash
+  gh release download vX.Y.Z --pattern '*.vsix'
+  npx ovsx publish --packagePath xlide-X.Y.Z.vsix -p <token>
+  ```
+
 ## Every Office host
 
 XLIDE supports four Office hosts: Excel, Word, PowerPoint and Access. A pull

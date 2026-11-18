@@ -12,6 +12,8 @@
 
 [Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)\
 \
+[Install XLIDE from Open VSX, for VSCodium and other VS Code builds](https://open-vsx.org/extension/WilliamSmithE/xlide)\
+\
 [See XLIDE's Sister Project Which Puts XLIDE Directly in the VBA Editor](https://github.com/WilliamSmithEdward/xlide_vbide)
 
 ---
@@ -191,7 +193,9 @@ workspace around the VBA project.
 ## Get Started
 
 1. Install the extension:
-   [XLIDE on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
+   [XLIDE on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide),
+   or [XLIDE on Open VSX](https://open-vsx.org/extension/WilliamSmithE/xlide)
+   for VSCodium and other VS Code builds
 
 2. Open a folder in VS Code that contains a macro-enabled Office file - a
    workbook, document, presentation, or database - or a VB6 `.vbp`.
@@ -488,7 +492,7 @@ not in a public issue. [SECURITY.md](SECURITY.md) says what XLIDE touches
 and how the code is checked: CodeQL, Semgrep and `npm audit` on every change,
 and ClamAV and YARA-X on every change and every day, each failing on any
 finding. Every GitHub release carries the vsix, built and signed in CI, the
-file uploaded to the Marketplace, and the reports for it.
+file uploaded to the Marketplace and to Open VSX, and the reports for it.
 
 ## Support Open Source
 
