@@ -897,19 +897,74 @@ function Set-ComponentSource($Component, [string]$Source) {
 # What TypeName reports from .NET for a control each ProgID makes: the
 # control's default interface, not the class name VBA's TypeName shows.
 # Measured in Excel, Word, PowerPoint and Access 16.0 (build 20430); a ProgID
-# not listed here is refused until it is measured.
+# not listed here is refused until it is measured. Its keys are the ProgIDs
+# `designerControls` may name.
 $DesignerControlInterfaces = @{
     "Forms.CommandButton.1" = "ICommandButton"
     "Forms.ComboBox.1" = "IMdcCombo"
 }
 
+# The ProgIDs `documentControls` may name: those the cases in
+# vbe_oracle_cases.json use. tests/oracle/vbeOracleControlProgIds.test.ts
+# holds the same two lists and fails when a case names another.
+$DocumentControlProgIds = @(
+    "Forms.CommandButton.1"
+    "Forms.CheckBox.1"
+    "Forms.TextBox.1"
+)
+
+# A ProgID names any class registered on the machine, and the host creates it
+# when the control is added, in a compile case too. So one that is not
+# approved is refused before any host call, which ends the case as setup,
+# never as evidence. The comparison ignores case, as COM does for a ProgID,
+# and is ordinal, so no character is passed over.
+function Assert-ApprovedProgId([string]$ProgId, $Approved, [string]$Field) {
+    foreach ($known in @($Approved)) {
+        if ([string]::Equals($ProgId, [string]$known, [StringComparison]::OrdinalIgnoreCase)) {
+            return
+        }
+    }
+    $list = (@($Approved) | Sort-Object) -join ", "
+    throw "The $Field ProgID '$ProgId' is not approved, so no control is made. Approved: $list."
+}
+
+# Every control ProgID of the case, checked before the host starts: the
+# case's documentControls, and the designerControls of its modules and of its
+# referenced project's modules.
+function Assert-ApprovedControls($Case) {
+    if ($Case.PSObject.Properties.Name -contains "documentControls" -and $Case.documentControls) {
+        foreach ($control in @($Case.documentControls)) {
+            Assert-ApprovedProgId ([string]$control.progId) $DocumentControlProgIds "documentControls"
+        }
+    }
+    $moduleSpecs = @()
+    if ($Case.PSObject.Properties.Name -contains "modules" -and $Case.modules) {
+        $moduleSpecs += @($Case.modules)
+    }
+    if ($Case.PSObject.Properties.Name -contains "projectReference" -and $Case.projectReference) {
+        $moduleSpecs += @($Case.projectReference.modules)
+    }
+    foreach ($moduleSpec in $moduleSpecs) {
+        if ($null -eq $moduleSpec) { continue }
+        if ($moduleSpec.PSObject.Properties.Name -contains "designerControls" -and $moduleSpec.designerControls) {
+            foreach ($control in @($moduleSpec.designerControls)) {
+                Assert-ApprovedProgId ([string]$control.progId) $DesignerControlInterfaces.Keys "designerControls"
+            }
+        }
+    }
+}
+
 # A UserForm's controls belong to its designer, not to its code. The case
-# names each control and its ProgID; every one is then read back by name and
-# type, so a control the designer did not make fails the case as setup, never
-# as compile evidence (issue #1419).
+# names each control and its ProgID; every ProgID is checked before the
+# designer is asked for anything, and every control is then read back by name
+# and type, so a control the designer did not make fails the case as setup,
+# never as compile evidence (issue #1419).
 function Add-DesignerControls($Component, $ModuleSpec) {
     if (-not ($ModuleSpec.PSObject.Properties.Name -contains "designerControls") -or -not $ModuleSpec.designerControls) {
         return
+    }
+    foreach ($control in @($ModuleSpec.designerControls)) {
+        Assert-ApprovedProgId ([string]$control.progId) $DesignerControlInterfaces.Keys "designerControls"
     }
     $designer = $Component.Designer
     if ($null -eq $designer) {
@@ -948,7 +1003,9 @@ function Add-DesignerControls($Component, $ModuleSpec) {
 # default), `floating` on the page, or `header` in the first section's
 # primary header; in Excel, on the first worksheet (Sheet1); in PowerPoint,
 # on the first slide, which is added blank (ppLayoutBlank, 12) when there is
-# none and whose module the control brings into the project. They are added
+# none and whose module the control brings into the project. Every ProgID is
+# checked against $DocumentControlProgIds before the host is asked for
+# anything. They are added
 # before any code, and each is read back by name and ProgID, so a control the
 # host did not make fails the case as setup, never as compile evidence. A
 # control keeps the name the host gives it (CommandButton1, CommandButton2):
@@ -957,6 +1014,9 @@ function Add-DesignerControls($Component, $ModuleSpec) {
 function Add-DocumentControls($Container, $Case) {
     if (-not ($Case.PSObject.Properties.Name -contains "documentControls") -or -not $Case.documentControls) {
         return
+    }
+    foreach ($control in @($Case.documentControls)) {
+        Assert-ApprovedProgId ([string]$control.progId) $DocumentControlProgIds "documentControls"
     }
     foreach ($control in @($Case.documentControls)) {
         $progId = [string]$control.progId
@@ -1745,6 +1805,10 @@ function Invoke-OracleCase($case) {
     }
 
     try {
+        # Before the host starts or is touched: a case naming a control class
+        # that is not approved makes nothing.
+        Set-Stage "check_controls"
+        Assert-ApprovedControls $case
         Set-Stage "start_host"
         # A kept instance of another host, or one that no longer takes the
         # settings, is replaced before the case starts rather than failing it.

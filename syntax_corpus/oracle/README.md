@@ -417,7 +417,9 @@ fails ends the case as a `worker_error`, never as evidence:
   and checks its type. Only ProgIDs whose read-back type has been measured
   are taken: `Forms.CommandButton.1` and `Forms.ComboBox.1`, listed in the
   worker's `$DesignerControlInterfaces`. An empty array is a form with no
-  controls, which tells the analyzer the control list is complete.
+  controls, which tells the analyzer the control list is complete. The
+  ProgID is checked before the control is made; see "Control ProgIDs"
+  below.
 - `Attribute` lines in a module's source, such as
   `Attribute VB_PredeclaredId = True`. The module is imported rather than
   typed in, as procedure attributes already were. It is then exported again,
@@ -440,7 +442,11 @@ fails ends the case as a `worker_error`, never as evidence:
   refuse them while ActiveX is disabled in the Trust Center, which ends the
   case as a `worker_error`. The worker never renames a control, since
   setting its name through late binding is ambiguous, so name each one as
-  the host does: `CommandButton1`, then `CommandButton2`.
+  the host does: `CommandButton1`, then `CommandButton2`. Only the ProgIDs
+  in the worker's `$DocumentControlProgIds` are taken:
+  `Forms.CommandButton.1`, `Forms.CheckBox.1` and `Forms.TextBox.1`. The
+  ProgID is checked before the control is made; see "Control ProgIDs"
+  below.
 - `projectReference` on the case: `{ "name", "modules" }`, another VBA
   project the case's project references (issue #1503). The worker makes it
   as a file of its own in the same host, names its project, adds `modules`
@@ -480,6 +486,22 @@ fails ends the case as a `worker_error`, never as evidence:
   side of the same facts. `tests/helpers/oracleModuleInput.ts` hands them,
   and the controls `designerControls` names, to the analyzer, and every
   corpus sweep goes through it.
+
+**Control ProgIDs.** A ProgID names a class registered on the machine, and
+Office creates it when the control is added, in a `compile` case too, where
+none of the case's VBA runs. So the worker takes only the ProgIDs in its two
+lists, `$DesignerControlInterfaces` for `designerControls` and
+`$DocumentControlProgIds` for `documentControls`, compared without regard to
+case. It checks every control of the case, its referenced project's included,
+before the host starts, and again where each control is made. A ProgID that
+is not listed ends the case as a `worker_error` at stage `check_controls`,
+and nothing is created. `tests/oracle/vbeOracleControlProgIds.test.ts` holds
+the same lists and runs without Office: it fails when a case names a ProgID
+outside them, or when the lists differ from the worker's, so a new ProgID
+fails CI before anyone runs the oracle. To add one, measure the control in
+every host that has it, then add it to the worker's list (with its read-back
+type for `designerControls`) and to the test's list, in the pull request that
+adds the case.
 
 After a compile dialog, the worker records the code pane's selection as
 `selectionAfterDialog`: the module, and the 1-based start and end lines and
