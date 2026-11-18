@@ -15,6 +15,12 @@ name: CI
 permissions:
   contents: read
 
+# A new push to a pull request cancels its older runs. A push to main waits
+# for the run before it, and only the newest waiting run starts.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ (github.event_name == 'pull_request' || github.event_name == 'push') && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     name: Build and test (Node ${{ matrix.node }})
