@@ -87,7 +87,7 @@ describe('VBE oracle promotion writes', () => {
                 ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
                 unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
                 OracleWorker: class { async close() {} },
-                caseHash: () => 'hash',
+                caseHash: () => 'hash', CHECKPOINT_KEY_VERSION: 2,
                 runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
                     ran.push(kase.id);
                     return { caseId: kase.id, outcome, stage: 'compile' };
@@ -166,7 +166,7 @@ function setupUncheckpointedMain(registered: { build: string | null; why?: strin
         ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
         unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class { async close() {} },
-        caseHash: () => 'hash',
+        caseHash: () => 'hash', CHECKPOINT_KEY_VERSION: 2,
         runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
             ran.push(kase.id);
             return { caseId: kase.id, outcome: kase.id === 'crash' ? outcome : 'accepted' };
@@ -209,7 +209,9 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
         OFFICE_HOSTS: { excel: { progId: 'Excel.Application' } },
         comRegistered: () => true,
         registeredHostBuild: () => ({ registered: true, build }),
-        loadCheckpoint: () => new Map(),
+        // The key leaves out crashesHostBuilds, so a result saved before the
+        // build was listed matches; the skip still comes first.
+        loadCheckpoint: () => new Map([['crash', { caseId: 'crash', outcome: 'accepted' }]]),
         // The run lock is covered in vbeOracleRunLock.test.ts; here it is always free.
         acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
         oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
@@ -218,7 +220,7 @@ it.each([true, false])('continues after a skip and excludes it from checkpoints 
         ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
         unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class { async close() {} },
-        caseHash: () => 'hash', checkpointKey: () => 'key',
+        caseHash: () => 'hash', CHECKPOINT_KEY_VERSION: 2, checkpointKey: (id: string) => id,
         runCaseWithRetries: async (_worker: unknown, kase: { id: string }) => {
             ran.push(kase.id);
             return { caseId: kase.id, outcome: 'accepted' };
@@ -282,6 +284,7 @@ describe('VBE oracle observe-only cases without a verdict', () => {
         message: 'Exception calling "Run" with "1" argument(s): "Value does not fall within the expected range."' };
     // The coordinator's own checkpoint reader, over the lines this run appends.
     const readCheckpoint = (lines: string[]) => runInNewContext(`const EVIDENCE_OUTCOMES = new Set(['accepted', 'rejected']);
+const CHECKPOINT_KEY_VERSION = 2;
 ${['checkpointKey', 'loadCheckpoint'].map((name) => {
         const start = source.indexOf(`function ${name}(`);
         return source.slice(start, source.indexOf('\n}', start) + 2);
@@ -320,7 +323,7 @@ ${['checkpointKey', 'loadCheckpoint'].map((name) => {
             ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
             unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
             OracleWorker: class { async close() {} },
-            caseHash: () => 'hash', checkpointKey: (id: string, hash: string) => `${id}\n${hash}`,
+            caseHash: () => 'hash', CHECKPOINT_KEY_VERSION: 2, checkpointKey: (id: string, hash: string) => `${id}\n${hash}`,
             runCaseWithRetries: async (_worker: unknown, kase: Case) => {
                 ran.push(kase.id);
                 return { caseId: kase.id, hostBuild: builds[kase.host ?? 'excel'],
@@ -455,6 +458,22 @@ ${['checkpointKey', 'loadCheckpoint'].map((name) => {
         expect(await resumed.main([])).toBe(0);
         expect(resumed.ran).toEqual(['issue609_13_runtime', 'issue609_17_runtime']);
         expect(JSON.parse(resumed.output[0])).toMatchObject({ noVerdictCount: 2 });
+    });
+
+    // The key leaves out `expected` and `evidencePhase` (vbeOracleCheckpointKey.test.ts),
+    // so a changed expectation reuses the saved result but judges it afresh.
+    it('judges a result reused from a checkpoint against the fixture as it is now', async () => {
+        const first = runMain(issueCases(), issueReplies, { checkpoint: 'checkpoint' });
+        expect(await first.main([])).toBe(0);
+        const changed = issueCases().map((kase) => (kase.id === 'later_compile' ? { ...kase, expected: 'rejected' } : kase));
+        const resumed = runMain(changed, issueReplies, { checkpoint: 'checkpoint' });
+        resumed.appended.push(...first.appended);
+        expect(await resumed.main([])).toBe(1);
+        expect(resumed.ran).toEqual(['issue609_13_runtime', 'issue609_17_runtime']);
+        const report = JSON.parse(resumed.output[0]);
+        expect(report.failureCount).toBe(1);
+        expect(report.results.find((result: { caseId: string }) => result.caseId === 'later_compile'))
+            .toMatchObject({ outcome: 'accepted', expected: 'rejected', matched: false, resumed: true });
     });
 
     it('refuses to promote it and writes nothing', async () => {

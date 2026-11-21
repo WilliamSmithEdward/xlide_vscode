@@ -123,7 +123,7 @@ function setup(cases: Case[] = [{ id: 'first' }, { id: 'second' }], lockHeld = t
             }
             kill() { kill(); }
         },
-        caseHash: () => 'hash', checkpointKey: (id: string) => id, phaseMatches: () => true,
+        caseHash: () => 'hash', CHECKPOINT_KEY_VERSION: 2, checkpointKey: (id: string) => id, phaseMatches: () => true,
         runCaseWithRetries: (worker: unknown, kase: Case) => {
             trace.push(`measure:${kase.id}`);
             return runCaseWithRetries(worker, kase);
@@ -822,7 +822,7 @@ describe('VBE oracle PowerShell starts per run', () => {
             loadCasesDocument: () => ({ cases }),
             // A checkpoint that holds the listed cases.
             loadCheckpoint: () => new Map(saved.map((id) => [id, { caseId: id, outcome: 'accepted' }])),
-            caseHash: () => 'hash', checkpointKey: (id: string) => id, phaseMatches: () => true,
+            caseHash: () => 'hash', CHECKPOINT_KEY_VERSION: 2, checkpointKey: (id: string) => id, phaseMatches: () => true,
             acquireOracleRunLock: async () => ({ held: true, release: async () => {} }),
             oracleRunLockAddress: () => 'test-lock', oracleRunOwner: () => ({ pid: 1 }), describeRefusal: () => 'refused',
             OwnedHosts: class { load() { return []; } add() {} sweep() { return []; } },

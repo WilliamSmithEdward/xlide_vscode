@@ -472,18 +472,36 @@ function knownHostCrashResult(kase, hostBuilds) {
     };
 }
 
-// A checkpoint file holds one JSON line per finished case: a hash of the
-// case, this harness and the build of the case's host, and the case's
-// result. A case whose id and hash match a line with evidence is not run
-// again, so an aborted run can resume where it stopped; editing the case or
-// the harness, or a new build of its host, runs it again.
+// A checkpoint file holds one JSON line per finished case: the key format,
+// a hash of the case, this harness and the build of the case's host, and the
+// case's result. A case whose id and hash match a line with evidence is not
+// run again, so an aborted run can resume where it stopped; editing what the
+// worker gets of the case, the harness, or a new build of its host, runs it
+// again.
 const HARNESS_HASH = crypto.createHash('sha256')
     .update(fs.readFileSync(fileURLToPath(import.meta.url)))
     .update(fs.readFileSync(WORKER))
     .digest('hex');
 
+// Lines written under another key format are never reused: version 1 hashed
+// the whole fixture.
+const CHECKPOINT_KEY_VERSION = 2;
+
+// Fixture fields for the reader and the verdict check, left out of the hash.
+// The worker gets the whole fixture but reads none of them. The coordinator
+// reads `expected`, `evidencePhase` and `description` to judge or report a
+// result once it is in, and promotion writes `expected`, `provenance`,
+// `evidencePhase` and `diagnosticMeaning`. `selectionAfterDialog` is a record
+// for the analyzer's tests, and `crashesHostBuilds` skips a case before
+// anything runs, and a skip is never checkpointed. Any other field, a new one
+// included, is hashed.
+const UNHASHED_FIELDS = new Set(['description', 'provenance', 'expected', 'evidencePhase',
+    'diagnosticMeaning', 'selectionAfterDialog', 'crashesHostBuilds']);
+
 function caseHash(kase, hostBuild) {
-    return crypto.createHash('sha256').update(HARNESS_HASH).update(JSON.stringify([hostBuild, kase])).digest('hex');
+    const fixture = Object.fromEntries(Object.entries(kase).filter(([field]) => !UNHASHED_FIELDS.has(field)));
+    return crypto.createHash('sha256').update(HARNESS_HASH)
+        .update(JSON.stringify([CHECKPOINT_KEY_VERSION, hostBuild, fixture])).digest('hex');
 }
 
 function checkpointKey(caseId, hash) {
@@ -503,6 +521,8 @@ function loadCheckpoint(file) {
     if (raw && !raw.endsWith('\n')) {
         fs.appendFileSync(file, '\n', 'utf8');
     }
+    const older = new Map();
+    const current = new Set();
     for (const line of raw.split(/\r?\n/)) {
         if (!line.trim()) { continue; }
         let entry;
@@ -512,9 +532,21 @@ function loadCheckpoint(file) {
             continue; // a line cut short when a run was killed
         }
         const result = entry?.result;
-        if (result && EVIDENCE_OUTCOMES.has(String(result.outcome))) {
-            done.set(checkpointKey(String(result.caseId), String(entry.caseHash)), result);
+        if (!result || !EVIDENCE_OUTCOMES.has(String(result.outcome))) { continue; }
+        const id = String(result.caseId);
+        if (entry.key !== CHECKPOINT_KEY_VERSION) {
+            older.set(id, (older.get(id) ?? 0) + 1);
+            continue;
         }
+        current.add(id);
+        done.set(checkpointKey(id, String(entry.caseHash)), result);
+    }
+    // Only cases with no result under this key yet: once one has run again,
+    // its old lines say nothing more.
+    const waiting = [...older.keys()].filter((id) => !current.has(id));
+    if (waiting.length) {
+        const lines = waiting.reduce((sum, id) => sum + older.get(id), 0);
+        console.error(`${file}: ${lines} result(s) for ${waiting.length} case(s) were saved under another checkpoint key and are not reused.`);
     }
     return done;
 }
@@ -1057,7 +1089,11 @@ const USAGE = `Usage: node run_vbe_oracle.mjs [options]
   --checkpoint <path>         Append each case's result to this JSON-lines file,
                               and skip cases it already holds an accepted or
                               rejected result for, so a stopped run can resume.
-                              Fixture, harness or host build changes rerun cases.
+                              A change to a fixture's hashed fields (all but
+                              its description, expected value and other
+                              metadata), to the harness or to the host build
+                              reruns it; lines of another key format are
+                              never reused.
                               Requires a readable registered executable version
                               for each host the cases use; a missing or
                               mismatched build from the worker aborts the run.
@@ -1335,7 +1371,7 @@ async function main(argv) {
                     worker, kase, args.timeout, args.timeoutRetries, args.dialogHoldSeconds,
                 );
                 if (args.checkpoint) {
-                    fs.appendFileSync(args.checkpoint, `${JSON.stringify({ caseHash: hash, result })}\n`, 'utf8');
+                    fs.appendFileSync(args.checkpoint, `${JSON.stringify({ key: CHECKPOINT_KEY_VERSION, caseHash: hash, result })}\n`, 'utf8');
                 }
             }
             const expected = String(kase.expected ?? 'observe');

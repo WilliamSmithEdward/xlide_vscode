@@ -155,9 +155,20 @@ With `--checkpoint`, each case's result is appended to the file as soon as it
 finishes. Running the same command again skips every case that already has an
 `accepted` or `rejected` result there, so a run stopped by an `ORACLE-FAIL`
 resumes where it stopped once the cause is fixed. Such results are marked
-`resumed: true`. A case runs again if anything in its fixture has changed,
-including its `expected` value or description, or if the worker or coordinator
-has, or if the build of its host has.
+`resumed: true`. A case runs again if one of its fixture's hashed fields has
+changed, or if the worker or coordinator has, or if the build of its host
+has. Seven fields are not hashed, because none changes what Office is given
+or what it reports (`crashesHostBuilds` only skips a case, and a skip is
+never saved): `description`, `provenance`, `expected`, `evidencePhase`,
+`diagnosticMeaning`, `selectionAfterDialog` and `crashesHostBuilds`. So
+editing a description or promoting an observe case keeps the case's result,
+which is still judged against the fixture's current `expected` and
+`evidencePhase`; any other field, a new one included, still reruns it. Each
+line records the key format it was written under, and a line from an earlier
+format is never reused: the run says how many results of cases not yet run
+again it passed over, counted over the whole file, so a case with only old
+results that no longer runs, because it was removed or is skipped, keeps it
+from clearing.
 
 That makes a checkpoint file safe to keep as a verdict cache across runs: an
 Office update reruns every case. A host's build is the file version of the
