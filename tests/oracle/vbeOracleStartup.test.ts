@@ -61,7 +61,7 @@ function setup(cases: Case[] = [], checkpoint = false, realProbe = false) {
         ownedHostsPath: () => 'hosts.json', describeLeftHosts: () => 'left', abandonActiveCases: () => {},
         unwritableCheckpoint: () => undefined, // A real path is checked in vbeOracleOptions.test.ts.
         OracleWorker: class { async close() {} },
-        caseHash: () => 'hash', checkpointKey: () => 'key', phaseMatches: () => true,
+        caseHash: () => 'hash', CHECKPOINT_KEY_VERSION: 2, checkpointKey: () => 'key', phaseMatches: () => true,
         fs: { appendFileSync: vi.fn() },
         runCaseWithRetries: async (_worker: unknown, kase: Case) => {
             ran.push(kase.id);
